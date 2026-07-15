@@ -8,14 +8,18 @@ from .config import load_config
 from .evidence_queue import write_queue
 from .index import write_index
 from .pulse import write_pulse
+from .promotion import write_enforcement
+from .snapshot import run_git_snapshot
 from .triangulation import write_triangulation
 
 
 def parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="anti-silo", description="Portable trust-surface and triangulation engine.")
-    p.add_argument("command", choices=["index", "triangulate", "queue", "pulse"])
+    p.add_argument("command", choices=["index", "triangulate", "queue", "enforce", "pulse", "snapshot"])
     p.add_argument("--vault", default=".", help="Folder to scan.")
     p.add_argument("--config", default=None, help="JSON config path.")
+    p.add_argument("--message", default=None, help="Git snapshot commit message.")
+    p.add_argument("--sign", action="store_true", help="Sign the Git snapshot commit.")
     return p
 
 
@@ -29,9 +33,17 @@ def main(argv: list[str] | None = None) -> int:
         payload = write_triangulation(vault, config)
     elif args.command == "queue":
         payload = write_queue(vault, config)
+    elif args.command == "enforce":
+        payload = write_enforcement(vault, config)
+    elif args.command == "snapshot":
+        payload = run_git_snapshot(vault, config, message=args.message, sign=args.sign)
     else:
         payload = write_pulse(vault, config)
     print(json.dumps(payload, ensure_ascii=False, indent=2))
+    if args.command == "enforce" and payload.get("blocked", 0):
+        return 2
+    if args.command == "snapshot" and payload.get("decision") == "failed":
+        return 1
     return 0
 
 

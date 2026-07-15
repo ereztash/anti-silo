@@ -6,6 +6,9 @@
   "blocked_markers": ["blocked", "refuted", "do not promote", "over_claimed"],
   "corroboration_markers": ["corroborated", "field_validated", "methodological_review", "adversarial_review"],
   "ledger_markers": ["ledger", "corroboration ledger", "פנקס"],
+  "promotion_policy": {
+    "blocked_tiers": ["graph_only", "source_backed", "corroborated_no_source", "ledger_supported", "refuted_or_blocked"]
+  },
   "surfaces": {
     "source_truth_marker": {
       "authority": "source_of_truth",

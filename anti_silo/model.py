@@ -9,6 +9,7 @@ class Surface:
     surfaces: tuple[str, ...]
     authority: str
     can_anchor_claim: bool
+    content_hash: str
 
 
 @dataclass(frozen=True)
@@ -28,3 +29,13 @@ class TriangulationRow:
     source: str
     authority: str
     reason: str
+    source_hash: str = ""
+
+
+@dataclass(frozen=True)
+class EnforcementRow:
+    file: str
+    tier: str
+    decision: str
+    reason: str
+    action: str

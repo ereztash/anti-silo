@@ -8,6 +8,7 @@ from typing import Any
 from .config import output_dir
 from .evidence_queue import write_queue
 from .index import write_index
+from .promotion import write_enforcement
 from .triangulation import write_triangulation
 
 
@@ -16,9 +17,10 @@ def write_pulse(vault: Path, config: dict[str, Any]) -> dict[str, Any]:
     index = write_index(vault, config)
     triangulation = write_triangulation(vault, config)
     queue = write_queue(vault, config)
+    enforcement = write_enforcement(vault, config)
     decision = "proceed"
-    if triangulation["by_tier"].get("graph_only", 0) or triangulation["by_tier"].get("refuted_or_blocked", 0):
-        decision = "proceed_with_warnings"
+    if enforcement["blocked"]:
+        decision = "blocked"
     payload = {
         "generated": datetime.now(timezone.utc).isoformat(),
         "decision": decision,
@@ -26,6 +28,7 @@ def write_pulse(vault: Path, config: dict[str, Any]) -> dict[str, Any]:
         "claims": triangulation["total"],
         "triangulation": triangulation["by_tier"],
         "queue_size": queue["selected"],
+        "promotion_gate": {"blocked": enforcement["blocked"], "allowed": enforcement["allowed"]},
     }
     (out / "pulse.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     md = [
@@ -35,6 +38,7 @@ def write_pulse(vault: Path, config: dict[str, Any]) -> dict[str, Any]:
         f"- truth surfaces: **{payload['truth_surfaces']}**",
         f"- claims: **{payload['claims']}**",
         f"- evidence queue: **{payload['queue_size']}**",
+        f"- promotion blocked: **{enforcement['blocked']}**",
         "",
         "## Triangulation",
     ]
