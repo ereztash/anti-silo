@@ -12,6 +12,48 @@ It scans a folder, classifies truth surfaces, evaluates graph claims, runs a tri
 - Produces machine-readable JSON/CSV and human-readable Markdown reports.
 - Runs fully locally.
 
+## Customer Journey
+
+Anti-Silo is designed for teams that already have valuable knowledge spread across local files, docs, notes, CRM exports, research folders, or RAG source folders, but do not yet have a reliable way to decide which material is allowed to count as evidence.
+
+1. **Inventory**  
+   The team points Anti-Silo at a local vault or repository. Anti-Silo scans files and identifies claims, truth surfaces, source anchors, ledgers, outcomes, and governance contracts.
+
+2. **Trust Mapping**  
+   The system builds a local truth-surface index and assigns each claim a trust tier such as `triangulated`, `source_backed`, or `graph_only`.
+
+3. **Enforcement**  
+   Unsupported claims are blocked by the promotion gate. The system exits with a non-zero code when blocked claims exist, so it can be wired into local scripts, CI, release checks, RAG ingestion, or audit workflows.
+
+4. **Repair**  
+   Anti-Silo generates an evidence-upgrade queue that tells the team what kind of evidence is missing: source anchor, corroboration, ledger validation, or repair/retirement.
+
+5. **Audit Snapshot**  
+   A Git-managed vault can commit each trust snapshot, creating a chronological audit trail of what was trusted, blocked, or repaired over time.
+
+6. **Operational Use**  
+   The outputs can be used by humans, scripts, or AI/RAG systems to decide which sources are eligible for grounding and which claims must remain out of production.
+
+## Who Pays and Who Uses It
+
+Anti-Silo separates the economic buyer from the daily user.
+
+| Role | Who It Usually Is | What They Need |
+|---|---|---|
+| Economic buyer | CTO, CISO, Head of AI, Compliance lead, Knowledge Ops lead | Reduce risk from unsupported AI outputs, audit failures, and uncontrolled knowledge sprawl |
+| Technical buyer | AI platform engineer, data/ML lead, enterprise architect | Local deterministic gates before RAG ingestion, release, or source promotion |
+| Daily user | Knowledge manager, research ops, analyst, documentation owner | See what is trusted, what is blocked, and what evidence is missing |
+| Auditor / reviewer | Internal audit, compliance, legal, external reviewer | Trace every trust decision to files, rules, hashes, and generated reports |
+| Champion | AI governance owner or team lead hurt by unreliable knowledge systems | Prove that AI grounding can be controlled without sending private data to the cloud |
+
+The buyer pays for control, auditability, and risk reduction. The user works with the reports, queues, and enforcement results.
+
+## Market Fit
+
+- **Audit teams** use Anti-Silo as a deterministic evidence chain for local folders.
+- **RAG and AI teams** use it as a grounding gate before sources enter retrieval or model context.
+- **Regulated organizations** use it to keep trust decisions local, traceable, and reviewable without external API calls.
+
 ## Quick Start
 
 ```powershell
