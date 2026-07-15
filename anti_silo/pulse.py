@@ -34,6 +34,7 @@ def write_pulse(vault: Path, config: dict[str, Any]) -> dict[str, Any]:
         "queue_size": queue["selected"],
         "eligible_sources": eligible["selected"],
         "internal_grounding_candidates": eligible["internal_candidates"],
+        "trust_boundary": eligible["trust_boundary"],
         "source_spine_todos": spine["selected"],
         "promotion_gate": {"blocked": enforcement["blocked"], "review": enforcement["review"], "allowed": enforcement["allowed"]},
     }
@@ -50,6 +51,11 @@ def write_pulse(vault: Path, config: dict[str, Any]) -> dict[str, Any]:
         f"- source spine todos: **{payload['source_spine_todos']}**",
         f"- promotion blocked: **{enforcement['blocked']}**",
         f"- promotion review: **{enforcement['review']}**",
+        "",
+        "## Trust Boundary",
+        "",
+        "- Anti-Silo measures source/provenance eligibility for grounding.",
+        "- Anti-Silo does not measure product usage, user value, field adoption, semantic truth, or business validation.",
         "",
         "## Triangulation",
     ]

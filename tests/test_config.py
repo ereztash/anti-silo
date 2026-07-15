@@ -24,3 +24,12 @@ def test_unknown_profile_is_rejected() -> None:
         assert "Unknown profile" in str(exc)
     else:
         raise AssertionError("missing profile should be rejected")
+
+
+def test_cor_sys_profile_adds_graph_native_corroboration_markers() -> None:
+    config = load_config()
+    profiled = apply_profile(config, "cor-sys")
+
+    assert "שורת פנקס" not in config["corroboration_markers"]
+    assert "שורת פנקס" in profiled["corroboration_markers"]
+    assert "corroborated" in profiled["corroboration_markers"]

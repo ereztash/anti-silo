@@ -21,6 +21,24 @@
     },
     "cor-sys": {
       "candidate_tiers": ["source_backed"],
+      "corroboration_markers": [
+        "corroborated",
+        "field_validated",
+        "methodological_review",
+        "adversarial_review",
+        "קורוברציה",
+        "פנקס-קורוברציה",
+        "שורת פנקס",
+        "שורת-פנקס",
+        "שרד →",
+        "שרד -",
+        "שרד —",
+        "דויק",
+        "מקורבר-פנקס",
+        "מקורבר-מפעיל",
+        "מאומתת-אובייקטיבית",
+        "אימות-שטח"
+      ],
       "promotion_policy": {
         "blocked_tiers": ["graph_only", "corroborated_no_source", "ledger_supported", "refuted_or_blocked"],
         "review_tiers": ["source_backed"]

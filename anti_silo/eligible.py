@@ -11,6 +11,18 @@ from .config import output_dir
 from .triangulation import build_triangulation
 
 
+TRUST_BOUNDARY = {
+    "grounding_eligible_means": "source may be used for AI/RAG grounding under the configured trust policy",
+    "grounding_eligible_does_not_mean": [
+        "product usage",
+        "user value",
+        "field adoption",
+        "semantic truth",
+        "business validation",
+    ],
+}
+
+
 def _build_sources_for_tiers(vault: Path, config: dict[str, Any], tiers: set[str], eligible_for: str) -> list[dict[str, Any]]:
     grouped: dict[str, dict[str, Any]] = {}
     claims_by_source: dict[str, list[str]] = defaultdict(list)
@@ -47,7 +59,7 @@ def build_internal_grounding_candidates(vault: Path, config: dict[str, Any]) -> 
 
 def _write_sources(out: Path, rows: list[dict[str, Any]], stem: str, title: str, empty_message: str) -> None:
     (out / f"{stem}.json").write_text(
-        json.dumps({"selected": len(rows), "rows": rows}, ensure_ascii=False, indent=2),
+        json.dumps({"selected": len(rows), "trust_boundary": TRUST_BOUNDARY, "rows": rows}, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
     with (out / f"{stem}.csv").open("w", encoding="utf-8", newline="") as f:
@@ -61,7 +73,17 @@ def _write_sources(out: Path, rows: list[dict[str, Any]], stem: str, title: str,
                     "granted_by_claims": ";".join(row["granted_by_claims"]),
                 }
             )
-    md = [f"# {title}", "", f"- selected: **{len(rows)}**", ""]
+    md = [
+        f"# {title}",
+        "",
+        f"- selected: **{len(rows)}**",
+        "",
+        "## Trust Boundary",
+        "",
+        "- These are deterministic review candidates, not production grounding sources.",
+        "- This report does not measure product usage, user value, field adoption, semantic truth, or business validation.",
+        "",
+    ]
     for row in rows:
         md.append(f"- `{row['source']}` `{row['eligible_for']}` `{row['authority']}` `{row['source_hash']}`")
     if not rows:
@@ -79,6 +101,7 @@ def write_eligible_sources(vault: Path, config: dict[str, Any]) -> dict[str, Any
         "internal_candidates": len(candidates),
         "eligible_tiers": config.get("eligible_tiers", ["triangulated"]),
         "candidate_tiers": config.get("candidate_tiers", []),
+        "trust_boundary": TRUST_BOUNDARY,
         "rows": rows,
         "candidate_rows": candidates,
     }
@@ -94,7 +117,17 @@ def write_eligible_sources(vault: Path, config: dict[str, Any]) -> dict[str, Any
                     "granted_by_claims": ";".join(row["granted_by_claims"]),
                 }
             )
-    md = ["# Eligible Sources", "", f"- selected: **{len(rows)}**", ""]
+    md = [
+        "# Eligible Sources",
+        "",
+        f"- selected: **{len(rows)}**",
+        "",
+        "## Trust Boundary",
+        "",
+        "- `eligible` means the source may be used for AI/RAG grounding under the configured trust policy.",
+        "- `eligible` does not mean product usage, user value, field adoption, semantic truth, or business validation.",
+        "",
+    ]
     for row in rows:
         md.append(f"- `{row['source']}` `{row['authority']}` `{row['source_hash']}`")
     if not rows:

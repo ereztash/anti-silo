@@ -4,6 +4,27 @@ Anti-Silo is a portable trust engine for local knowledge graphs.
 
 It scans a folder, classifies truth surfaces, evaluates graph claims, runs a triangulation gate, and produces an evidence-upgrade queue. The goal is to prevent a knowledge system from promoting claims just because they are internally consistent.
 
+## Trust Boundary
+
+Anti-Silo is a trust and provenance layer, not a usage-validation layer.
+
+It can say:
+
+- this source is eligible for AI/RAG grounding under the configured policy
+- this claim requires review
+- this claim must be blocked
+- this file needs source or corroboration repair
+
+It does not say:
+
+- the source was used by real users
+- the claim created user value
+- the claim has product-market fit
+- the claim is semantically true in the world
+- the business outcome was validated
+
+In short: **grounding eligible is not the same as used, useful, adopted, or commercially validated.**
+
 ## What It Does
 
 - Finds claim files and source/truth-surface files.
@@ -13,6 +34,14 @@ It scans a folder, classifies truth surfaces, evaluates graph claims, runs a tri
 - Produces a strict `eligible_sources` allowlist for AI/RAG grounding.
 - Produces source-spine repair templates for synthesis claims.
 - Runs fully locally.
+
+## What It Does Not Do
+
+- Does not measure product usage or adoption.
+- Does not infer user value or commercial validation.
+- Does not use NLP, embeddings, or semantic similarity as the core trust decision.
+- Does not promote claims because they are internally coherent.
+- Does not turn review candidates into production grounding sources.
 
 ## Customer Journey
 
@@ -32,6 +61,7 @@ Anti-Silo is designed for teams that already have valuable knowledge spread acro
 
 5. **Grounding Allowlist**  
    AI/RAG systems consume `eligible_sources.json`, not the whole folder. By default, only `triangulated` sources are allowed into grounding.
+   Grounding eligibility means the source passed the configured provenance policy; it does not mean the source has real-world usage or user-value validation.
 
 6. **Source-Spine Repair**  
    For research synthesis or integrated-model documents, Anti-Silo writes `SOURCE_SPINE_TODO.md` with the exact metadata block needed to connect the synthesis back to source hashes.

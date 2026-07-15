@@ -6,6 +6,7 @@ from anti_silo.config import load_config
 from anti_silo.evidence_queue import build_queue
 from anti_silo.eligible import build_eligible_sources, build_internal_grounding_candidates
 from anti_silo.index import build_index
+from anti_silo.pulse import write_pulse
 from anti_silo.promotion import build_enforcement
 from anti_silo.spine import build_source_spine_todos
 from anti_silo.triangulation import build_triangulation
@@ -70,6 +71,22 @@ def test_eligible_sources_exports_only_allowed_grounding_sources() -> None:
     assert rows
     assert any(row["source"].endswith("pricing-source.md") for row in rows)
     assert all(row["eligible_for"] == "grounding" for row in rows)
+
+
+def test_pulse_declares_trust_boundary(tmp_path) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "source.md").write_text("source_of_truth: true\ncorroborated\n", encoding="utf-8")
+    (vault / "claim.md").write_text("claim: local claim\nsource_hash: missing\ncorroborated\n", encoding="utf-8")
+
+    config = {**load_config(), "output_dir": "out"}
+    payload = write_pulse(vault, config)
+    pulse_md = (vault / "out" / "PULSE.md").read_text(encoding="utf-8")
+    eligible_json = (vault / "out" / "eligible_sources.json").read_text(encoding="utf-8")
+
+    assert "trust_boundary" in payload
+    assert "does not measure product usage" in pulse_md
+    assert "user value" in eligible_json
 
 
 def test_source_spine_todo_contains_template_for_synthesis() -> None:
