@@ -6,6 +6,7 @@
   "exclude_dirs": [".git", ".obsidian", "anti_silo_out", "anti_silo_out_clean", "__pycache__", "node_modules", ".venv", "dist", "build", "vendor"],
   "eligible_tiers": ["triangulated"],
   "candidate_tiers": [],
+  "raw_source_only": true,
   "profiles": {
     "default": {},
     "research": {
@@ -63,12 +64,14 @@
     "source_truth_marker": {
       "authority": "source_of_truth",
       "can_anchor_claim": true,
+      "raw_source": true,
       "path_contains": ["source", "sources"],
       "text_contains": ["source_of_truth: true", "ground-truth", "source truth"]
     },
     "research_library_source": {
       "authority": "research_library_source",
       "can_anchor_claim": true,
+      "raw_source": true,
       "path_contains": ["paper", "papers", "article", "articles", "מאמר"],
       "extensions": [".pdf", ".html", ".htm"],
       "text_contains": []
@@ -76,24 +79,28 @@
     "crm_field_anchor": {
       "authority": "field_anchor",
       "can_anchor_claim": true,
+      "raw_source": true,
       "path_contains": ["crm", "client", "customer"],
       "text_contains": ["crm", "customer_id", "field_anchor"]
     },
     "outcome_truth": {
       "authority": "field_outcome",
       "can_anchor_claim": true,
+      "raw_source": true,
       "path_contains": ["outcome", "outcomes"],
       "text_contains": ["value_realized", "paid_engagement", "conversion_event", "decision_changed"]
     },
     "prereg_truth": {
       "authority": "prospective_test_design",
       "can_anchor_claim": true,
+      "raw_source": true,
       "path_contains": ["prereg", "pre-registration"],
       "text_contains": ["pre_registered", "prereg", "success_metric"]
     },
     "ledger_truth": {
       "authority": "source_of_truth",
       "can_anchor_claim": true,
+      "raw_source": false,
       "path_contains": ["ledger", "corroboration"],
       "text_contains": ["corroboration ledger", "פנקס"]
     },
@@ -106,6 +113,7 @@
     "governance_contract": {
       "authority": "enforcement_truth",
       "can_anchor_claim": true,
+      "raw_source": false,
       "path_contains": ["contract", "contracts"],
       "text_contains": ["authority_boundary", "contract:"]
     }

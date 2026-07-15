@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 from anti_silo.config import load_config
@@ -41,7 +42,22 @@ def test_hash_source_link_is_recorded() -> None:
     pricing = next(row for row in rows if row.file.endswith("pricing.md"))
     assert pricing.tier == "triangulated"
     assert pricing.source_hash == "633d46b681a1abe245cac00dd25206ca869f6ee5344f19f9021282bbedaffc8e"
-    assert "source_hash" in pricing.reason
+    assert "raw_source_hash" in pricing.reason
+
+
+def test_raw_source_only_blocks_hash_to_derived_surface(tmp_path) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    ledger = vault / "corroboration-ledger.md"
+    ledger.write_text("corroboration ledger\nclaim: derived support\nledger: true\n", encoding="utf-8")
+    digest = hashlib.sha256(ledger.read_bytes()).hexdigest()
+    (vault / "claim.md").write_text(f"claim: local claim\nsource_hash: {digest}\n", encoding="utf-8")
+
+    rows = build_triangulation(vault, load_config())
+    claim = next(row for row in rows if row.file == "claim.md")
+    assert claim.tier == "graph_only"
+    assert claim.source == ""
+    assert claim.reason == "claim only; source_hash_matches_non_raw_surface"
 
 
 def test_promotion_gate_blocks_weak_tiers() -> None:
@@ -119,22 +135,46 @@ def test_research_library_indexes_pdf_and_html_without_text_parsing(tmp_path) ->
     assert len(by_file["paper.pdf"].content_hash) == 64
 
 
-def test_cor_sys_profile_marks_source_backed_as_review_candidate() -> None:
+def test_cor_sys_profile_marks_source_backed_as_review_candidate(tmp_path) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    source = vault / "source.md"
+    source.write_text("source_of_truth: true\nraw source bytes\n", encoding="utf-8")
+    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    (vault / "claim.md").write_text(f"claim: local claim\nsource_hash: {digest}\n", encoding="utf-8")
+
     config = load_config()
     config["candidate_tiers"] = ["source_backed"]
     config["promotion_policy"] = {
         "blocked_tiers": ["graph_only", "corroborated_no_source", "ledger_supported", "refuted_or_blocked"],
         "review_tiers": ["source_backed"],
     }
-    rows = build_enforcement(VAULT, config)
+    rows = build_enforcement(vault, config)
     assert any(row.decision == "review" and row.tier == "source_backed" for row in rows)
 
 
-def test_internal_grounding_candidates_are_separate_from_eligible_sources() -> None:
+def test_internal_grounding_candidates_are_separate_from_eligible_sources(tmp_path) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    eligible_source = vault / "eligible-source.md"
+    eligible_source.write_text("source_of_truth: true\neligible raw source\n", encoding="utf-8")
+    eligible_digest = hashlib.sha256(eligible_source.read_bytes()).hexdigest()
+    candidate_source = vault / "candidate-source.md"
+    candidate_source.write_text("source_of_truth: true\ncandidate raw source\n", encoding="utf-8")
+    candidate_digest = hashlib.sha256(candidate_source.read_bytes()).hexdigest()
+    (vault / "eligible-claim.md").write_text(
+        f"claim: triangulated claim\nsource_hash: {eligible_digest}\ncorroborated\n",
+        encoding="utf-8",
+    )
+    (vault / "candidate-claim.md").write_text(
+        f"claim: source backed claim\nsource_hash: {candidate_digest}\n",
+        encoding="utf-8",
+    )
+
     config = load_config()
     config["candidate_tiers"] = ["source_backed"]
-    eligible = build_eligible_sources(VAULT, config)
-    candidates = build_internal_grounding_candidates(VAULT, config)
+    eligible = build_eligible_sources(vault, config)
+    candidates = build_internal_grounding_candidates(vault, config)
     assert eligible
     assert candidates
     assert all(row["eligible_for"] == "internal_grounding_candidate" for row in candidates)

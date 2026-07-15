@@ -10,6 +10,7 @@ class Surface:
     authority: str
     can_anchor_claim: bool
     content_hash: str
+    raw_source: bool = False
 
 
 @dataclass(frozen=True)

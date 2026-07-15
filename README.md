@@ -161,7 +161,9 @@ Truth surfaces include a SHA-256 `content_hash`. A claim can declare:
 source_hash: <sha256>
 ```
 
-When present, triangulation links the claim to that exact source hash before falling back to filename matching.
+By default, `raw_source_only` is enabled. In that mode, `source_backed` and `triangulated` require an explicit `source_hash` that points to a raw source surface. A hash that points to an internal vault node, ledger, contract, generated report, or derived synthesis is treated as missing evidence.
+
+This prevents greenlighting claims that are only backed by graph structure or by reports derived from the graph itself.
 
 ## Research Library Index
 

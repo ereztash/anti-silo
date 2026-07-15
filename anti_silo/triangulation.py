@@ -13,33 +13,55 @@ from .model import Claim, Surface, TriangulationRow
 from .scanner import scan_claims
 
 
-def _best_source(claim: Claim, surfaces: list[Surface]) -> Surface | None:
+def _raw_source_only(config: dict[str, Any]) -> bool:
+    return bool(config.get("raw_source_only", True))
+
+
+def _source_candidates(surfaces: list[Surface], config: dict[str, Any]) -> list[Surface]:
+    raw_only = _raw_source_only(config)
+    return [row for row in surfaces if row.can_anchor_claim and (not raw_only or row.raw_source)]
+
+
+def _best_source(claim: Claim, surfaces: list[Surface], config: dict[str, Any]) -> tuple[Surface | None, str]:
     declared_hash = claim.metadata.get("source_hash", "").lower()
     stem = Path(claim.file).stem.lower()
-    candidates = [row for row in surfaces if row.can_anchor_claim]
+    candidates = _source_candidates(surfaces, config)
     if declared_hash:
+        hash_matches = [surface for surface in surfaces if surface.can_anchor_claim and surface.content_hash.lower() == declared_hash]
         for surface in candidates:
             if surface.content_hash.lower() == declared_hash:
-                return surface
+                return surface, "source_hash"
+        if hash_matches:
+            return None, "source_hash_matches_non_raw_surface"
+        return None, "source_hash_not_found"
+    if _raw_source_only(config):
+        return None, "source_hash_required_for_raw_source_only"
     for surface in candidates:
         surface_text = surface.file.lower()
         if stem and stem in surface_text:
-            return surface
+            return surface, "filename_match"
     for surface in candidates:
         if surface.file == claim.file:
-            return surface
-    return None
+            return surface, "same_file_match"
+    return None, "source_not_found"
 
 
-def classify_claim(claim: Claim, surfaces: list[Surface]) -> TriangulationRow:
-    source = _best_source(claim, surfaces)
+def _missing_source_reason(base: str, source_status: str) -> str:
+    if source_status in {"source_hash_matches_non_raw_surface", "source_hash_not_found", "source_hash_required_for_raw_source_only"}:
+        return f"{base}; {source_status}"
+    return base
+
+
+def classify_claim(claim: Claim, surfaces: list[Surface], config: dict[str, Any] | None = None) -> TriangulationRow:
+    config = config or {}
+    source, source_status = _best_source(claim, surfaces, config)
     if claim.blocked:
         return TriangulationRow(claim.file, "refuted_or_blocked", source.file if source else "", source.authority if source else "", "blocked marker", source.content_hash if source else "", claim.claim_kind, "repair or retire")
     if source and claim.has_corroboration:
-        reason = "claim + source_hash + corroboration" if claim.metadata.get("source_hash") else "claim + source + corroboration"
+        reason = "claim + raw_source_hash + corroboration" if source_status == "source_hash" and source.raw_source else "claim + source + corroboration"
         return TriangulationRow(claim.file, "triangulated", source.file, source.authority, reason, source.content_hash, claim.claim_kind, "")
     if source:
-        reason = "claim + source_hash" if claim.metadata.get("source_hash") else "claim + source"
+        reason = "claim + raw_source_hash" if source_status == "source_hash" and source.raw_source else "claim + source"
         return TriangulationRow(claim.file, "source_backed", source.file, source.authority, reason, source.content_hash, claim.claim_kind, "independent corroboration")
     if claim.claim_kind == "synthesis" and not claim.has_source_spine:
         return TriangulationRow(
@@ -53,16 +75,16 @@ def classify_claim(claim: Claim, surfaces: list[Surface]) -> TriangulationRow:
             "source spine: source_hash, source_spine, bibliography, references, paper list, or SLR artifact",
         )
     if claim.has_corroboration:
-        return TriangulationRow(claim.file, "corroborated_no_source", "", "", "claim + corroboration", "", claim.claim_kind, "explicit source anchor")
+        return TriangulationRow(claim.file, "corroborated_no_source", "", "", _missing_source_reason("claim + corroboration", source_status), "", claim.claim_kind, "raw external source_hash")
     if claim.has_ledger:
-        return TriangulationRow(claim.file, "ledger_supported", "", "", "claim + ledger", "", claim.claim_kind, "source/corroboration evidence")
-    return TriangulationRow(claim.file, "graph_only", "", "", "claim only", "", claim.claim_kind, "source anchor and independent corroboration")
+        return TriangulationRow(claim.file, "ledger_supported", "", "", _missing_source_reason("claim + ledger", source_status), "", claim.claim_kind, "raw external source_hash and corroboration evidence")
+    return TriangulationRow(claim.file, "graph_only", "", "", _missing_source_reason("claim only", source_status), "", claim.claim_kind, "raw external source_hash and independent corroboration")
 
 
 def build_triangulation(vault: Path, config: dict[str, Any]) -> list[TriangulationRow]:
     surfaces = build_index(vault, config)
     claims = scan_claims(vault, config)
-    return [classify_claim(claim, surfaces) for claim in claims]
+    return [classify_claim(claim, surfaces, config) for claim in claims]
 
 
 def write_triangulation(vault: Path, config: dict[str, Any]) -> dict[str, Any]:
