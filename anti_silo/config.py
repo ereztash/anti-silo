@@ -10,7 +10,7 @@ DEFAULT_CONFIG = Path(__file__).resolve().parents[1] / "contracts" / "default_co
 
 def load_config(config_path: str | Path | None = None) -> dict[str, Any]:
     path = Path(config_path) if config_path else DEFAULT_CONFIG
-    with path.open("r", encoding="utf-8") as f:
+    with path.open("r", encoding="utf-8-sig") as f:
         return json.load(f)
 
 

@@ -1,7 +1,7 @@
 {
   "output_dir": "anti_silo_out",
   "claim_globs": ["**/*.md"],
-  "exclude_dirs": [".git", ".obsidian", "anti_silo_out", "__pycache__"],
+  "exclude_dirs": [".git", ".obsidian", "anti_silo_out", "anti_silo_out_clean", "__pycache__", "node_modules", ".venv", "dist", "build", "vendor"],
   "claim_markers": ["claim:", "status:", "maturity:", "hypothesis:", "assertion:"],
   "blocked_markers": ["blocked", "refuted", "do not promote", "over_claimed"],
   "corroboration_markers": ["corroborated", "field_validated", "methodological_review", "adversarial_review"],
