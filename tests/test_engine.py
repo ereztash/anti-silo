@@ -4,6 +4,7 @@ import hashlib
 from pathlib import Path
 
 from anti_silo.config import load_config
+from anti_silo.contradiction import build_contradiction_penalties
 from anti_silo.evidence_queue import build_queue
 from anti_silo.eligible import build_eligible_sources, build_internal_grounding_candidates
 from anti_silo.index import build_index
@@ -196,3 +197,53 @@ def test_internal_grounding_candidates_are_separate_from_eligible_sources(tmp_pa
     assert eligible
     assert candidates
     assert all(row["eligible_for"] == "internal_grounding_candidate" for row in candidates)
+
+
+def test_contradiction_penalty_flags_outcome_without_raw_source(tmp_path) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "claim.md").write_text(
+        "claim: local outcome claim\noutcome: value_realized\n",
+        encoding="utf-8",
+    )
+
+    rows = build_contradiction_penalties(vault, load_config())
+    claim = next(row for row in rows if row["file"] == "claim.md")
+    assert claim["penalty_score"] >= 4
+    assert "outcome_without_raw_source" in claim["rules"]
+    assert claim["decision"] == "review_required"
+
+
+def test_contradiction_hard_block_overrides_review_tier(tmp_path) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "claim.md").write_text(
+        "claim: local claim\ndecision_changed: yes\noutcome: value_realized\n",
+        encoding="utf-8",
+    )
+
+    config = load_config()
+    config["candidate_tiers"] = ["graph_only"]
+    config["promotion_policy"] = {
+        "blocked_tiers": [],
+        "review_tiers": ["graph_only"],
+    }
+    config["contradiction_penalty"] = {
+        "enabled": True,
+        "hard_block_threshold": 6,
+        "weights": {
+            "outcome_without_raw_source": 4,
+            "decision_without_raw_source": 5,
+            "graph_only_no_lineage": 1,
+            "temporal_without_lineage": 1,
+            "lineage_without_raw_source": 2,
+            "corroborated_without_raw_source": 3,
+            "usage_without_raw_source": 5,
+            "refuted_or_blocked": 8,
+        },
+    }
+
+    rows = build_enforcement(vault, config)
+    claim = next(row for row in rows if row.file == "claim.md")
+    assert claim.decision == "block"
+    assert "contradiction penalty hard block" in claim.reason

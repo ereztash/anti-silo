@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import output_dir
+from .contradiction import write_contradiction_penalties
 from .evidence_queue import write_queue
 from .eligible import write_eligible_sources
 from .index import write_index
@@ -18,6 +19,7 @@ def write_pulse(vault: Path, config: dict[str, Any]) -> dict[str, Any]:
     out = output_dir(vault, config)
     index = write_index(vault, config)
     triangulation = write_triangulation(vault, config)
+    contradiction = write_contradiction_penalties(vault, config)
     queue = write_queue(vault, config)
     enforcement = write_enforcement(vault, config)
     eligible = write_eligible_sources(vault, config)
@@ -31,6 +33,13 @@ def write_pulse(vault: Path, config: dict[str, Any]) -> dict[str, Any]:
         "truth_surfaces": index["total"],
         "claims": triangulation["total"],
         "triangulation": triangulation["by_tier"],
+        "contradiction_penalty": {
+            "claims_with_penalty": contradiction["claims_with_penalty"],
+            "hard_blocks": contradiction["hard_blocks"],
+            "total_penalty_score": contradiction["total_penalty_score"],
+            "max_penalty_score": contradiction["max_penalty_score"],
+            "by_rule": contradiction["by_rule"],
+        },
         "queue_size": queue["selected"],
         "eligible_sources": eligible["selected"],
         "internal_grounding_candidates": eligible["internal_candidates"],
@@ -45,6 +54,8 @@ def write_pulse(vault: Path, config: dict[str, Any]) -> dict[str, Any]:
         f"- decision: **`{decision}`**",
         f"- truth surfaces: **{payload['truth_surfaces']}**",
         f"- claims: **{payload['claims']}**",
+        f"- contradiction hard blocks: **{contradiction['hard_blocks']}**",
+        f"- contradiction penalty score: **{contradiction['total_penalty_score']}**",
         f"- evidence queue: **{payload['queue_size']}**",
         f"- eligible sources: **{payload['eligible_sources']}**",
         f"- internal grounding candidates: **{payload['internal_grounding_candidates']}**",
@@ -61,5 +72,8 @@ def write_pulse(vault: Path, config: dict[str, Any]) -> dict[str, Any]:
     ]
     for tier, count in sorted(payload["triangulation"].items()):
         md.append(f"- `{tier}`: {count}")
+    md += ["", "## Contradiction Penalty", ""]
+    for rule, count in sorted(contradiction["by_rule"].items()):
+        md.append(f"- `{rule}`: {count}")
     (out / "PULSE.md").write_text("\n".join(md) + "\n", encoding="utf-8")
     return payload

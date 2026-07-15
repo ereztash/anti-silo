@@ -7,6 +7,20 @@
   "eligible_tiers": ["triangulated"],
   "candidate_tiers": [],
   "raw_source_only": true,
+  "contradiction_penalty": {
+    "enabled": true,
+    "hard_block_threshold": 6,
+    "weights": {
+      "graph_only_no_lineage": 1,
+      "temporal_without_lineage": 1,
+      "lineage_without_raw_source": 2,
+      "corroborated_without_raw_source": 3,
+      "outcome_without_raw_source": 4,
+      "decision_without_raw_source": 5,
+      "usage_without_raw_source": 5,
+      "refuted_or_blocked": 8
+    }
+  },
   "profiles": {
     "default": {},
     "research": {

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import output_dir
+from .contradiction import penalty_by_file
 from .model import EnforcementRow
 from .triangulation import build_triangulation
 
@@ -28,9 +29,22 @@ def review_tiers(config: dict[str, Any]) -> set[str]:
 def build_enforcement(vault: Path, config: dict[str, Any]) -> list[EnforcementRow]:
     blocked = blocked_tiers(config)
     review = review_tiers(config)
+    penalties = penalty_by_file(vault, config)
     rows: list[EnforcementRow] = []
     for row in build_triangulation(vault, config):
-        if row.tier in blocked:
+        penalty = penalties.get(row.file, {})
+        if penalty.get("hard_block") is True:
+            rules = ", ".join(str(rule) for rule in penalty.get("rules", [])) or "contradiction_penalty"
+            rows.append(
+                EnforcementRow(
+                    file=row.file,
+                    tier=row.tier,
+                    decision="block",
+                    reason=f"contradiction penalty hard block ({rules})",
+                    action="repair_contradiction_debt",
+                )
+            )
+        elif row.tier in blocked:
             rows.append(
                 EnforcementRow(
                     file=row.file,

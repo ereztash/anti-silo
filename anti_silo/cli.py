@@ -11,6 +11,7 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 from .config import apply_profile, load_config
+from .contradiction import write_contradiction_penalties
 from .evidence_queue import write_queue
 from .eligible import write_eligible_sources
 from .index import write_index
@@ -23,7 +24,7 @@ from .triangulation import write_triangulation
 
 def parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="anti-silo", description="Portable trust-surface and triangulation engine.")
-    p.add_argument("command", choices=["index", "triangulate", "queue", "enforce", "pulse", "eligible", "spine", "snapshot"])
+    p.add_argument("command", choices=["index", "triangulate", "contradiction", "queue", "enforce", "pulse", "eligible", "spine", "snapshot"])
     p.add_argument("--vault", default=".", help="Folder to scan.")
     p.add_argument("--config", default=None, help="JSON config path.")
     p.add_argument("--profile", default="default", help="Scan profile: default, research, rag, repo, prompts.")
@@ -46,6 +47,8 @@ def main(argv: list[str] | None = None) -> int:
         payload = write_triangulation(vault, config)
     elif args.command == "queue":
         payload = write_queue(vault, config)
+    elif args.command == "contradiction":
+        payload = write_contradiction_penalties(vault, config)
     elif args.command == "enforce":
         payload = write_enforcement(vault, config)
     elif args.command == "eligible":

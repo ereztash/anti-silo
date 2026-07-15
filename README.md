@@ -30,6 +30,7 @@ In short: **grounding eligible is not the same as used, useful, adopted, or comm
 - Finds claim files and source/truth-surface files.
 - Classifies surfaces such as CRM anchors, outcomes, preregistration notes, ledgers, external material, and governance contracts.
 - Assigns every claim a promotion and triangulation status.
+- Applies a deterministic contradiction-penalty layer when evidence layers conflict.
 - Produces machine-readable JSON/CSV and human-readable Markdown reports.
 - Produces a strict `eligible_sources` allowlist for AI/RAG grounding.
 - Produces source-spine repair templates for synthesis claims.
@@ -109,6 +110,7 @@ examples/mini_vault/anti_silo_out/
 ```powershell
 python -m anti_silo.cli index --vault examples/mini_vault
 python -m anti_silo.cli triangulate --vault examples/mini_vault
+python -m anti_silo.cli contradiction --vault examples/mini_vault
 python -m anti_silo.cli queue --vault examples/mini_vault
 python -m anti_silo.cli enforce --vault examples/mini_vault
 python -m anti_silo.cli eligible --vault examples/mini_vault
@@ -152,6 +154,42 @@ The `cor-sys` profile keeps full grounding strict (`triangulated` only) but mark
 
 `enforce` writes `promotion_gate.json`, `promotion_gate.csv`, and `PROMOTION_GATE.md`.
 If any claim is blocked by the promotion policy, the command exits with code `2`.
+
+The promotion gate also respects contradiction hard blocks. A claim can be
+blocked even when its tier would otherwise be reviewable if the configured
+contradiction policy finds a hard conflict, such as decision/outcome evidence
+without raw source backing.
+
+## Contradiction Penalty
+
+Anti-Silo does not blindly reward evidence accumulation. It also checks whether
+evidence layers contradict the trust boundary.
+
+Run:
+
+```powershell
+python -m anti_silo.cli contradiction --vault path/to/vault
+```
+
+This writes:
+
+- `contradiction_penalty.json`
+- `contradiction_penalty.csv`
+- `CONTRADICTION_PENALTY.md`
+
+Examples of deterministic penalty rules:
+
+- `graph_only_no_lineage`: a claim exists only as a graph assertion.
+- `lineage_without_raw_source`: `lineage_sources` exists, but no reviewed raw `source_hash` was accepted.
+- `corroborated_without_raw_source`: corroboration exists without raw source backing.
+- `outcome_without_raw_source`: outcome/value/conversion evidence appears without raw source backing.
+- `decision_without_raw_source`: decision/action evidence appears without raw source backing.
+- `refuted_or_blocked`: blocked/refuted claims override positive evidence layers.
+
+The penalty score is deterministic debt, not probabilistic confidence. Each
+penalty row lists the violated rule and repair action. `pulse` includes a
+contradiction summary, and `enforce` blocks claims with contradiction hard
+blocks.
 
 ## Content-Addressable Source Linking
 
