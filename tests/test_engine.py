@@ -9,6 +9,7 @@ from anti_silo.index import build_index
 from anti_silo.promotion import build_enforcement
 from anti_silo.spine import build_source_spine_todos
 from anti_silo.triangulation import build_triangulation
+from anti_silo.scanner import scan_claims
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -76,3 +77,13 @@ def test_source_spine_todo_contains_template_for_synthesis() -> None:
     synthesis = next(row for row in rows if row["file"].endswith("research-synthesis.md"))
     assert "source_hash" in synthesis["required_metadata"]
     assert synthesis["template"][0] == "source_spine:"
+
+
+def test_include_profile_matches_vault_root_name(tmp_path) -> None:
+    vault = tmp_path / "סוכנים"
+    vault.mkdir()
+    claim = vault / "agent.md"
+    claim.write_text("claim: local agent rule\nstatus: draft\n", encoding="utf-8")
+    config = {**load_config(), "include_dirs": ["סוכנים"]}
+    rows = scan_claims(vault, config)
+    assert [row.file for row in rows] == ["agent.md"]

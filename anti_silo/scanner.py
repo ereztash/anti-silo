@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -9,14 +10,22 @@ from .model import Claim
 
 
 def _matches_any(path: Path, patterns: list[str]) -> bool:
-    return any(path.match(pattern) for pattern in patterns)
+    path_text = path.as_posix()
+    for pattern in patterns:
+        if path.match(pattern) or fnmatchcase(path_text, pattern):
+            return True
+        if pattern.startswith("**/") and fnmatchcase(path_text, pattern[3:]):
+            return True
+    return False
 
 
-def _inside_included_dir(rel_path: Path, include_dirs: list[str]) -> bool:
+def _inside_included_dir(vault: Path, rel_path: Path, include_dirs: list[str]) -> bool:
     if not include_dirs:
         return True
     parts = {part.lower() for part in rel_path.parts}
-    return any(token.lower() in parts or token.lower() in rel_path.as_posix().lower() for token in include_dirs)
+    parts.add(vault.name.lower())
+    search_blob = f"{vault.name}/{rel_path.as_posix()}".lower()
+    return any(token.lower() in parts or token.lower() in search_blob for token in include_dirs)
 
 
 def iter_markdown(vault: Path, config: dict[str, Any]) -> Iterable[Path]:
@@ -30,7 +39,7 @@ def iter_markdown(vault: Path, config: dict[str, Any]) -> Iterable[Path]:
             continue
         if not _matches_any(rel_path, globs):
             continue
-        if not _inside_included_dir(rel_path, include_dirs):
+        if not _inside_included_dir(vault, rel_path, include_dirs):
             continue
         yield path
 
