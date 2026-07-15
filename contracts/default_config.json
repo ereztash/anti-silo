@@ -1,12 +1,14 @@
 {
   "output_dir": "anti_silo_out",
   "claim_globs": ["**/*.md"],
+  "index_extensions": [".md", ".pdf", ".html", ".htm"],
+  "text_index_extensions": [".md"],
   "exclude_dirs": [".git", ".obsidian", "anti_silo_out", "anti_silo_out_clean", "__pycache__", "node_modules", ".venv", "dist", "build", "vendor"],
   "eligible_tiers": ["triangulated"],
   "profiles": {
     "default": {},
     "research": {
-      "include_dirs": ["research", "sources", "claims", "papers", "bibliography", "references", "external", "Deep research", "חוסן", "שילוב"],
+      "include_dirs": ["research", "sources", "claims", "papers", "articles", "bibliography", "references", "external", "Deep research", "מאמרים", "חוסן", "שילוב"],
       "exclude_dirs": ["archive", "drafts", "tmp"]
     },
     "rag": {
@@ -36,6 +38,13 @@
       "can_anchor_claim": true,
       "path_contains": ["source", "sources"],
       "text_contains": ["source_of_truth: true", "ground-truth", "source truth"]
+    },
+    "research_library_source": {
+      "authority": "research_library_source",
+      "can_anchor_claim": true,
+      "path_contains": ["paper", "papers", "article", "articles", "מאמר"],
+      "extensions": [".pdf", ".html", ".htm"],
+      "text_contains": []
     },
     "crm_field_anchor": {
       "authority": "field_anchor",

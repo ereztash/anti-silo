@@ -87,3 +87,16 @@ def test_include_profile_matches_vault_root_name(tmp_path) -> None:
     config = {**load_config(), "include_dirs": ["סוכנים"]}
     rows = scan_claims(vault, config)
     assert [row.file for row in rows] == ["agent.md"]
+
+
+def test_research_library_indexes_pdf_and_html_without_text_parsing(tmp_path) -> None:
+    vault = tmp_path / "מאמרים מעניינים"
+    vault.mkdir()
+    (vault / "paper.pdf").write_bytes(b"%PDF-1.4\nlocal article bytes\n")
+    (vault / "article.html").write_text("<html><body>article</body></html>", encoding="utf-8")
+    rows = build_index(vault, load_config())
+    by_file = {row.file: row for row in rows}
+    assert {"paper.pdf", "article.html"} <= set(by_file)
+    assert by_file["paper.pdf"].can_anchor_claim
+    assert "research_library_source" in by_file["paper.pdf"].surfaces
+    assert len(by_file["paper.pdf"].content_hash) == 64

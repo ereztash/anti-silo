@@ -10,12 +10,13 @@ from typing import Any
 from .config import output_dir, rel
 from .hashing import sha256_file
 from .model import Surface
-from .scanner import iter_markdown, read_text
+from .scanner import iter_indexable_files, read_text
 
 
-def classify_surface(rel_path: str, text: str, content_hash: str, config: dict[str, Any]) -> Surface | None:
+def classify_surface(rel_path: str, text: str, content_hash: str, config: dict[str, Any], extension: str = ".md") -> Surface | None:
     blob = text.lower()
     path_blob = rel_path.lower()
+    ext = extension.lower()
     found: list[str] = []
     authorities: list[str] = []
     anchor = False
@@ -23,7 +24,8 @@ def classify_surface(rel_path: str, text: str, content_hash: str, config: dict[s
     for name, rule in config.get("surfaces", {}).items():
         path_hits = any(token.lower() in path_blob for token in rule.get("path_contains", []))
         text_hits = any(token.lower() in blob for token in rule.get("text_contains", []))
-        if path_hits or text_hits:
+        extension_hits = ext in {item.lower() for item in rule.get("extensions", [])}
+        if path_hits or text_hits or extension_hits:
             found.append(name)
             authorities.append(str(rule.get("authority", "unknown")))
             anchor = anchor or bool(rule.get("can_anchor_claim", False))
@@ -35,8 +37,10 @@ def classify_surface(rel_path: str, text: str, content_hash: str, config: dict[s
 
 def build_index(vault: Path, config: dict[str, Any]) -> list[Surface]:
     rows: list[Surface] = []
-    for path in iter_markdown(vault, config):
-        surface = classify_surface(rel(vault, path), read_text(path), sha256_file(path), config)
+    text_extensions = {ext.lower() for ext in config.get("text_index_extensions", [".md"])}
+    for path in iter_indexable_files(vault, config):
+        text = read_text(path) if path.suffix.lower() in text_extensions else ""
+        surface = classify_surface(rel(vault, path), text, sha256_file(path), config, path.suffix)
         if surface:
             rows.append(surface)
     return rows

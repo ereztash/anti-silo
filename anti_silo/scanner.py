@@ -44,6 +44,24 @@ def iter_markdown(vault: Path, config: dict[str, Any]) -> Iterable[Path]:
         yield path
 
 
+def iter_indexable_files(vault: Path, config: dict[str, Any]) -> Iterable[Path]:
+    excluded = set(config.get("exclude_dirs", []))
+    include_dirs = list(config.get("include_dirs", []))
+    extensions = {ext.lower() for ext in config.get("index_extensions", [".md"])}
+    for path in vault.rglob("*"):
+        if not path.is_file():
+            continue
+        rel_path = path.relative_to(vault)
+        parts = set(rel_path.parts)
+        if parts & excluded:
+            continue
+        if path.suffix.lower() not in extensions:
+            continue
+        if not _inside_included_dir(vault, rel_path, include_dirs):
+            continue
+        yield path
+
+
 def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
 

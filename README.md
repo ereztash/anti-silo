@@ -130,6 +130,19 @@ source_hash: <sha256>
 
 When present, triangulation links the claim to that exact source hash before falling back to filename matching.
 
+## Research Library Index
+
+Anti-Silo can index raw research libraries made of PDF and HTML files. These files are treated as local source surfaces by extension and path metadata, not by semantic content analysis.
+
+For each indexed PDF/HTML file, Anti-Silo records:
+
+- relative file path
+- surface type: `research_library_source`
+- SHA-256 `content_hash`
+- whether the file can anchor a claim
+
+This lets a later claim or synthesis document point to a paper by `source_hash` without relying on filenames.
+
 ## Synthesis Is Not Source
 
 Anti-Silo distinguishes source files from synthesis files. Research summaries, integrated models, meta-analyses, and strategic synthesis documents can contain valuable reasoning, but they are not automatically eligible as grounding sources.
