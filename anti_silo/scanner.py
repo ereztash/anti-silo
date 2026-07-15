@@ -8,11 +8,29 @@ from .config import rel
 from .model import Claim
 
 
+def _matches_any(path: Path, patterns: list[str]) -> bool:
+    return any(path.match(pattern) for pattern in patterns)
+
+
+def _inside_included_dir(rel_path: Path, include_dirs: list[str]) -> bool:
+    if not include_dirs:
+        return True
+    parts = {part.lower() for part in rel_path.parts}
+    return any(token.lower() in parts or token.lower() in rel_path.as_posix().lower() for token in include_dirs)
+
+
 def iter_markdown(vault: Path, config: dict[str, Any]) -> Iterable[Path]:
     excluded = set(config.get("exclude_dirs", []))
+    include_dirs = list(config.get("include_dirs", []))
+    globs = list(config.get("claim_globs", ["**/*.md"]))
     for path in vault.rglob("*.md"):
-        parts = set(path.relative_to(vault).parts)
+        rel_path = path.relative_to(vault)
+        parts = set(rel_path.parts)
         if parts & excluded:
+            continue
+        if not _matches_any(rel_path, globs):
+            continue
+        if not _inside_included_dir(rel_path, include_dirs):
             continue
         yield path
 

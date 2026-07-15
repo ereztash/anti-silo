@@ -14,6 +14,24 @@ def load_config(config_path: str | Path | None = None) -> dict[str, Any]:
         return json.load(f)
 
 
+def apply_profile(config: dict[str, Any], profile: str | None = None) -> dict[str, Any]:
+    if not profile or profile == "default":
+        return dict(config)
+    profiles = config.get("profiles", {})
+    if profile not in profiles:
+        known = ", ".join(sorted(profiles)) or "default"
+        raise ValueError(f"Unknown profile `{profile}`. Known profiles: {known}")
+    merged = dict(config)
+    selected = profiles[profile]
+    for key, value in selected.items():
+        if key == "exclude_dirs":
+            merged[key] = sorted(set(config.get(key, [])) | set(value))
+        else:
+            merged[key] = value
+    merged["active_profile"] = profile
+    return merged
+
+
 def output_dir(vault: Path, config: dict[str, Any]) -> Path:
     out = vault / str(config.get("output_dir", "anti_silo_out"))
     out.mkdir(parents=True, exist_ok=True)

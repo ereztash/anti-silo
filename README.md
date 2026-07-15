@@ -10,6 +10,8 @@ It scans a folder, classifies truth surfaces, evaluates graph claims, runs a tri
 - Classifies surfaces such as CRM anchors, outcomes, preregistration notes, ledgers, external material, and governance contracts.
 - Assigns every claim a promotion and triangulation status.
 - Produces machine-readable JSON/CSV and human-readable Markdown reports.
+- Produces a strict `eligible_sources` allowlist for AI/RAG grounding.
+- Produces source-spine repair templates for synthesis claims.
 - Runs fully locally.
 
 ## Customer Journey
@@ -28,10 +30,16 @@ Anti-Silo is designed for teams that already have valuable knowledge spread acro
 4. **Repair**  
    Anti-Silo generates an evidence-upgrade queue that tells the team what kind of evidence is missing: source anchor, corroboration, ledger validation, or repair/retirement.
 
-5. **Audit Snapshot**  
+5. **Grounding Allowlist**  
+   AI/RAG systems consume `eligible_sources.json`, not the whole folder. By default, only `triangulated` sources are allowed into grounding.
+
+6. **Source-Spine Repair**  
+   For research synthesis or integrated-model documents, Anti-Silo writes `SOURCE_SPINE_TODO.md` with the exact metadata block needed to connect the synthesis back to source hashes.
+
+7. **Audit Snapshot**  
    A Git-managed vault can commit each trust snapshot, creating a chronological audit trail of what was trusted, blocked, or repaired over time.
 
-6. **Operational Use**  
+8. **Operational Use**  
    The outputs can be used by humans, scripts, or AI/RAG systems to decide which sources are eligible for grounding and which claims must remain out of production.
 
 ## Who Pays and Who Uses It
@@ -73,6 +81,8 @@ python -m anti_silo.cli index --vault examples/mini_vault
 python -m anti_silo.cli triangulate --vault examples/mini_vault
 python -m anti_silo.cli queue --vault examples/mini_vault
 python -m anti_silo.cli enforce --vault examples/mini_vault
+python -m anti_silo.cli eligible --vault examples/mini_vault
+python -m anti_silo.cli spine --vault examples/mini_vault
 python -m anti_silo.cli pulse --vault examples/mini_vault
 ```
 
@@ -81,6 +91,17 @@ You can pass a custom config:
 ```powershell
 python -m anti_silo.cli pulse --vault path/to/vault --config contracts/default_config.json
 ```
+
+You can also choose a scan profile:
+
+```powershell
+python -m anti_silo.cli pulse --vault path/to/vault --profile research
+python -m anti_silo.cli pulse --vault path/to/vault --profile rag
+python -m anti_silo.cli pulse --vault path/to/vault --profile repo
+python -m anti_silo.cli pulse --vault path/to/vault --profile prompts
+```
+
+Profiles are deterministic config overlays. They reduce noise by adding include/exclude directory rules; they do not change the trust logic.
 
 ## Trust Tiers
 
@@ -126,6 +147,34 @@ Repair by adding one of:
 - references
 - paper list
 - SLR artifact
+
+Generate repair scaffolding:
+
+```powershell
+python -m anti_silo.cli spine --vault path/to/vault
+```
+
+This writes:
+
+- `source_spine_todo.json`
+- `source_spine_todo.csv`
+- `SOURCE_SPINE_TODO.md`
+
+## AI / RAG Grounding Allowlist
+
+Generate the exact local sources allowed into grounding:
+
+```powershell
+python -m anti_silo.cli eligible --vault path/to/vault
+```
+
+This writes:
+
+- `eligible_sources.json`
+- `eligible_sources.csv`
+- `ELIGIBLE_SOURCES.md`
+
+By default, only `triangulated` claims grant a source eligibility. A blocked or `graph_only` claim never grants grounding access.
 
 ## Immutable Audit Snapshots
 

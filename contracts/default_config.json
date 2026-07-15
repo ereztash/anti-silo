@@ -2,6 +2,25 @@
   "output_dir": "anti_silo_out",
   "claim_globs": ["**/*.md"],
   "exclude_dirs": [".git", ".obsidian", "anti_silo_out", "anti_silo_out_clean", "__pycache__", "node_modules", ".venv", "dist", "build", "vendor"],
+  "eligible_tiers": ["triangulated"],
+  "profiles": {
+    "default": {},
+    "research": {
+      "include_dirs": ["research", "sources", "claims", "papers", "bibliography", "references", "external", "Deep research", "חוסן", "שילוב"],
+      "exclude_dirs": ["archive", "drafts", "tmp"]
+    },
+    "rag": {
+      "include_dirs": ["sources", "source", "knowledge", "docs", "documents", "claims", "research"],
+      "exclude_dirs": ["prompts", "scratch", "drafts", "archive"]
+    },
+    "repo": {
+      "exclude_dirs": [".git", ".obsidian", "anti_silo_out", "anti_silo_out_clean", "__pycache__", "node_modules", ".venv", "dist", "build", "vendor", ".pytest_cache", ".mypy_cache"]
+    },
+    "prompts": {
+      "include_dirs": ["prompts", "סוכנים", "agents", "templates", "playbooks"],
+      "exclude_dirs": ["node_modules", ".git", "archive"]
+    }
+  },
   "claim_markers": ["claim:", "status:", "maturity:", "hypothesis:", "assertion:"],
   "synthesis_markers": ["integrated model", "research gap", "evidence synthesis", "meta-analysis", "systematic literature review", "validated framework", "first comprehensive", "empirically validated", "research backbone", "bridging research evidence"],
   "source_spine_markers": ["source_hash:", "source_spine:", "bibliography", "references", "paper_list", "paper list", "slr artifact", "source-of-truth"],

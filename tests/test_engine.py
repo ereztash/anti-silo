@@ -4,8 +4,10 @@ from pathlib import Path
 
 from anti_silo.config import load_config
 from anti_silo.evidence_queue import build_queue
+from anti_silo.eligible import build_eligible_sources
 from anti_silo.index import build_index
 from anti_silo.promotion import build_enforcement
+from anti_silo.spine import build_source_spine_todos
 from anti_silo.triangulation import build_triangulation
 
 
@@ -60,3 +62,17 @@ def test_queue_routes_synthesis_to_source_spine_backfill() -> None:
     synthesis = next(row for row in queue if row["file"].endswith("research-synthesis.md"))
     assert synthesis["upgrade_path"] == "source_spine_backfill"
     assert "bibliography" in synthesis["required_evidence"]
+
+
+def test_eligible_sources_exports_only_allowed_grounding_sources() -> None:
+    rows = build_eligible_sources(VAULT, load_config())
+    assert rows
+    assert any(row["source"].endswith("pricing-source.md") for row in rows)
+    assert all(row["eligible_for"] == "grounding" for row in rows)
+
+
+def test_source_spine_todo_contains_template_for_synthesis() -> None:
+    rows = build_source_spine_todos(VAULT, load_config())
+    synthesis = next(row for row in rows if row["file"].endswith("research-synthesis.md"))
+    assert "source_hash" in synthesis["required_metadata"]
+    assert synthesis["template"][0] == "source_spine:"
