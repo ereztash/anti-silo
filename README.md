@@ -108,6 +108,25 @@ source_hash: <sha256>
 
 When present, triangulation links the claim to that exact source hash before falling back to filename matching.
 
+## Synthesis Is Not Source
+
+Anti-Silo distinguishes source files from synthesis files. Research summaries, integrated models, meta-analyses, and strategic synthesis documents can contain valuable reasoning, but they are not automatically eligible as grounding sources.
+
+When a synthesis document lacks a source spine, Anti-Silo reports:
+
+```text
+synthesis_without_source_spine
+```
+
+Repair by adding one of:
+
+- `source_hash`
+- `source_spine`
+- bibliography
+- references
+- paper list
+- SLR artifact
+
 ## Immutable Audit Snapshots
 
 For Git-managed vaults, write a local audit commit:

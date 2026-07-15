@@ -34,18 +34,29 @@ def _best_source(claim: Claim, surfaces: list[Surface]) -> Surface | None:
 def classify_claim(claim: Claim, surfaces: list[Surface]) -> TriangulationRow:
     source = _best_source(claim, surfaces)
     if claim.blocked:
-        return TriangulationRow(claim.file, "refuted_or_blocked", source.file if source else "", source.authority if source else "", "blocked marker", source.content_hash if source else "")
+        return TriangulationRow(claim.file, "refuted_or_blocked", source.file if source else "", source.authority if source else "", "blocked marker", source.content_hash if source else "", claim.claim_kind, "repair or retire")
     if source and claim.has_corroboration:
         reason = "claim + source_hash + corroboration" if claim.metadata.get("source_hash") else "claim + source + corroboration"
-        return TriangulationRow(claim.file, "triangulated", source.file, source.authority, reason, source.content_hash)
+        return TriangulationRow(claim.file, "triangulated", source.file, source.authority, reason, source.content_hash, claim.claim_kind, "")
     if source:
         reason = "claim + source_hash" if claim.metadata.get("source_hash") else "claim + source"
-        return TriangulationRow(claim.file, "source_backed", source.file, source.authority, reason, source.content_hash)
+        return TriangulationRow(claim.file, "source_backed", source.file, source.authority, reason, source.content_hash, claim.claim_kind, "independent corroboration")
+    if claim.claim_kind == "synthesis" and not claim.has_source_spine:
+        return TriangulationRow(
+            claim.file,
+            "graph_only",
+            "",
+            "",
+            "synthesis_without_source_spine",
+            "",
+            claim.claim_kind,
+            "source spine: source_hash, source_spine, bibliography, references, paper list, or SLR artifact",
+        )
     if claim.has_corroboration:
-        return TriangulationRow(claim.file, "corroborated_no_source", "", "", "claim + corroboration")
+        return TriangulationRow(claim.file, "corroborated_no_source", "", "", "claim + corroboration", "", claim.claim_kind, "explicit source anchor")
     if claim.has_ledger:
-        return TriangulationRow(claim.file, "ledger_supported", "", "", "claim + ledger")
-    return TriangulationRow(claim.file, "graph_only", "", "", "claim only")
+        return TriangulationRow(claim.file, "ledger_supported", "", "", "claim + ledger", "", claim.claim_kind, "source/corroboration evidence")
+    return TriangulationRow(claim.file, "graph_only", "", "", "claim only", "", claim.claim_kind, "source anchor and independent corroboration")
 
 
 def build_triangulation(vault: Path, config: dict[str, Any]) -> list[TriangulationRow]:
@@ -66,12 +77,15 @@ def write_triangulation(vault: Path, config: dict[str, Any]) -> dict[str, Any]:
     }
     (out / "triangulation_gate.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     with (out / "triangulation_gate.csv").open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["file", "tier", "source", "authority", "reason", "source_hash"])
+        writer = csv.DictWriter(f, fieldnames=["file", "tier", "source", "authority", "reason", "source_hash", "claim_kind", "needs"])
         writer.writeheader()
         for row in rows:
             writer.writerow(row.__dict__)
     md = ["# Triangulation Gate", "", f"- total claims: **{payload['total']}**", ""]
     for tier in ["triangulated", "source_backed", "corroborated_no_source", "ledger_supported", "graph_only", "refuted_or_blocked"]:
         md.append(f"- `{tier}`: {counts.get(tier, 0)}")
+    md += ["", "## Rows", "", "| file | tier | kind | reason | needs |", "|---|---|---|---|---|"]
+    for row in rows:
+        md.append(f"| `{row.file}` | `{row.tier}` | `{row.claim_kind}` | `{row.reason}` | {row.needs or '-'} |")
     (out / "TRIANGULATION_GATE.md").write_text("\n".join(md) + "\n", encoding="utf-8")
     return payload

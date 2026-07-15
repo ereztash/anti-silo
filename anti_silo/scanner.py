@@ -30,6 +30,27 @@ def metadata(text: str) -> dict[str, str]:
     return values
 
 
+def _has_any(blob: str, markers: list[str]) -> bool:
+    return any(marker in blob for marker in markers)
+
+
+def claim_kind(blob: str, meta: dict[str, str], config: dict[str, Any]) -> str:
+    explicit = meta.get("claim_type") or meta.get("claim_kind")
+    if explicit:
+        return explicit.strip().lower()
+    synthesis_markers = [m.lower() for m in config.get("synthesis_markers", [])]
+    if _has_any(blob, synthesis_markers):
+        return "synthesis"
+    return "claim"
+
+
+def has_source_spine(blob: str, meta: dict[str, str], config: dict[str, Any]) -> bool:
+    if meta.get("source_hash") or meta.get("source_spine"):
+        return True
+    spine_markers = [m.lower() for m in config.get("source_spine_markers", [])]
+    return _has_any(blob, spine_markers)
+
+
 def scan_claims(vault: Path, config: dict[str, Any]) -> list[Claim]:
     claim_markers = [m.lower() for m in config.get("claim_markers", [])]
     blocked_markers = [m.lower() for m in config.get("blocked_markers", [])]
@@ -51,6 +72,8 @@ def scan_claims(vault: Path, config: dict[str, Any]) -> list[Claim]:
                 blocked=any(marker in blob for marker in blocked_markers),
                 has_corroboration=any(marker in blob for marker in corroboration_markers),
                 has_ledger=any(marker in blob for marker in ledger_markers),
+                claim_kind=claim_kind(blob, meta, config),
+                has_source_spine=has_source_spine(blob, meta, config),
                 metadata=meta,
             )
         )

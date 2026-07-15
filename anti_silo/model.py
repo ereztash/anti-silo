@@ -19,6 +19,8 @@ class Claim:
     blocked: bool = False
     has_corroboration: bool = False
     has_ledger: bool = False
+    claim_kind: str = "claim"
+    has_source_spine: bool = False
     metadata: dict[str, str] = field(default_factory=dict)
 
 
@@ -30,6 +32,8 @@ class TriangulationRow:
     authority: str
     reason: str
     source_hash: str = ""
+    claim_kind: str = "claim"
+    needs: str = ""
 
 
 @dataclass(frozen=True)

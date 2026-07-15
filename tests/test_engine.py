@@ -44,3 +44,19 @@ def test_promotion_gate_blocks_weak_tiers() -> None:
     rows = build_enforcement(VAULT, load_config())
     assert any(row.decision == "block" and row.tier == "graph_only" for row in rows)
     assert any(row.decision == "allow" and row.tier == "triangulated" for row in rows)
+
+
+def test_synthesis_without_source_spine_gets_specific_reason() -> None:
+    rows = build_triangulation(VAULT, load_config())
+    synthesis = next(row for row in rows if row.file.endswith("research-synthesis.md"))
+    assert synthesis.claim_kind == "synthesis"
+    assert synthesis.tier == "graph_only"
+    assert synthesis.reason == "synthesis_without_source_spine"
+    assert "source spine" in synthesis.needs
+
+
+def test_queue_routes_synthesis_to_source_spine_backfill() -> None:
+    queue = build_queue(VAULT, load_config())
+    synthesis = next(row for row in queue if row["file"].endswith("research-synthesis.md"))
+    assert synthesis["upgrade_path"] == "source_spine_backfill"
+    assert "bibliography" in synthesis["required_evidence"]

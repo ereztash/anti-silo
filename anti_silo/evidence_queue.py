@@ -24,7 +24,13 @@ def build_queue(vault: Path, config: dict[str, Any]) -> list[dict[str, Any]]:
     for row in build_triangulation(vault, config):
         if row.tier == "triangulated":
             continue
-        path, required = REPAIR_RULES.get(row.tier, ("review", "manual review"))
+        if row.reason == "synthesis_without_source_spine":
+            path, required = (
+                "source_spine_backfill",
+                "add source spine: source_hash, source_spine, bibliography, references, paper list, or SLR artifact",
+            )
+        else:
+            path, required = REPAIR_RULES.get(row.tier, ("review", "manual review"))
         priority = {
             "graph_only": 25,
             "corroborated_no_source": 24,
@@ -32,7 +38,17 @@ def build_queue(vault: Path, config: dict[str, Any]) -> list[dict[str, Any]]:
             "ledger_supported": 16,
             "refuted_or_blocked": 10,
         }.get(row.tier, 5)
-        rows.append({"priority": priority, "file": row.file, "tier": row.tier, "upgrade_path": path, "required_evidence": required})
+        rows.append(
+            {
+                "priority": priority,
+                "file": row.file,
+                "tier": row.tier,
+                "claim_kind": row.claim_kind,
+                "reason": row.reason,
+                "upgrade_path": path,
+                "required_evidence": required,
+            }
+        )
     return sorted(rows, key=lambda item: (-item["priority"], item["file"]))
 
 
@@ -42,11 +58,11 @@ def write_queue(vault: Path, config: dict[str, Any]) -> dict[str, Any]:
     payload = {"generated": datetime.now(timezone.utc).isoformat(), "selected": len(rows), "rows": rows}
     (out / "evidence_upgrade_queue.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     with (out / "evidence_upgrade_queue.csv").open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["priority", "file", "tier", "upgrade_path", "required_evidence"])
+        writer = csv.DictWriter(f, fieldnames=["priority", "file", "tier", "claim_kind", "reason", "upgrade_path", "required_evidence"])
         writer.writeheader()
         writer.writerows(rows)
     md = ["# Evidence Upgrade Queue", "", f"- selected: **{len(rows)}**", ""]
     for row in rows:
-        md.append(f"- P{row['priority']} `{row['tier']}` `{row['file']}` — {row['required_evidence']}")
+        md.append(f"- P{row['priority']} `{row['tier']}` `{row['claim_kind']}` `{row['file']}` — {row['required_evidence']}")
     (out / "EVIDENCE_UPGRADE_QUEUE.md").write_text("\n".join(md) + "\n", encoding="utf-8")
     return payload
