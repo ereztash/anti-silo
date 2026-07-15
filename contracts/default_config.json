@@ -5,6 +5,7 @@
   "text_index_extensions": [".md"],
   "exclude_dirs": [".git", ".obsidian", "anti_silo_out", "anti_silo_out_clean", "__pycache__", "node_modules", ".venv", "dist", "build", "vendor"],
   "eligible_tiers": ["triangulated"],
+  "candidate_tiers": [],
   "profiles": {
     "default": {},
     "research": {
@@ -18,6 +19,13 @@
     "repo": {
       "exclude_dirs": [".git", ".obsidian", "anti_silo_out", "anti_silo_out_clean", "__pycache__", "node_modules", ".venv", "dist", "build", "vendor", ".pytest_cache", ".mypy_cache"]
     },
+    "cor-sys": {
+      "candidate_tiers": ["source_backed"],
+      "promotion_policy": {
+        "blocked_tiers": ["graph_only", "corroborated_no_source", "ledger_supported", "refuted_or_blocked"],
+        "review_tiers": ["source_backed"]
+      }
+    },
     "prompts": {
       "include_dirs": ["prompts", "סוכנים", "agents", "templates", "playbooks"],
       "exclude_dirs": ["node_modules", ".git", "archive"]
@@ -30,7 +38,8 @@
   "corroboration_markers": ["corroborated", "field_validated", "methodological_review", "adversarial_review"],
   "ledger_markers": ["ledger", "corroboration ledger", "פנקס"],
   "promotion_policy": {
-    "blocked_tiers": ["graph_only", "source_backed", "corroborated_no_source", "ledger_supported", "refuted_or_blocked"]
+    "blocked_tiers": ["graph_only", "source_backed", "corroborated_no_source", "ledger_supported", "refuted_or_blocked"],
+    "review_tiers": []
   },
   "surfaces": {
     "source_truth_marker": {

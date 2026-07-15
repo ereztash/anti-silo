@@ -33,8 +33,9 @@ def write_pulse(vault: Path, config: dict[str, Any]) -> dict[str, Any]:
         "triangulation": triangulation["by_tier"],
         "queue_size": queue["selected"],
         "eligible_sources": eligible["selected"],
+        "internal_grounding_candidates": eligible["internal_candidates"],
         "source_spine_todos": spine["selected"],
-        "promotion_gate": {"blocked": enforcement["blocked"], "allowed": enforcement["allowed"]},
+        "promotion_gate": {"blocked": enforcement["blocked"], "review": enforcement["review"], "allowed": enforcement["allowed"]},
     }
     (out / "pulse.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     md = [
@@ -45,8 +46,10 @@ def write_pulse(vault: Path, config: dict[str, Any]) -> dict[str, Any]:
         f"- claims: **{payload['claims']}**",
         f"- evidence queue: **{payload['queue_size']}**",
         f"- eligible sources: **{payload['eligible_sources']}**",
+        f"- internal grounding candidates: **{payload['internal_grounding_candidates']}**",
         f"- source spine todos: **{payload['source_spine_todos']}**",
         f"- promotion blocked: **{enforcement['blocked']}**",
+        f"- promotion review: **{enforcement['review']}**",
         "",
         "## Triangulation",
     ]

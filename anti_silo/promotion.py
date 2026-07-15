@@ -20,8 +20,14 @@ def blocked_tiers(config: dict[str, Any]) -> set[str]:
     return set(policy.get("blocked_tiers", sorted(DEFAULT_BLOCKED_TIERS)))
 
 
+def review_tiers(config: dict[str, Any]) -> set[str]:
+    policy = config.get("promotion_policy", {})
+    return set(policy.get("review_tiers", []))
+
+
 def build_enforcement(vault: Path, config: dict[str, Any]) -> list[EnforcementRow]:
     blocked = blocked_tiers(config)
+    review = review_tiers(config)
     rows: list[EnforcementRow] = []
     for row in build_triangulation(vault, config):
         if row.tier in blocked:
@@ -32,6 +38,16 @@ def build_enforcement(vault: Path, config: dict[str, Any]) -> list[EnforcementRo
                     decision="block",
                     reason=f"tier `{row.tier}` is not eligible for promotion",
                     action="do_not_promote",
+                )
+            )
+        elif row.tier in review:
+            rows.append(
+                EnforcementRow(
+                    file=row.file,
+                    tier=row.tier,
+                    decision="review",
+                    reason=f"tier `{row.tier}` is an internal grounding candidate, not promotion-ready",
+                    action="review_before_promotion",
                 )
             )
         else:
@@ -51,10 +67,12 @@ def write_enforcement(vault: Path, config: dict[str, Any]) -> dict[str, Any]:
     out = output_dir(vault, config)
     rows = build_enforcement(vault, config)
     counts = Counter(row.decision for row in rows)
+    decision = "block" if counts.get("block", 0) else "review" if counts.get("review", 0) else "allow"
     payload = {
         "generated": datetime.now(timezone.utc).isoformat(),
-        "decision": "block" if counts.get("block", 0) else "allow",
+        "decision": decision,
         "blocked": counts.get("block", 0),
+        "review": counts.get("review", 0),
         "allowed": counts.get("allow", 0),
         "rows": [row.__dict__ for row in rows],
     }
@@ -68,6 +86,7 @@ def write_enforcement(vault: Path, config: dict[str, Any]) -> dict[str, Any]:
         "",
         f"- decision: **`{payload['decision']}`**",
         f"- blocked: **{payload['blocked']}**",
+        f"- review: **{payload['review']}**",
         f"- allowed: **{payload['allowed']}**",
         "",
     ]

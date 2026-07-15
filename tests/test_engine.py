@@ -4,7 +4,7 @@ from pathlib import Path
 
 from anti_silo.config import load_config
 from anti_silo.evidence_queue import build_queue
-from anti_silo.eligible import build_eligible_sources
+from anti_silo.eligible import build_eligible_sources, build_internal_grounding_candidates
 from anti_silo.index import build_index
 from anti_silo.promotion import build_enforcement
 from anti_silo.spine import build_source_spine_todos
@@ -100,3 +100,24 @@ def test_research_library_indexes_pdf_and_html_without_text_parsing(tmp_path) ->
     assert by_file["paper.pdf"].can_anchor_claim
     assert "research_library_source" in by_file["paper.pdf"].surfaces
     assert len(by_file["paper.pdf"].content_hash) == 64
+
+
+def test_cor_sys_profile_marks_source_backed_as_review_candidate() -> None:
+    config = load_config()
+    config["candidate_tiers"] = ["source_backed"]
+    config["promotion_policy"] = {
+        "blocked_tiers": ["graph_only", "corroborated_no_source", "ledger_supported", "refuted_or_blocked"],
+        "review_tiers": ["source_backed"],
+    }
+    rows = build_enforcement(VAULT, config)
+    assert any(row.decision == "review" and row.tier == "source_backed" for row in rows)
+
+
+def test_internal_grounding_candidates_are_separate_from_eligible_sources() -> None:
+    config = load_config()
+    config["candidate_tiers"] = ["source_backed"]
+    eligible = build_eligible_sources(VAULT, config)
+    candidates = build_internal_grounding_candidates(VAULT, config)
+    assert eligible
+    assert candidates
+    assert all(row["eligible_for"] == "internal_grounding_candidate" for row in candidates)

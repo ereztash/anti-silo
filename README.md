@@ -99,10 +99,13 @@ python -m anti_silo.cli pulse --vault path/to/vault --profile research
 python -m anti_silo.cli pulse --vault path/to/vault --profile rag
 python -m anti_silo.cli pulse --vault path/to/vault --profile repo
 python -m anti_silo.cli pulse --vault path/to/vault --profile prompts
+python -m anti_silo.cli pulse --vault path/to/vault --profile cor-sys
 ```
 
 Profiles are deterministic config overlays. They reduce noise by adding include/exclude directory rules; they do not change the trust logic.
 Profile include rules match both child folders and the vault root name, so a profile still works when you run Anti-Silo directly on a folder such as `agents/` or `סוכנים/`.
+
+The `cor-sys` profile keeps full grounding strict (`triangulated` only) but marks `source_backed` claims as `review` and exports them as internal grounding candidates.
 
 ## Trust Tiers
 
@@ -189,6 +192,14 @@ This writes:
 - `ELIGIBLE_SOURCES.md`
 
 By default, only `triangulated` claims grant a source eligibility. A blocked or `graph_only` claim never grants grounding access.
+
+Some profiles also write:
+
+- `internal_grounding_candidates.json`
+- `internal_grounding_candidates.csv`
+- `INTERNAL_GROUNDING_CANDIDATES.md`
+
+These are not production grounding sources. They are deterministic review candidates, usually from `source_backed` claims.
 
 ## Immutable Audit Snapshots
 
