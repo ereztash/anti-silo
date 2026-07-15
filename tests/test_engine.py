@@ -60,6 +60,24 @@ def test_raw_source_only_blocks_hash_to_derived_surface(tmp_path) -> None:
     assert claim.reason == "claim only; source_hash_matches_non_raw_surface"
 
 
+def test_raw_source_registry_hash_can_anchor_claim(tmp_path) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    raw_hash = "a" * 64
+    (vault / "raw-source-pointer.md").write_text(
+        f"source_of_truth: true\nraw_source_hash: {raw_hash}\nsource_anchor: BZ/source-001\n",
+        encoding="utf-8",
+    )
+    (vault / "claim.md").write_text(f"claim: local claim\nsource_hash: {raw_hash}\n", encoding="utf-8")
+
+    rows = build_triangulation(vault, load_config())
+    claim = next(row for row in rows if row.file == "claim.md")
+    assert claim.tier == "source_backed"
+    assert claim.source == "raw-source-pointer.md"
+    assert claim.source_hash == raw_hash
+    assert claim.reason == "claim + raw_source_hash"
+
+
 def test_promotion_gate_blocks_weak_tiers() -> None:
     rows = build_enforcement(VAULT, load_config())
     assert any(row.decision == "block" and row.tier == "graph_only" for row in rows)

@@ -22,14 +22,23 @@ def _source_candidates(surfaces: list[Surface], config: dict[str, Any]) -> list[
     return [row for row in surfaces if row.can_anchor_claim and (not raw_only or row.raw_source)]
 
 
+def _surface_hashes(surface: Surface) -> set[str]:
+    hashes = {surface.content_hash.lower()}
+    if surface.raw_source_hash:
+        hashes.add(surface.raw_source_hash.lower())
+    return hashes
+
+
 def _best_source(claim: Claim, surfaces: list[Surface], config: dict[str, Any]) -> tuple[Surface | None, str]:
     declared_hash = claim.metadata.get("source_hash", "").lower()
     stem = Path(claim.file).stem.lower()
     candidates = _source_candidates(surfaces, config)
     if declared_hash:
-        hash_matches = [surface for surface in surfaces if surface.can_anchor_claim and surface.content_hash.lower() == declared_hash]
+        hash_matches = [surface for surface in surfaces if surface.can_anchor_claim and declared_hash in _surface_hashes(surface)]
         for surface in candidates:
-            if surface.content_hash.lower() == declared_hash:
+            if declared_hash == surface.raw_source_hash.lower():
+                return surface, "raw_source_hash"
+            if declared_hash == surface.content_hash.lower():
                 return surface, "source_hash"
         if hash_matches:
             return None, "source_hash_matches_non_raw_surface"
@@ -56,13 +65,16 @@ def classify_claim(claim: Claim, surfaces: list[Surface], config: dict[str, Any]
     config = config or {}
     source, source_status = _best_source(claim, surfaces, config)
     if claim.blocked:
-        return TriangulationRow(claim.file, "refuted_or_blocked", source.file if source else "", source.authority if source else "", "blocked marker", source.content_hash if source else "", claim.claim_kind, "repair or retire")
+        source_hash = (source.raw_source_hash or source.content_hash) if source else ""
+        return TriangulationRow(claim.file, "refuted_or_blocked", source.file if source else "", source.authority if source else "", "blocked marker", source_hash, claim.claim_kind, "repair or retire")
     if source and claim.has_corroboration:
-        reason = "claim + raw_source_hash + corroboration" if source_status == "source_hash" and source.raw_source else "claim + source + corroboration"
-        return TriangulationRow(claim.file, "triangulated", source.file, source.authority, reason, source.content_hash, claim.claim_kind, "")
+        source_hash = source.raw_source_hash or source.content_hash
+        reason = "claim + raw_source_hash + corroboration" if source_status in {"source_hash", "raw_source_hash"} and source.raw_source else "claim + source + corroboration"
+        return TriangulationRow(claim.file, "triangulated", source.file, source.authority, reason, source_hash, claim.claim_kind, "")
     if source:
-        reason = "claim + raw_source_hash" if source_status == "source_hash" and source.raw_source else "claim + source"
-        return TriangulationRow(claim.file, "source_backed", source.file, source.authority, reason, source.content_hash, claim.claim_kind, "independent corroboration")
+        source_hash = source.raw_source_hash or source.content_hash
+        reason = "claim + raw_source_hash" if source_status in {"source_hash", "raw_source_hash"} and source.raw_source else "claim + source"
+        return TriangulationRow(claim.file, "source_backed", source.file, source.authority, reason, source_hash, claim.claim_kind, "independent corroboration")
     if claim.claim_kind == "synthesis" and not claim.has_source_spine:
         return TriangulationRow(
             claim.file,

@@ -10,7 +10,7 @@ from typing import Any
 from .config import output_dir, rel
 from .hashing import sha256_file
 from .model import Surface
-from .scanner import iter_indexable_files, read_text
+from .scanner import iter_indexable_files, metadata, read_text
 
 
 def classify_surface(rel_path: str, text: str, content_hash: str, config: dict[str, Any], extension: str = ".md") -> Surface | None:
@@ -21,6 +21,8 @@ def classify_surface(rel_path: str, text: str, content_hash: str, config: dict[s
     authorities: list[str] = []
     anchor = False
     raw_source = False
+    meta = metadata(text) if text else {}
+    raw_source_hash = meta.get("raw_source_hash", "").lower()
 
     for name, rule in config.get("surfaces", {}).items():
         path_hits = any(token.lower() in path_blob for token in rule.get("path_contains", []))
@@ -34,7 +36,7 @@ def classify_surface(rel_path: str, text: str, content_hash: str, config: dict[s
 
     if not found:
         return None
-    return Surface(rel_path, tuple(found), authorities[0], anchor, content_hash, raw_source)
+    return Surface(rel_path, tuple(found), authorities[0], anchor, content_hash, raw_source, raw_source_hash)
 
 
 def build_index(vault: Path, config: dict[str, Any]) -> list[Surface]:
@@ -60,7 +62,7 @@ def write_index(vault: Path, config: dict[str, Any]) -> dict[str, Any]:
     }
     (out / "truth_surface_index.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     with (out / "truth_surface_index.csv").open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["file", "surfaces", "authority", "can_anchor_claim", "raw_source", "content_hash"])
+        writer = csv.DictWriter(f, fieldnames=["file", "surfaces", "authority", "can_anchor_claim", "raw_source", "content_hash", "raw_source_hash"])
         writer.writeheader()
         for row in rows:
             writer.writerow(
@@ -71,6 +73,7 @@ def write_index(vault: Path, config: dict[str, Any]) -> dict[str, Any]:
                     "can_anchor_claim": row.can_anchor_claim,
                     "raw_source": row.raw_source,
                     "content_hash": row.content_hash,
+                    "raw_source_hash": row.raw_source_hash,
                 }
             )
     md = ["# Truth Surface Index", "", f"- total: **{payload['total']}**", f"- anchorable: **{payload['anchorable']}**", ""]
