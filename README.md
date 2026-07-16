@@ -106,6 +106,36 @@ Reports are written to:
 examples/mini_vault/anti_silo_out/
 ```
 
+## Local GUI
+
+For non-technical users, start the local web interface:
+
+```powershell
+python -m anti_silo.cli gui
+```
+
+Anti-Silo opens a browser at `http://127.0.0.1:8765/`. The UI asks for a local
+folder path, stages the folder with `ingest`, runs `pulse`, and shows a plain
+language trust report:
+
+| UI Label | Engine Meaning |
+|---|---|
+| מוכן לשימוש | `triangulated` |
+| מגובה, דורש אימות נוסף | `source_backed` |
+| סיכום שצריך השלמת מקורות | synthesis without a source spine |
+| חסר אסמכתא | `graph_only`, `ledger_supported`, or `corroborated_no_source` |
+| סתירה או חסם אמון | refuted/blocked or contradiction hard block |
+
+The GUI is still fully local and deterministic. It binds to `127.0.0.1` by
+default, does not call cloud APIs, and uses the same report files as the CLI.
+
+Optional GUI flags:
+
+```powershell
+python -m anti_silo.cli gui --port 8777
+python -m anti_silo.cli gui --no-browser
+```
+
 ## Source Intake
 
 Use `ingest` when your source material is a regular folder of documents rather
@@ -137,6 +167,7 @@ or promotion decisions later.
 ## CLI
 
 ```powershell
+python -m anti_silo.cli gui
 python -m anti_silo.cli ingest --vault path/to/source-folder --output-vault path/to/staging-vault
 python -m anti_silo.cli index --vault examples/mini_vault
 python -m anti_silo.cli triangulate --vault examples/mini_vault

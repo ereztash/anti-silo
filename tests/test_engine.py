@@ -7,6 +7,7 @@ from anti_silo.config import load_config
 from anti_silo.contradiction import build_contradiction_penalties
 from anti_silo.evidence_queue import build_queue
 from anti_silo.eligible import build_eligible_sources, build_internal_grounding_candidates
+from anti_silo.gui import build_human_report
 from anti_silo.ingest import write_ingest
 from anti_silo.index import build_index
 from anti_silo.pulse import write_pulse
@@ -191,6 +192,20 @@ def test_pulse_names_source_backed_only_block_as_pending_corroboration(tmp_path)
     config = {**load_config(), "output_dir": "out"}
     payload = write_pulse(vault, config)
     assert payload["decision"] == "source_backed_pending_corroboration"
+
+
+def test_gui_human_report_translates_tiers_for_nontechnical_users(tmp_path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "note.txt").write_text("local source note", encoding="utf-8")
+    staged = tmp_path / "staged"
+
+    report = build_human_report(source, load_config(), output_vault=staged)
+    assert report["files"] == 1
+    assert report["counts"]["backed"] == 1
+    assert report["rows"][0]["status"] == "מגובה במקור"
+    assert report["rows"][0]["technical_tier"] == "source_backed"
+    assert "manifest" in report["downloads"]
 
 
 def test_research_library_indexes_pdf_and_html_without_text_parsing(tmp_path) -> None:

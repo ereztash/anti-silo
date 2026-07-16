@@ -14,6 +14,7 @@ from .config import apply_profile, load_config
 from .contradiction import write_contradiction_penalties
 from .evidence_queue import write_queue
 from .eligible import write_eligible_sources
+from .gui import serve_gui
 from .index import write_index
 from .ingest import write_ingest
 from .pulse import write_pulse
@@ -25,11 +26,14 @@ from .triangulation import write_triangulation
 
 def parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="anti-silo", description="Portable trust-surface and triangulation engine.")
-    p.add_argument("command", choices=["ingest", "index", "triangulate", "contradiction", "queue", "enforce", "pulse", "eligible", "spine", "snapshot"])
+    p.add_argument("command", choices=["gui", "ingest", "index", "triangulate", "contradiction", "queue", "enforce", "pulse", "eligible", "spine", "snapshot"])
     p.add_argument("--vault", default=".", help="Folder to scan.")
     p.add_argument("--output-vault", default=None, help="Output folder for `ingest` staging.")
     p.add_argument("--config", default=None, help="JSON config path.")
     p.add_argument("--profile", default="default", help="Scan profile: default, research, rag, repo, prompts, cor-sys.")
+    p.add_argument("--host", default="127.0.0.1", help="Host for `gui`; defaults to local-only 127.0.0.1.")
+    p.add_argument("--port", type=int, default=8765, help="Port for `gui`.")
+    p.add_argument("--no-browser", action="store_true", help="Do not open a browser automatically for `gui`.")
     p.add_argument("--message", default=None, help="Git snapshot commit message.")
     p.add_argument("--sign", action="store_true", help="Sign the Git snapshot commit.")
     return p
@@ -43,6 +47,9 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 1
+    if args.command == "gui":
+        serve_gui(config, host=args.host, port=args.port, open_browser=not args.no_browser)
+        return 0
     if args.command == "ingest":
         payload = write_ingest(vault, config, output_vault=Path(args.output_vault).resolve() if args.output_vault else None)
     elif args.command == "index":
