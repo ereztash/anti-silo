@@ -2,6 +2,22 @@
 
 Anti-Silo is a portable trust engine for local knowledge graphs.
 
+## Start Here: Windows App
+
+Most people should **not** run Anti-Silo from the repository or install Python.
+
+1. Open the [latest Windows download](https://github.com/ereztash/anti-silo/releases/latest).
+2. Download `Anti-Silo-Windows.zip` from **Assets**.
+3. Extract the ZIP anywhere convenient.
+4. Double-click `Anti-Silo.exe`.
+
+The app opens in the browser automatically and starts with a choice to scan the
+Desktop, choose another folder, or open the Brain. Nothing is uploaded.
+
+If Windows shows a protection prompt for an unsigned new app, choose **More
+info** and then **Run anyway** only after verifying that the download came from
+the official `ereztash/anti-silo` release page.
+
 It scans a folder, classifies truth surfaces, evaluates graph claims, runs a triangulation gate, and produces an evidence-upgrade queue. The goal is to prevent a knowledge system from promoting claims just because they are internally consistent.
 
 ## Trust Boundary
@@ -94,7 +110,7 @@ The buyer pays for control, auditability, and risk reduction. The user works wit
 - **RAG and AI teams** use it as a grounding gate before sources enter retrieval or model context.
 - **Regulated organizations** use it to keep trust decisions local, traceable, and reviewable without external API calls.
 
-## Quick Start
+## Developer Quick Start
 
 ```powershell
 python -m anti_silo.cli pulse --vault examples/mini_vault

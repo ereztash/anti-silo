@@ -21,6 +21,10 @@ dist/Anti-Silo.exe
 The EXE starts the local GUI at `127.0.0.1` and opens the browser. Files are
 processed locally; the packaged app does not add cloud calls or telemetry.
 
+For a person who only wants to use the app, distribute `Anti-Silo-Windows.zip`
+instead of the repository. The ZIP contains `Anti-Silo.exe` and a short
+`README.txt`; it requires neither Python nor GitHub Desktop.
+
 ## Shortcut
 
 After building, create a desktop shortcut to `dist/Anti-Silo.exe`. A nontechnical

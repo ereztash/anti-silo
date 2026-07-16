@@ -5,15 +5,17 @@
 #   pyinstaller packaging/anti_silo_gui.spec
 
 from PyInstaller.utils.hooks import collect_submodules
+from pathlib import Path
 
 
 hiddenimports = collect_submodules("anti_silo")
+ROOT = Path(SPECPATH).parent
 
 a = Analysis(
-    ["packaging/run_gui.py"],
-    pathex=[],
+    [str(ROOT / "packaging" / "run_gui.py")],
+    pathex=[str(ROOT)],
     binaries=[],
-    datas=[("contracts/default_config.json", "contracts")],
+    datas=[(str(ROOT / "contracts" / "default_config.json"), "contracts")],
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},

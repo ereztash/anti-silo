@@ -1,0 +1,12 @@
+ANTI-SILO FOR WINDOWS
+
+1. Extract this folder anywhere on your computer.
+2. Double-click Anti-Silo.exe.
+3. In the window that opens, choose one of the three large buttons.
+
+You do not need Python, GitHub Desktop, a terminal, or an account.
+
+Anti-Silo works locally on your computer. It does not upload your files.
+
+If Windows asks whether to run this new unsigned app, verify that you downloaded
+it from https://github.com/ereztash/anti-silo/releases before selecting Run anyway.
