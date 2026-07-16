@@ -6,6 +6,7 @@
 
 from PyInstaller.utils.hooks import collect_submodules
 from pathlib import Path
+import sys
 
 
 hiddenimports = collect_submodules("anti_silo")
@@ -44,3 +45,15 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
 )
+
+if sys.platform == "darwin":
+    app = BUNDLE(
+        exe,
+        name="Anti-Silo.app",
+        bundle_identifier="com.ereztash.antisilo",
+        info_plist={
+            "CFBundleDisplayName": "Anti-Silo",
+            "CFBundleShortVersionString": "0.2.0",
+            "CFBundleVersion": "0.2.0",
+        },
+    )

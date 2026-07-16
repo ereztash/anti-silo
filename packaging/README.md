@@ -25,6 +25,12 @@ For a person who only wants to use the app, distribute `Anti-Silo-Windows.zip`
 instead of the repository. The ZIP contains `Anti-Silo.exe` and a short
 `README.txt`; it requires neither Python nor GitHub Desktop.
 
+## macOS DMG
+
+The release workflow builds `Anti-Silo-macOS.dmg` from the same PyInstaller
+specification on a macOS runner. Signing and notarization are opt-in and are
+documented in [distribution setup](../docs/DISTRIBUTION.md).
+
 ## Shortcut
 
 After building, create a desktop shortcut to `dist/Anti-Silo.exe`. A nontechnical

@@ -18,6 +18,14 @@ If Windows shows a protection prompt for an unsigned new app, choose **More
 info** and then **Run anyway** only after verifying that the download came from
 the official `ereztash/anti-silo` release page.
 
+## Start Here: macOS App
+
+Open the [latest release](https://github.com/ereztash/anti-silo/releases/latest),
+download `Anti-Silo-macOS.dmg`, open it, and move `Anti-Silo.app` to
+Applications. The release pipeline builds the DMG for every version. A Mac
+build becomes Gatekeeper-friendly only after the project has an Apple Developer
+ID and notarization configured; see [distribution setup](docs/DISTRIBUTION.md).
+
 It scans a folder, classifies truth surfaces, evaluates graph claims, runs a triangulation gate, and produces an evidence-upgrade queue. The goal is to prevent a knowledge system from promoting claims just because they are internally consistent.
 
 ## Trust Boundary
