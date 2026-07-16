@@ -12,6 +12,7 @@ class Surface:
     content_hash: str
     raw_source: bool = False
     raw_source_hash: str = ""
+    normalized_content_hash: str = ""
 
 
 @dataclass(frozen=True)

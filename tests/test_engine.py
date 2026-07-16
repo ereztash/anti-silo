@@ -7,6 +7,7 @@ from anti_silo.config import load_config
 from anti_silo.contradiction import build_contradiction_penalties
 from anti_silo.evidence_queue import build_queue
 from anti_silo.eligible import build_eligible_sources, build_internal_grounding_candidates
+from anti_silo.ingest import write_ingest
 from anti_silo.index import build_index
 from anti_silo.pulse import write_pulse
 from anti_silo.promotion import build_enforcement
@@ -139,6 +140,57 @@ def test_include_profile_matches_vault_root_name(tmp_path) -> None:
     config = {**load_config(), "include_dirs": ["סוכנים"]}
     rows = scan_claims(vault, config)
     assert [row.file for row in rows] == ["agent.md"]
+
+
+def test_blocked_marker_ignores_relation_names_like_cites_refuted(tmp_path) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "claim.md").write_text("claim: local claim\nrelation: cites_refuted\nstatus: active\n", encoding="utf-8")
+
+    rows = build_triangulation(vault, load_config())
+    claim = next(row for row in rows if row.file == "claim.md")
+    assert claim.tier != "refuted_or_blocked"
+
+
+def test_blocked_marker_still_honors_status_field(tmp_path) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "claim.md").write_text("claim: local claim\nstatus: refuted\n", encoding="utf-8")
+
+    rows = build_triangulation(vault, load_config())
+    claim = next(row for row in rows if row.file == "claim.md")
+    assert claim.tier == "refuted_or_blocked"
+
+
+def test_ingest_stages_source_documents_with_raw_source_hash(tmp_path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "note.txt").write_text("source_hash: stale\nlocal source note", encoding="utf-8")
+    staged = tmp_path / "staged"
+
+    payload = write_ingest(source, load_config(), staged)
+    staged_note = staged / "note.md"
+    assert payload["files"] == 1
+    assert staged_note.exists()
+    text = staged_note.read_text(encoding="utf-8")
+    assert "raw_source_hash:" in text
+    assert "claim: extracted document content" in text
+    assert (staged / "SOURCE_MANIFEST.json").exists()
+    row = next(row for row in build_triangulation(staged, load_config()) if row.file == "note.md")
+    assert row.tier == "source_backed"
+
+
+def test_pulse_names_source_backed_only_block_as_pending_corroboration(tmp_path) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    source = vault / "source.md"
+    source.write_text("source_of_truth: true\nraw source bytes\n", encoding="utf-8")
+    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    (vault / "claim.md").write_text(f"claim: local claim\nsource_hash: {digest}\n", encoding="utf-8")
+
+    config = {**load_config(), "output_dir": "out"}
+    payload = write_pulse(vault, config)
+    assert payload["decision"] == "source_backed_pending_corroboration"
 
 
 def test_research_library_indexes_pdf_and_html_without_text_parsing(tmp_path) -> None:

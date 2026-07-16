@@ -15,6 +15,17 @@ from .spine import write_source_spine_todos
 from .triangulation import write_triangulation
 
 
+def pulse_decision(enforcement: dict[str, Any], contradiction: dict[str, Any]) -> str:
+    if not enforcement["blocked"]:
+        return "proceed"
+    if contradiction["hard_blocks"]:
+        return "blocked"
+    blocked_rows = [row for row in enforcement.get("rows", []) if row.get("decision") == "block"]
+    if blocked_rows and all(row.get("tier") == "source_backed" for row in blocked_rows):
+        return "source_backed_pending_corroboration"
+    return "blocked"
+
+
 def write_pulse(vault: Path, config: dict[str, Any]) -> dict[str, Any]:
     out = output_dir(vault, config)
     index = write_index(vault, config)
@@ -24,9 +35,7 @@ def write_pulse(vault: Path, config: dict[str, Any]) -> dict[str, Any]:
     enforcement = write_enforcement(vault, config)
     eligible = write_eligible_sources(vault, config)
     spine = write_source_spine_todos(vault, config)
-    decision = "proceed"
-    if enforcement["blocked"]:
-        decision = "blocked"
+    decision = pulse_decision(enforcement, contradiction)
     payload = {
         "generated": datetime.now(timezone.utc).isoformat(),
         "decision": decision,

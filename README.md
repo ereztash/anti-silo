@@ -34,6 +34,7 @@ In short: **grounding eligible is not the same as used, useful, adopted, or comm
 - Produces machine-readable JSON/CSV and human-readable Markdown reports.
 - Produces a strict `eligible_sources` allowlist for AI/RAG grounding.
 - Produces source-spine repair templates for synthesis claims.
+- Stages ordinary source folders into an Anti-Silo review vault with stable raw-source hashes.
 - Runs fully locally.
 
 ## What It Does Not Do
@@ -105,9 +106,38 @@ Reports are written to:
 examples/mini_vault/anti_silo_out/
 ```
 
+## Source Intake
+
+Use `ingest` when your source material is a regular folder of documents rather
+than an Anti-Silo-formatted vault:
+
+```powershell
+python -m anti_silo.cli ingest --vault path/to/source-folder --output-vault path/to/staging-vault
+python -m anti_silo.cli pulse --vault path/to/staging-vault
+```
+
+`ingest` stages supported files as Markdown review units and records:
+
+- `source_hash`
+- `raw_source_hash`
+- original relative file path
+- original extension
+- a `SOURCE_MANIFEST.json` audit manifest
+
+Supported intake extensions are `.md`, `.txt`, `.csv`, `.json`, `.html`,
+`.htm`, `.docx`, `.xlsx`, and `.pdf`. Heavy extractors are optional: `.docx`,
+`.xlsx`, and `.pdf` are extracted when the matching local Python package is
+available, and otherwise the staged file records that extraction was
+unavailable.
+
+Intake mode does not certify semantic truth. It creates deterministic
+`source_backed` candidates so a reviewer can add corroboration, ledger support,
+or promotion decisions later.
+
 ## CLI
 
 ```powershell
+python -m anti_silo.cli ingest --vault path/to/source-folder --output-vault path/to/staging-vault
 python -m anti_silo.cli index --vault examples/mini_vault
 python -m anti_silo.cli triangulate --vault examples/mini_vault
 python -m anti_silo.cli contradiction --vault examples/mini_vault
@@ -150,6 +180,14 @@ The `cor-sys` profile keeps full grounding strict (`triangulated` only) but mark
 | `graph_only` | graph assertion only |
 | `refuted_or_blocked` | blocked, refuted, or over-claimed |
 
+`pulse` decisions are intentionally coarse:
+
+| Decision | Meaning |
+|---|---|
+| `proceed` | no promotion blocks under the active policy |
+| `source_backed_pending_corroboration` | every blocked claim has a raw source hash, but still needs corroboration |
+| `blocked` | at least one claim is graph-only, refuted/blocked, or has contradiction debt |
+
 ## Hard Enforcement
 
 `enforce` writes `promotion_gate.json`, `promotion_gate.csv`, and `PROMOTION_GATE.md`.
@@ -186,6 +224,12 @@ Examples of deterministic penalty rules:
 - `decision_without_raw_source`: decision/action evidence appears without raw source backing.
 - `refuted_or_blocked`: blocked/refuted claims override positive evidence layers.
 
+Blocked/refuted detection is field-aware by default. Anti-Silo treats values in
+fields such as `status`, `tier`, `decision`, `maturity`, `promotion`, or `gate`
+as explicit trust signals. It does not treat arbitrary substrings such as
+`cites_refuted` as a refutation by themselves. Set `blocked_marker_mode` to
+`substring` in a custom config if you need the older broad matching behavior.
+
 The penalty score is deterministic debt, not probabilistic confidence. Each
 penalty row lists the violated rule and repair action. `pulse` includes a
 contradiction summary, and `enforce` blocks claims with contradiction hard
@@ -202,6 +246,10 @@ source_hash: <sha256>
 By default, `raw_source_only` is enabled. In that mode, `source_backed` and `triangulated` require an explicit `source_hash` that points to a raw source surface. A hash that points to an internal vault node, ledger, contract, generated report, or derived synthesis is treated as missing evidence.
 
 This prevents greenlighting claims that are only backed by graph structure or by reports derived from the graph itself.
+
+For text files, Anti-Silo also records a `normalized_content_hash` with line
+endings normalized to LF. This lets source links survive Git checkouts across
+Windows/macOS/Linux without changing the raw byte-level `content_hash`.
 
 ## Research Library Index
 

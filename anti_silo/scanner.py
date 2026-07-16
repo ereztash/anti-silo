@@ -71,12 +71,39 @@ def metadata(text: str) -> dict[str, str]:
     for line in text.splitlines()[:80]:
         m = re.match(r"^\s*([A-Za-z0-9_-]+)\s*:\s*(.+?)\s*$", line)
         if m:
-            values[m.group(1).lower()] = m.group(2).strip()
+            values.setdefault(m.group(1).lower(), m.group(2).strip())
     return values
 
 
 def _has_any(blob: str, markers: list[str]) -> bool:
     return any(marker in blob for marker in markers)
+
+
+def has_blocked_marker(text: str, meta: dict[str, str], config: dict[str, Any]) -> bool:
+    markers = [m.lower() for m in config.get("blocked_markers", [])]
+    if not markers:
+        return False
+
+    mode = str(config.get("blocked_marker_mode", "field")).lower()
+    if mode == "substring":
+        return _has_any(text.lower(), markers)
+
+    fields = {field.lower() for field in config.get("blocked_marker_fields", [])}
+    for field in fields:
+        value = meta.get(field)
+        if value and _has_any(value.lower(), markers):
+            return True
+
+    line_prefixes = tuple(str(prefix).lower() for prefix in config.get("blocked_line_prefixes", []))
+    for line in text.splitlines():
+        cleaned = line.strip().lower()
+        if not cleaned:
+            continue
+        if line_prefixes and cleaned.startswith(line_prefixes) and _has_any(cleaned, markers):
+            return True
+        if cleaned in markers:
+            return True
+    return False
 
 
 def claim_kind(blob: str, meta: dict[str, str], config: dict[str, Any]) -> str:
@@ -98,7 +125,6 @@ def has_source_spine(blob: str, meta: dict[str, str], config: dict[str, Any]) ->
 
 def scan_claims(vault: Path, config: dict[str, Any]) -> list[Claim]:
     claim_markers = [m.lower() for m in config.get("claim_markers", [])]
-    blocked_markers = [m.lower() for m in config.get("blocked_markers", [])]
     corroboration_markers = [m.lower() for m in config.get("corroboration_markers", [])]
     ledger_markers = [m.lower() for m in config.get("ledger_markers", [])]
 
@@ -114,7 +140,7 @@ def scan_claims(vault: Path, config: dict[str, Any]) -> list[Claim]:
             Claim(
                 file=rel(vault, path),
                 text=text,
-                blocked=any(marker in blob for marker in blocked_markers),
+                blocked=has_blocked_marker(text, meta, config),
                 has_corroboration=any(marker in blob for marker in corroboration_markers),
                 has_ledger=any(marker in blob for marker in ledger_markers),
                 claim_kind=claim_kind(blob, meta, config),

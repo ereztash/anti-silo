@@ -1,6 +1,7 @@
 {
   "output_dir": "anti_silo_out",
   "claim_globs": ["**/*.md"],
+  "ingest_extensions": [".md", ".txt", ".csv", ".json", ".html", ".htm", ".docx", ".xlsx", ".pdf"],
   "index_extensions": [".md", ".pdf", ".html", ".htm"],
   "text_index_extensions": [".md"],
   "exclude_dirs": [".git", ".obsidian", "anti_silo_out", "anti_silo_out_clean", "__pycache__", "node_modules", ".venv", "dist", "build", "vendor"],
@@ -68,6 +69,9 @@
   "synthesis_markers": ["integrated model", "research gap", "evidence synthesis", "meta-analysis", "systematic literature review", "validated framework", "first comprehensive", "empirically validated", "research backbone", "bridging research evidence"],
   "source_spine_markers": ["source_hash:", "source_spine:", "bibliography", "references", "paper_list", "paper list", "slr artifact", "source-of-truth"],
   "blocked_markers": ["blocked", "refuted", "do not promote", "over_claimed"],
+  "blocked_marker_mode": "field",
+  "blocked_marker_fields": ["status", "tier", "decision", "maturity", "promotion", "gate", "blocked", "refuted"],
+  "blocked_line_prefixes": ["blocked:", "refuted:", "do not promote", "over_claimed"],
   "corroboration_markers": ["corroborated", "field_validated", "methodological_review", "adversarial_review"],
   "ledger_markers": ["ledger", "corroboration ledger", "פנקס"],
   "promotion_policy": {
