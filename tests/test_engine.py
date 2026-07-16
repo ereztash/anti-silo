@@ -12,6 +12,8 @@ from anti_silo.ingest import write_ingest
 from anti_silo.index import build_index
 from anti_silo.pulse import write_pulse
 from anti_silo.promotion import build_enforcement
+from anti_silo.quick_scan import discard_quick_scan, run_quick_scan
+from anti_silo.report_labels import tier_label
 from anti_silo.spine import build_source_spine_todos
 from anti_silo.triangulation import build_triangulation
 from anti_silo.scanner import scan_claims
@@ -205,6 +207,8 @@ def test_gui_human_report_translates_tiers_for_nontechnical_users(tmp_path) -> N
     assert report["counts"]["backed"] == 1
     assert report["rows"][0]["status"] == "מגובה במקור"
     assert report["rows"][0]["technical_tier"] == "source_backed"
+    assert report["rows"][0]["action"]
+    assert report["temporary"] is False
     assert "html_report" in report["downloads"]
     assert "manifest" in report["downloads"]
     assert Path(report["downloads"]["html_report"]).exists()
@@ -214,6 +218,24 @@ def test_gui_html_exposes_shelf_product_controls() -> None:
     assert "dropzone" in HTML
     assert "שמור דוח HTML" in HTML
     assert "אשף תיקון" in HTML
+    assert "תצוגה פשוטה / מקצועית" in HTML
+
+
+def test_quick_scan_uses_temporary_staging_and_localized_outputs(tmp_path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "note.txt").write_text("local source note", encoding="utf-8")
+
+    payload = run_quick_scan(source, load_config(), lang="he")
+    staged = Path(payload["staged_vault"])
+    try:
+        assert payload["temporary"] is True
+        assert staged.exists()
+        assert "pulse_he_json" in payload["localized_outputs"]
+        assert tier_label("graph_only", "he") == "ללא_תימוכין"
+    finally:
+        discard_quick_scan(staged)
+    assert not staged.exists()
 
 
 def test_research_library_indexes_pdf_and_html_without_text_parsing(tmp_path) -> None:

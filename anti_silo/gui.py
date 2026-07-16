@@ -13,6 +13,8 @@ from urllib.parse import quote, unquote, urlparse
 from .config import output_dir
 from .ingest import write_ingest
 from .pulse import write_pulse
+from .quick_scan import discard_quick_scan, run_quick_scan
+from .report_labels import action_label
 
 
 HUMAN_TIERS = {
@@ -68,6 +70,7 @@ def _human_row(row: dict[str, Any], sources: dict[str, str], penalties: dict[str
         "category": category,
         "category_label": CATEGORY_LABELS.get(category, category),
         "status": label,
+        "action": action_label(category, "he"),
         "explanation": explanation,
         "technical_tier": tier,
         "technical_reason": reason,
@@ -81,8 +84,7 @@ def render_report_html(report: dict[str, Any]) -> str:
         "<tr>"
         f"<td><span class=\"pill {escape(str(row['category']))}\">{escape(str(row['status']))}</span></td>"
         f"<td>{escape(str(row['file']))}</td>"
-        f"<td>{escape(str(row['explanation']))}</td>"
-        f"<td>{escape(str(row.get('needs') or '-'))}</td>"
+        f"<td>{escape(str(row.get('action') or '-'))}</td>"
         "</tr>"
         for row in report.get("rows", [])
     )
@@ -115,7 +117,7 @@ def render_report_html(report: dict[str, Any]) -> str:
   <div class="meta">תיקייה: {escape(str(report.get("source_root", "")))}<br>החלטת מערכת: {escape(str(report.get("decision", "")))}<br>קבצים שנסרקו: {int(report.get("files", 0))}</div>
   <section class="summary">{metrics}</section>
   <table>
-    <thead><tr><th>מצב</th><th>קובץ</th><th>מה זה אומר</th><th>מה חסר</th></tr></thead>
+    <thead><tr><th>מצב</th><th>קובץ</th><th>מה לעשות</th></tr></thead>
     <tbody>{rows}</tbody>
   </table>
 </body>
@@ -124,9 +126,16 @@ def render_report_html(report: dict[str, Any]) -> str:
 
 
 def build_human_report(source_root: Path, config: dict[str, Any], output_vault: Path | None = None) -> dict[str, Any]:
-    ingest_payload = write_ingest(source_root, config, output_vault=output_vault)
-    staged_vault = Path(str(ingest_payload["output_vault"]))
-    pulse_payload = write_pulse(staged_vault, config)
+    quick_payload: dict[str, Any] | None = None
+    if output_vault is None:
+        quick_payload = run_quick_scan(source_root, config, lang="he")
+        ingest_payload = quick_payload["ingest"]
+        staged_vault = Path(str(quick_payload["staged_vault"]))
+        pulse_payload = quick_payload["pulse"]
+    else:
+        ingest_payload = write_ingest(source_root, config, output_vault=output_vault)
+        staged_vault = Path(str(ingest_payload["output_vault"]))
+        pulse_payload = write_pulse(staged_vault, config)
     out = output_dir(staged_vault, config)
     triangulation = _read_json(out / "triangulation_gate.json")
     penalties = _read_json(out / "contradiction_penalty.json")
@@ -146,6 +155,7 @@ def build_human_report(source_root: Path, config: dict[str, Any], output_vault: 
         "files": ingest_payload["files"],
         "counts": counts,
         "rows": rows,
+        "temporary": quick_payload is not None,
     }
     report_path = out / "ANTI_SILO_REPORT.html"
     report_path.write_text(render_report_html(report), encoding="utf-8")
@@ -157,6 +167,9 @@ def build_human_report(source_root: Path, config: dict[str, Any], output_vault: 
         "pulse_markdown": out / "PULSE.md",
         "manifest": staged_vault / "SOURCE_MANIFEST.json",
     }
+    if quick_payload:
+        for key, value in quick_payload.get("localized_outputs", {}).items():
+            downloads[key] = Path(value)
     report["downloads"] = {name: str(path) for name, path in downloads.items() if path.exists()}
     return report
 
@@ -200,6 +213,8 @@ HTML = r"""<!doctype html>
     .pill.unsupported, .pill.contradiction { background:#fdebea; color:var(--bad); }
     .downloads a { display:inline-block; margin: 6px 0 0 8px; color:#1d4ed8; font-weight:700; }
     .actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
+    .technical { display:none; }
+    body.pro .technical { display:table-cell; }
     .empty { color: var(--muted); padding: 18px; }
     @media (max-width: 800px) { .row, .summary { grid-template-columns: 1fr; } main { padding: 14px; } }
   </style>
@@ -249,6 +264,7 @@ HTML = r"""<!doctype html>
     const dropzone = document.getElementById('dropzone');
     const button = document.getElementById('scan');
     let lastReport = null;
+    let lastPath = '';
 
     function metric(key, value) {
       return `<div class="metric ${key}"><b>${value || 0}</b><span>${labels[key]}</span></div>`;
@@ -259,10 +275,12 @@ HTML = r"""<!doctype html>
         <tr>
           <td><span class="pill ${row.category}">${row.status}</span></td>
           <td>${row.file}</td>
-          <td>${row.explanation}</td>
-          <td>${row.needs || '-'}</td>
+          <td>${row.action || row.explanation}</td>
+          <td class="technical">${row.technical_tier || '-'}</td>
+          <td class="technical">${row.technical_reason || '-'}</td>
+          <td class="technical">${row.needs || '-'}</td>
         </tr>`).join('');
-      return `<table><thead><tr><th>מצב</th><th>קובץ</th><th>מה זה אומר</th><th>מה חסר</th></tr></thead><tbody>${htmlRows}</tbody></table>`;
+      return `<table><thead><tr><th>מצב</th><th>קובץ</th><th>מה לעשות</th><th class="technical">Tier</th><th class="technical">Reason</th><th class="technical">Needs</th></tr></thead><tbody>${htmlRows}</tbody></table>`;
     }
 
     function render(data) {
@@ -277,6 +295,11 @@ HTML = r"""<!doctype html>
       }).join('');
       downloadsEl.hidden = false;
       downloadsEl.innerHTML = `<b>ייצוא:</b><br>${links || 'אין קבצי ייצוא זמינים.'}<div class="hint">אפשר לפתוח את דוח ה-HTML ולשמור PDF דרך Print / Save as PDF בדפדפן.</div>`;
+      downloadsEl.innerHTML += `<div class="actions">
+        <button class="secondary" type="button" onclick="toggleMode()">תצוגה פשוטה / מקצועית</button>
+        <button class="secondary" type="button" onclick="rescan()">בדיקה חוזרת</button>
+        <button class="secondary" type="button" onclick="discardResults()">מחק תוצאות זמניות</button>
+      </div>`;
 
       const needsRepair = (data.counts.synthesis || 0) + (data.counts.unsupported || 0) + (data.counts.contradiction || 0);
       wizardEl.hidden = needsRepair === 0;
@@ -307,6 +330,7 @@ HTML = r"""<!doctype html>
     async function scan() {
       const path = document.getElementById('path').value.trim();
       if (!path) return;
+      lastPath = path;
       button.disabled = true;
       statusEl.className = 'panel empty';
       statusEl.textContent = 'סורק ומאמת...';
@@ -325,6 +349,25 @@ HTML = r"""<!doctype html>
       } finally {
         button.disabled = false;
       }
+    }
+    function rescan() {
+      if (lastPath) {
+        document.getElementById('path').value = lastPath;
+        scan();
+      }
+    }
+    function toggleMode() {
+      document.body.classList.toggle('pro');
+    }
+    async function discardResults() {
+      if (!lastReport || !lastReport.temporary) return;
+      await fetch('/api/discard', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({staged_vault: lastReport.staged_vault})
+      });
+      statusEl.className = 'panel empty';
+      statusEl.textContent = 'תוצאות זמניות נמחקו.';
     }
     button.addEventListener('click', scan);
     document.getElementById('path').addEventListener('keydown', event => { if (event.key === 'Enter') scan(); });
@@ -387,7 +430,17 @@ class AntiSiloGuiHandler(BaseHTTPRequestHandler):
         self.send_error(HTTPStatus.NOT_FOUND)
 
     def do_POST(self) -> None:  # noqa: N802
-        if urlparse(self.path).path != "/api/scan":
+        path = urlparse(self.path).path
+        if path == "/api/discard":
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                payload = json.loads(self.rfile.read(length).decode("utf-8"))
+                discard_quick_scan(str(payload.get("staged_vault", "")))
+                self._send_json({"discarded": True})
+            except Exception as exc:
+                self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+        if path != "/api/scan":
             self.send_error(HTTPStatus.NOT_FOUND)
             return
         try:

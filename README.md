@@ -114,9 +114,11 @@ For non-technical users, start the local web interface:
 python -m anti_silo.cli gui
 ```
 
-Anti-Silo opens a browser at `http://127.0.0.1:8765/`. The UI asks for a local
-folder path, stages the folder with `ingest`, runs `pulse`, and shows a plain
-language trust report.
+Anti-Silo opens a browser at `http://127.0.0.1:8765/`. The default flow is
+**Quick Scan**: the user chooses a local folder, Anti-Silo creates a temporary
+staging vault under the system temp folder, runs `ingest` + `pulse`, and shows a
+plain-language trust report. The user never needs to know what a vault, ingest,
+or staging folder is.
 
 | UI Label | Engine Meaning |
 |---|---|
@@ -130,10 +132,14 @@ The GUI includes:
 
 - folder path scan
 - best-effort drag/drop folder target
+- temporary Quick Scan staging with a "discard temporary results" action
 - Hebrew summary cards and a plain-language file table
+- simple/professional view toggle
+- one-click rescan after the user adds or edits files
 - "שמור דוח HTML" export via `ANTI_SILO_REPORT.html`
 - source allowlist and source TODO downloads
 - a small repair wizard that filters files needing source repair
+- localized companion outputs such as `pulse.he.json`, `PULSE_HE.md`, and `triangulation_gate.he.csv`
 
 Browser security usually hides the full local path during drag/drop. In that
 case, paste the folder path into the input. The same UI is ready for desktop
@@ -148,6 +154,10 @@ Optional GUI flags:
 python -m anti_silo.cli gui --port 8777
 python -m anti_silo.cli gui --no-browser
 ```
+
+`Watch Mode` is not enabled by default yet. The current shelf-product loop is
+manual but one-click: add a source file, click "בדיקה חוזרת", and the dashboard
+refreshes from a new Quick Scan.
 
 ## Source Intake
 
@@ -197,6 +207,15 @@ You can pass a custom config:
 ```powershell
 python -m anti_silo.cli pulse --vault path/to/vault --config contracts/default_config.json
 ```
+
+Localized companion reports:
+
+```powershell
+python -m anti_silo.cli pulse --vault path/to/vault --lang he
+```
+
+This keeps the canonical technical reports intact and adds Hebrew-friendly
+outputs next to them.
 
 You can also choose a scan profile:
 

@@ -19,6 +19,7 @@ from .index import write_index
 from .ingest import write_ingest
 from .pulse import write_pulse
 from .promotion import write_enforcement
+from .report_labels import write_localized_outputs
 from .snapshot import run_git_snapshot
 from .spine import write_source_spine_todos
 from .triangulation import write_triangulation
@@ -31,6 +32,7 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--output-vault", default=None, help="Output folder for `ingest` staging.")
     p.add_argument("--config", default=None, help="JSON config path.")
     p.add_argument("--profile", default="default", help="Scan profile: default, research, rag, repo, prompts, cor-sys.")
+    p.add_argument("--lang", default="en", choices=["en", "he"], help="Report language for localized companion outputs.")
     p.add_argument("--host", default="127.0.0.1", help="Host for `gui`; defaults to local-only 127.0.0.1.")
     p.add_argument("--port", type=int, default=8765, help="Port for `gui`.")
     p.add_argument("--no-browser", action="store_true", help="Do not open a browser automatically for `gui`.")
@@ -70,6 +72,10 @@ def main(argv: list[str] | None = None) -> int:
         payload = run_git_snapshot(vault, config, message=args.message, sign=args.sign)
     else:
         payload = write_pulse(vault, config)
+    if args.lang != "en" and args.command in {"pulse", "triangulate", "enforce", "queue", "eligible", "spine", "contradiction"}:
+        localized = write_localized_outputs(vault, payload if args.command == "pulse" else write_pulse(vault, config), lang=args.lang, config=config)
+        if localized:
+            payload["localized_outputs"] = localized
     print(json.dumps(payload, ensure_ascii=False, indent=2))
     if args.command == "enforce" and payload.get("blocked", 0):
         return 2
