@@ -26,3 +26,8 @@ client system, account, or cloud service is required.
 
 Run `python -m anti_silo.cli brain`. The service binds to `127.0.0.1` by
 default, uses no external API, and stores the Brain outside the scanned vault.
+
+The first empty Brain screen asks one question: what the user is thinking
+about. It then opens the matching note, question, or decision composer. A
+decision can link to scanned sources, and the trust queue remains visible when
+the linked evidence is incomplete.

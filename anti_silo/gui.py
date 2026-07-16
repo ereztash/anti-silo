@@ -18,6 +18,7 @@ from .ingest import write_ingest
 from .pulse import write_pulse
 from .quick_scan import discard_quick_scan, run_quick_scan
 from .report_labels import action_label
+from .watch import WatchService, WatchStore
 
 
 HUMAN_TIERS = {
@@ -38,6 +39,33 @@ CATEGORY_LABELS = {
     "unsupported": "חסר אסמכתא",
     "contradiction": "סתירה או חסם אמון",
 }
+
+
+def _default_desktop_dir() -> Path:
+    home = Path.home()
+    candidates = [
+        home / "Desktop",
+        home / "OneDrive" / "Desktop",
+        home / "שולחן העבודה",
+        home / "OneDrive" / "שולחן העבודה",
+    ]
+    return next((path for path in candidates if path.is_dir()), home)
+
+
+def _choose_folder() -> str:
+    """Use the operating system folder picker when a desktop session is available."""
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        selected = filedialog.askdirectory(initialdir=str(_default_desktop_dir()), title="Choose a folder for Anti-Silo")
+        root.destroy()
+        return selected
+    except Exception as exc:
+        raise ValueError("Could not open the system folder picker.") from exc
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -180,6 +208,15 @@ def build_human_report(source_root: Path, config: dict[str, Any], output_vault: 
     return report
 
 
+def _watch_scan(root: Path, config: dict[str, Any]) -> dict[str, Any]:
+    report = build_human_report(root, config)
+    try:
+        return {"files": report["files"], "counts": report["counts"]}
+    finally:
+        if report.get("temporary"):
+            discard_quick_scan(str(report["staged_vault"]))
+
+
 HTML = r"""<!doctype html>
 <html lang="he" dir="rtl">
 <head>
@@ -223,13 +260,21 @@ HTML = r"""<!doctype html>
     .brain-list { margin:12px 0 0; padding:0; list-style:none; }
     .brain-list li { padding:9px 0; border-bottom:1px solid var(--line); }
     .brain-list li:last-child { border-bottom:0; }
+    .welcome { max-width:720px; margin:28px auto; text-align:center; }
+    .welcome h2 { margin:0 0 10px; font-size:26px; }
+    .welcome .actions { justify-content:center; margin-top:22px; }
+    .welcome button { min-width:220px; min-height:52px; }
+    .simple-summary { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:14px; margin:18px 0; }
+    .simple-card { min-height:132px; padding:18px; border:1px solid var(--line); border-radius:8px; text-align:right; background:#fff; color:var(--ink); }
+    .simple-card b { display:block; font-size:30px; margin-bottom:6px; }
+    .simple-card.ready b { color:var(--ok); } .simple-card.needs b { color:var(--warn); } .simple-card.blocked b { color:var(--bad); }
     .pill.unsupported, .pill.contradiction { background:#fdebea; color:var(--bad); }
     .downloads a { display:inline-block; margin: 6px 0 0 8px; color:#1d4ed8; font-weight:700; }
     .actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
     .technical { display:none; }
     body.pro .technical { display:table-cell; }
     .empty { color: var(--muted); padding: 18px; }
-    @media (max-width: 800px) { .row, .summary { grid-template-columns: 1fr; } main { padding: 14px; } }
+    @media (max-width: 800px) { .row, .summary, .simple-summary, .brain-grid { grid-template-columns: 1fr; } main { padding: 14px; } }
   </style>
 </head>
 <body>
@@ -239,6 +284,15 @@ HTML = r"""<!doctype html>
     <div class="boundary">גבול אמון: Anti-Silo בודק שרשרת מקורות ושלמות חילוץ. הוא לא מאמת שהטקסט נכון מבחינה מקצועית או עובדתית.</div>
   </header>
   <main>
+    <section id="onboarding" class="panel welcome">
+      <h2>ברוכים הבאים ל-Anti-Silo</h2>
+      <p>אפשר לבדוק את הקבצים שלך ולשמור מחשבות והחלטות במקום אחד.</p>
+      <div class="actions">
+        <button type="button" onclick="scanDesktop()">בדוק את שולחן העבודה שלי</button>
+        <button class="secondary" type="button" onclick="chooseFolder()">סרוק תיקייה אחרת</button>
+        <button class="secondary" type="button" onclick="openBrain()">פתח את המוח השני שלי</button>
+      </div>
+    </section>
     <section id="scan-panel" class="panel">
       <label for="path">תיקייה לסריקה</label>
       <div class="row">
@@ -251,6 +305,7 @@ HTML = r"""<!doctype html>
 
     <section id="status" class="panel empty">ממתין לתיקייה.</section>
     <section id="summary" class="summary" hidden></section>
+    <section id="simple-summary" class="simple-summary" hidden></section>
     <section id="downloads" class="panel downloads" hidden></section>
     <section id="wizard" class="panel" hidden></section>
     <section id="results" hidden></section>
@@ -274,16 +329,20 @@ HTML = r"""<!doctype html>
     };
     const statusEl = document.getElementById('status');
     const summaryEl = document.getElementById('summary');
+    const simpleSummaryEl = document.getElementById('simple-summary');
     const resultsEl = document.getElementById('results');
     const downloadsEl = document.getElementById('downloads');
     const wizardEl = document.getElementById('wizard');
     const brainEl = document.getElementById('brain');
     const dropzone = document.getElementById('dropzone');
     const button = document.getElementById('scan');
+    const onboardingEl = document.getElementById('onboarding');
     const csrfToken = '__CSRF_TOKEN__';
     let lastReport = null;
     let lastPath = '';
+    let latestWatchEvent = '';
     const initialView = '__INITIAL_VIEW__';
+    const initialPath = __INITIAL_PATH_JSON__;
 
     function metric(key, value) {
       return `<div class="metric ${key}"><b>${value || 0}</b><span>${labels[key]}</span></div>`;
@@ -302,12 +361,35 @@ HTML = r"""<!doctype html>
       return `<table><thead><tr><th>מצב</th><th>קובץ</th><th>מה לעשות</th><th class="technical">Tier</th><th class="technical">Reason</th><th class="technical">Needs</th></tr></thead><tbody>${htmlRows}</tbody></table>`;
     }
 
+    function simpleGroup(group) {
+      if (!lastReport) return;
+      const groups = {
+        ready: ['ready'],
+        needs: ['backed', 'indexed', 'synthesis'],
+        blocked: ['unsupported', 'contradiction']
+      };
+      resultsEl.hidden = false;
+      resultsEl.innerHTML = table(lastReport.rows.filter(row => groups[group].includes(row.category)));
+    }
+
+    function renderSimpleSummary(data) {
+      const trusted = data.counts.ready || 0;
+      const needs = (data.counts.backed || 0) + (data.counts.indexed || 0) + (data.counts.synthesis || 0);
+      const blocked = (data.counts.unsupported || 0) + (data.counts.contradiction || 0);
+      simpleSummaryEl.hidden = false;
+      simpleSummaryEl.innerHTML = `
+        <button class="simple-card ready" type="button" onclick="simpleGroup('ready')"><b>${trusted}</b>אפשר להשתמש בביטחון</button>
+        <button class="simple-card needs" type="button" onclick="simpleGroup('needs')"><b>${needs}</b>מומלץ להוסיף מקורות</button>
+        <button class="simple-card blocked" type="button" onclick="simpleGroup('blocked')"><b>${blocked}</b>לא מומלץ להסתמך</button>`;
+    }
+
     function render(data) {
       lastReport = data;
       statusEl.className = 'panel';
       statusEl.innerHTML = `<b>הסריקה הסתיימה.</b><br>נסרקו ${data.files} קבצים. החלטת מערכת: <code>${data.decision}</code>`;
       summaryEl.hidden = false;
       summaryEl.innerHTML = ['ready','backed','indexed','synthesis','unsupported','contradiction'].map(k => metric(k, data.counts[k])).join('');
+      renderSimpleSummary(data);
 
       const links = Object.entries(data.downloads || {}).map(([name, path]) => {
         return `<a href="/download?path=${encodeURIComponent(path)}">${downloadNames[name] || name}</a>`;
@@ -318,6 +400,7 @@ HTML = r"""<!doctype html>
         <button class="secondary" type="button" onclick="toggleMode()">תצוגה פשוטה / מקצועית</button>
         <button class="secondary" type="button" onclick="rescan()">בדיקה חוזרת</button>
         <button class="secondary" type="button" onclick="discardResults()">מחק תוצאות זמניות</button>
+        <button class="secondary" type="button" onclick="watchLastFolder()">עקוב אחרי התיקייה הזו</button>
       </div>`;
 
       const needsRepair = (data.counts.synthesis || 0) + (data.counts.unsupported || 0) + (data.counts.contradiction || 0);
@@ -335,6 +418,40 @@ HTML = r"""<!doctype html>
       resultsEl.hidden = false;
       resultsEl.innerHTML = table(data.rows);
       loadBrain();
+    }
+
+    function startScan(path) {
+      onboardingEl.hidden = true;
+      document.getElementById('scan-panel').hidden = true;
+      document.getElementById('path').value = path;
+      scan();
+    }
+
+    async function scanDesktop() {
+      try {
+        const data = await api('/api/default-desktop', 'POST');
+        startScan(data.path);
+      } catch (err) {
+        statusEl.hidden = false;
+        statusEl.textContent = err.message;
+      }
+    }
+
+    async function chooseFolder() {
+      try {
+        const data = await api('/api/pick-folder', 'POST');
+        if (data.path) startScan(data.path);
+      } catch (err) {
+        statusEl.hidden = false;
+        statusEl.textContent = err.message;
+      }
+    }
+
+    function openBrain() {
+      onboardingEl.hidden = true;
+      document.getElementById('scan-panel').hidden = true;
+      statusEl.hidden = true;
+      loadBrain(true);
     }
 
     function downloadTodo() {
@@ -390,6 +507,36 @@ HTML = r"""<!doctype html>
       statusEl.textContent = 'תוצאות זמניות נמחקו.';
     }
 
+    async function watchLastFolder() {
+      if (!lastPath) return;
+      try {
+        await api('/api/watch', 'POST', {path: lastPath});
+        if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+        statusEl.hidden = false;
+        statusEl.className = 'panel';
+        statusEl.textContent = 'Anti-Silo יבדוק את התיקייה הזו גם לאחר שינויים חדשים.';
+      } catch (err) {
+        statusEl.hidden = false;
+        statusEl.className = 'panel';
+        statusEl.textContent = err.message;
+      }
+    }
+
+    async function refreshWatch(notify = false) {
+      try {
+        const data = await api('/api/watch');
+        const event = data.events && data.events[0];
+        if (!event || event.at === latestWatchEvent) return;
+        const wasKnown = Boolean(latestWatchEvent);
+        latestWatchEvent = event.at;
+        if (notify && wasKnown && 'Notification' in window && Notification.permission === 'granted') {
+          new Notification('Anti-Silo', {body: event.message});
+        }
+      } catch (_) {
+        // The local GUI can be closing while the polling request is in flight.
+      }
+    }
+
     async function api(path, method = 'GET', body = null) {
       const response = await fetch(path, {
         method,
@@ -412,10 +559,22 @@ HTML = r"""<!doctype html>
       return `<li><b>${escapeHtml(entry.title)}</b><br><span class="hint">${escapeHtml(entry.kind)}${detail ? ` | ${escapeHtml(detail)}` : ''}</span></li>`;
     }
 
-    async function loadBrain() {
+    async function loadBrain(simpleFirst = false) {
       try {
         const data = await api('/api/brain');
         brainEl.hidden = false;
+        if (simpleFirst && data.entries.length === 0) {
+          brainEl.innerHTML = `
+            <div class="welcome">
+              <h2>על מה אתה חושב עכשיו?</h2>
+              <div class="actions">
+                <button type="button" onclick="openBrainComposer('note')">רעיון או מחשבה</button>
+                <button class="secondary" type="button" onclick="openBrainComposer('question')">שאלה שאני רוצה לבדוק</button>
+                <button class="secondary" type="button" onclick="openBrainComposer('decision')">החלטה שאני צריך לקבל</button>
+              </div>
+            </div>`;
+          return;
+        }
         const counts = data.counts;
         const sources = data.entries.filter(entry => entry.kind === 'source');
         const sourceOptions = sources.map(entry => `<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.title)} (${escapeHtml(entry.trust_status || entry.trust_tier)})</option>`).join('');
@@ -444,6 +603,15 @@ HTML = r"""<!doctype html>
         brainEl.hidden = false;
         brainEl.innerHTML = `<b>המוח השני לא נטען.</b><p class="hint">${err.message}</p>`;
       }
+    }
+
+    function openBrainComposer(kind) {
+      loadBrain().then(() => {
+        const select = document.getElementById('brain-kind');
+        if (select) select.value = kind;
+        const title = document.getElementById('brain-title');
+        if (title) title.focus();
+      });
     }
 
     async function importLastScan() {
@@ -488,11 +656,16 @@ HTML = r"""<!doctype html>
         statusEl.innerHTML = '<b>הדפדפן לא חשף נתיב תיקייה מלא.</b><br>בגרסת דפדפן רגילה יש להדביק את הנתיב בשדה. באריזת Desktop הפעולה הזו תעבוד כגרירה מלאה.';
       }
     });
-    if (initialView === 'brain') {
+    if (initialPath) {
+      startScan(initialPath);
+    } else if (initialView === 'brain') {
+      onboardingEl.hidden = true;
       document.getElementById('scan-panel').hidden = true;
       statusEl.hidden = true;
-      loadBrain();
+      loadBrain(true);
     }
+    refreshWatch();
+    window.setInterval(() => refreshWatch(true), 15000);
   </script>
 </body>
 </html>
@@ -520,7 +693,7 @@ class AntiSiloGuiHandler(BaseHTTPRequestHandler):
         if parsed.path == "/":
             body = HTML.replace("__CSRF_TOKEN__", str(getattr(self.server, "csrf_token", ""))).replace(
                 "__INITIAL_VIEW__", str(getattr(self.server, "initial_view", "scan"))
-            ).encode("utf-8")
+            ).replace("__INITIAL_PATH_JSON__", json.dumps(str(getattr(self.server, "initial_path", "")))).encode("utf-8")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
@@ -545,6 +718,9 @@ class AntiSiloGuiHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/brain":
             self._send_json(self.server.brain_store.dashboard())
             return
+        if parsed.path == "/api/watch":
+            self._send_json(self.server.watch_store.dashboard())
+            return
         self.send_error(HTTPStatus.NOT_FOUND)
 
     def do_POST(self) -> None:  # noqa: N802
@@ -552,6 +728,23 @@ class AntiSiloGuiHandler(BaseHTTPRequestHandler):
             self._send_json({"error": "invalid local request token"}, HTTPStatus.FORBIDDEN)
             return
         path = urlparse(self.path).path
+        if path == "/api/default-desktop":
+            self._send_json({"path": str(_default_desktop_dir())})
+            return
+        if path == "/api/pick-folder":
+            try:
+                self._send_json({"path": _choose_folder()})
+            except Exception as exc:
+                self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+        if path == "/api/watch":
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                payload = json.loads(self.rfile.read(length).decode("utf-8"))
+                self._send_json({"watch": self.server.watch_store.add(Path(str(payload.get("path", ""))))})
+            except Exception as exc:
+                self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
         if path == "/api/discard":
             try:
                 length = int(self.headers.get("Content-Length", "0"))
@@ -609,7 +802,10 @@ class AntiSiloGuiServer(ThreadingHTTPServer):
     allowed_roots: list[Path]
     csrf_token: str
     brain_store: BrainStore
+    watch_store: WatchStore
+    watch_service: WatchService
     initial_view: str
+    initial_path: str
     last_report: dict[str, Any] | None
 
 
@@ -619,13 +815,18 @@ def serve_gui(
     port: int = 8765,
     open_browser: bool = True,
     initial_view: str = "scan",
+    initial_path: Path | None = None,
 ) -> str:
     server = AntiSiloGuiServer((host, port), AntiSiloGuiHandler)
     server.config = config
     server.allowed_roots = []
     server.csrf_token = secrets.token_urlsafe(32)
     server.brain_store = BrainStore()
+    server.watch_store = WatchStore()
+    server.watch_service = WatchService(server.watch_store, lambda root: _watch_scan(root, config))
+    server.watch_service.start()
     server.initial_view = initial_view
+    server.initial_path = str(initial_path.resolve()) if initial_path else ""
     server.last_report = None
     url = f"http://{server.server_address[0]}:{server.server_address[1]}/"
     if open_browser:
@@ -634,5 +835,6 @@ def serve_gui(
         print(f"Anti-Silo GUI running locally at {url}")
         server.serve_forever()
     finally:
+        server.watch_service.stop()
         server.server_close()
     return url

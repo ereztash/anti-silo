@@ -28,6 +28,24 @@ user can then open Anti-Silo like a normal desktop application.
 
 ## Notes
 
+## Windows Explorer Context Menu
+
+After building the EXE, register an optional current-user Explorer action:
+
+```powershell
+.\packaging\windows_context_menu.ps1 -ExecutablePath .\dist\Anti-Silo.exe
+```
+
+Right-clicking a folder then offers **Scan with Anti-Silo**. It opens the local
+GUI and immediately scans the selected folder. No administrator permissions are
+required because the script writes only under `HKCU`.
+
+Remove it later with:
+
+```powershell
+.\packaging\windows_context_menu.ps1 -ExecutablePath .\dist\Anti-Silo.exe -Remove
+```
+
 - `pyinstaller` is an optional packaging dependency, not a runtime dependency.
 - The packaged GUI uses the same `anti_silo.gui` module as `python -m anti_silo.cli gui`.
 - A future `.dmg` or AppImage can use the same `packaging/run_gui.py` entrypoint.

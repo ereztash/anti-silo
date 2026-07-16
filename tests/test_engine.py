@@ -18,6 +18,7 @@ from anti_silo.report_labels import tier_label
 from anti_silo.spine import build_source_spine_todos
 from anti_silo.triangulation import build_triangulation
 from anti_silo.scanner import scan_claims
+from anti_silo.watch import WatchStore
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -399,3 +400,20 @@ def test_brain_preserves_source_trust_and_reviews_unsupported_decisions(tmp_path
     queued_ids = {item["id"] for item in store.review_queue()}
     assert any(item["title"] == "unsupported decision" for item in store.review_queue())
     assert supported["id"] not in queued_ids
+
+
+def test_watch_store_detects_local_change_and_records_scan_result(tmp_path) -> None:
+    watched = tmp_path / "watched"
+    watched.mkdir()
+    (watched / "first.txt").write_text("first", encoding="utf-8")
+    store = WatchStore(tmp_path / "watchlist.json")
+    store.add(watched)
+
+    assert store.check() == []
+    (watched / "second.txt").write_text("second", encoding="utf-8")
+    events = store.check(lambda path: {"files": 2, "counts": {"indexed": 2}})
+
+    assert len(events) == 1
+    assert events[0]["kind"] == "changed"
+    assert events[0]["report"]["files"] == 2
+    assert store.dashboard()["events"][0]["path"] == str(watched.resolve())

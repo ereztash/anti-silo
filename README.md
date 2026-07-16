@@ -131,6 +131,8 @@ or staging folder is.
 
 The GUI includes:
 
+- a first-run welcome screen with Desktop scan, system folder picker, and Brain entry points
+- a three-answer simple summary: usable, needs more evidence, or not recommended for reliance
 - folder path scan
 - best-effort drag/drop folder target
 - temporary Quick Scan staging with a "discard temporary results" action
@@ -140,6 +142,7 @@ The GUI includes:
 - "שמור דוח HTML" export via `ANTI_SILO_REPORT.html`
 - source allowlist and source TODO downloads
 - a small repair wizard that filters files needing source repair
+- opt-in local Watch Mode for folders the user chooses to monitor
 - localized companion outputs such as `pulse.he.json`, `PULSE_HE.md`, and `triangulation_gate.he.csv`
 
 Browser security usually hides the full local path during drag/drop. In that
@@ -184,11 +187,14 @@ Optional GUI flags:
 ```powershell
 python -m anti_silo.cli gui --port 8777
 python -m anti_silo.cli gui --no-browser
+python -m anti_silo.cli gui --open-path path/to/folder
 ```
 
-`Watch Mode` is not enabled by default yet. The current shelf-product loop is
-manual but one-click: add a source file, click "בדיקה חוזרת", and the dashboard
-refreshes from a new Quick Scan.
+Watch Mode is opt-in. After a scan, select the local monitoring action and
+Anti-Silo records the folder in a local watch list. A small local polling
+service notices file additions or edits, runs a fresh trust check, and stores a
+recent event summary. It makes no network calls and never watches a folder
+until the user explicitly selects it.
 
 ## Source Intake
 
