@@ -13,7 +13,7 @@ from .model import EnforcementRow
 from .triangulation import build_triangulation
 
 
-DEFAULT_BLOCKED_TIERS = {"graph_only", "source_backed", "corroborated_no_source", "ledger_supported", "refuted_or_blocked"}
+DEFAULT_BLOCKED_TIERS = {"graph_only", "source_backed", "indexed_unverified", "corroborated_no_source", "ledger_supported", "refuted_or_blocked"}
 
 
 def blocked_tiers(config: dict[str, Any]) -> set[str]:

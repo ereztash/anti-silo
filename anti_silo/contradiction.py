@@ -21,6 +21,8 @@ DEFAULT_WEIGHTS = {
     "decision_without_raw_source": 5,
     "usage_without_raw_source": 5,
     "refuted_or_blocked": 8,
+    "extraction_failed": 8,
+    "extraction_truncated": 6,
 }
 
 TEMPORAL_MARKERS = (
@@ -106,6 +108,7 @@ def _penalties_for(
     source_hash: str,
     text: str,
     has_corroboration: bool,
+    metadata: dict[str, str],
     rule_weights: dict[str, int],
 ) -> list[dict[str, Any]]:
     blob = f"{file}\n{text}".lower()
@@ -115,6 +118,24 @@ def _penalties_for(
     has_outcome = _marker_in(blob, OUTCOME_MARKERS)
     has_decision = _marker_in(blob, DECISION_MARKERS)
     items: list[dict[str, Any]] = []
+
+    extraction_status = metadata.get("extraction_status", "complete").lower()
+    if extraction_status == "failed":
+        _add(
+            items,
+            "extraction_failed",
+            rule_weights,
+            "the original file could not be extracted for review",
+            "install the local extractor or review and transcribe the original file manually",
+        )
+    elif extraction_status == "truncated":
+        _add(
+            items,
+            "extraction_truncated",
+            rule_weights,
+            "only part of the original file was inspected",
+            "review the omitted content or raise the extraction limit before relying on this file",
+        )
 
     if tier == "refuted_or_blocked":
         _add(
@@ -203,6 +224,7 @@ def build_contradiction_penalties(vault: Path, config: dict[str, Any]) -> list[d
             source_hash=row.source_hash,
             text=text,
             has_corroboration=has_corroboration,
+            metadata=claim.metadata if claim else {},
             rule_weights=rule_weights,
         )
         score = sum(int(item["weight"]) for item in penalties)

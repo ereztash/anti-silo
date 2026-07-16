@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import hmac
+import secrets
 import threading
 import webbrowser
 from html import escape
@@ -20,6 +22,7 @@ from .report_labels import action_label
 HUMAN_TIERS = {
     "triangulated": ("ready", "מאומת", "הקובץ מגובה במקור ויש לו חיזוק נוסף."),
     "source_backed": ("backed", "מגובה במקור", "יש אסמכתא ראשונית, אבל כדאי להוסיף אימות נוסף לפני הסתמכות חזקה."),
+    "indexed_unverified": ("indexed", "נסרק, טרם אומת", "הקובץ נקלט לבדיקה מקומית, אך לא נמצא לו מקור עצמאי שאפשר להסתמך עליו."),
     "graph_only": ("unsupported", "ללא אסמכתא", "לא נמצא מקור ראשוני שאפשר להישען עליו."),
     "ledger_supported": ("unsupported", "יש רישום, חסר מקור", "יש סימן תמיכה פנימי, אבל חסר מקור ראשוני."),
     "corroborated_no_source": ("unsupported", "יש חיזוק, חסר מקור", "יש חיזוק, אבל אין אסמכתא ראשונית."),
@@ -29,6 +32,7 @@ HUMAN_TIERS = {
 CATEGORY_LABELS = {
     "ready": "מוכן לשימוש",
     "backed": "מגובה, דורש אימות נוסף",
+    "indexed": "נסרק, טרם אומת",
     "synthesis": "סיכום שצריך השלמת מקורות",
     "unsupported": "חסר אסמכתא",
     "contradiction": "סתירה או חסם אמון",
@@ -90,7 +94,7 @@ def render_report_html(report: dict[str, Any]) -> str:
     )
     metrics = "\n".join(
         f"<div class=\"metric {key}\"><b>{int(report.get('counts', {}).get(key, 0))}</b><span>{escape(CATEGORY_LABELS[key])}</span></div>"
-        for key in ["ready", "backed", "synthesis", "unsupported", "contradiction"]
+        for key in ["ready", "backed", "indexed", "synthesis", "unsupported", "contradiction"]
     )
     return f"""<!doctype html>
 <html lang="he" dir="rtl">
@@ -101,7 +105,7 @@ def render_report_html(report: dict[str, Any]) -> str:
     body {{ font-family: Arial, sans-serif; color:#17212b; margin:32px; }}
     h1 {{ margin-bottom: 6px; }}
     .meta {{ color:#5f6b76; margin-bottom:22px; }}
-    .summary {{ display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin:18px 0; }}
+    .summary {{ display:grid; grid-template-columns:repeat(6,1fr); gap:10px; margin:18px 0; }}
     .metric {{ border:1px solid #d9e1e8; border-radius:8px; padding:12px; }}
     .metric b {{ display:block; font-size:24px; }}
     table {{ width:100%; border-collapse:collapse; margin-top:18px; }}
@@ -114,7 +118,7 @@ def render_report_html(report: dict[str, Any]) -> str:
 </head>
 <body>
   <h1>Anti-Silo Report</h1>
-  <div class="meta">תיקייה: {escape(str(report.get("source_root", "")))}<br>החלטת מערכת: {escape(str(report.get("decision", "")))}<br>קבצים שנסרקו: {int(report.get("files", 0))}</div>
+  <div class="meta">תיקייה: {escape(str(report.get("source_root", "")))}<br>החלטת מערכת: {escape(str(report.get("decision", "")))}<br>קבצים שנסרקו: {int(report.get("files", 0))}<br>גבול אמון: {escape(str(report.get("trust_boundary", "")))}</div>
   <section class="summary">{metrics}</section>
   <table>
     <thead><tr><th>מצב</th><th>קובץ</th><th>מה לעשות</th></tr></thead>
@@ -152,6 +156,7 @@ def build_human_report(source_root: Path, config: dict[str, Any], output_vault: 
         "staged_vault": str(staged_vault),
         "output_dir": str(out),
         "decision": pulse_payload["decision"],
+        "trust_boundary": "הבדיקה בוחנת שרשרת מקורות ושלמות חילוץ. היא אינה קובעת שהטקסט נכון מבחינה מקצועית או עובדתית.",
         "files": ingest_payload["files"],
         "counts": counts,
         "rows": rows,
@@ -199,17 +204,18 @@ HTML = r"""<!doctype html>
     .hint { margin-top: 8px; font-size: 13px; color: var(--muted); }
     .dropzone { margin-top: 14px; border: 2px dashed #b8c4d0; border-radius: 8px; padding: 22px; text-align: center; background:#fbfcfd; color:var(--muted); }
     .dropzone.active { border-color:#1d4ed8; background:#edf4ff; color:#17212b; }
-    .summary { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+    .summary { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
     .metric { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
     .metric b { display:block; font-size: 24px; margin-bottom: 4px; }
-    .ready b { color: var(--ok); } .backed b, .synthesis b { color: var(--warn); } .unsupported b, .contradiction b { color: var(--bad); }
+    .ready b { color: var(--ok); } .backed b, .synthesis b, .indexed b { color: var(--warn); } .unsupported b, .contradiction b { color: var(--bad); }
     table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
     th, td { padding: 11px 12px; border-bottom: 1px solid var(--line); text-align: right; vertical-align: top; }
     th { background: #eef3f8; font-size: 13px; color: #344252; }
     tr:last-child td { border-bottom: 0; }
     .pill { display:inline-block; padding: 4px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; }
     .pill.ready { background:#e7f5ed; color:var(--ok); }
-    .pill.backed, .pill.synthesis { background:#fff4d8; color:var(--warn); }
+    .pill.backed, .pill.synthesis, .pill.indexed { background:#fff4d8; color:var(--warn); }
+    .boundary { margin-top: 12px; padding: 10px 12px; border-right: 3px solid #9a6500; background:#fff8e8; color:#5f4a00; font-size: 14px; }
     .pill.unsupported, .pill.contradiction { background:#fdebea; color:var(--bad); }
     .downloads a { display:inline-block; margin: 6px 0 0 8px; color:#1d4ed8; font-weight:700; }
     .actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
@@ -223,6 +229,7 @@ HTML = r"""<!doctype html>
   <header>
     <h1>Anti-Silo Local</h1>
     <p>סריקה מקומית ודטרמיניסטית: אילו קבצים מגובים, אילו הם סיכומים, ואילו לא מתאימים להסתמכות.</p>
+    <div class="boundary">גבול אמון: Anti-Silo בודק שרשרת מקורות ושלמות חילוץ. הוא לא מאמת שהטקסט נכון מבחינה מקצועית או עובדתית.</div>
   </header>
   <main>
     <section class="panel">
@@ -245,6 +252,7 @@ HTML = r"""<!doctype html>
     const labels = {
       ready: 'מוכן לשימוש',
       backed: 'מגובה, דורש אימות נוסף',
+      indexed: 'נסרק, טרם אומת',
       synthesis: 'סיכום שצריך השלמת מקורות',
       unsupported: 'חסר אסמכתא',
       contradiction: 'סתירה או חסם אמון'
@@ -263,6 +271,7 @@ HTML = r"""<!doctype html>
     const wizardEl = document.getElementById('wizard');
     const dropzone = document.getElementById('dropzone');
     const button = document.getElementById('scan');
+    const csrfToken = '__CSRF_TOKEN__';
     let lastReport = null;
     let lastPath = '';
 
@@ -288,7 +297,7 @@ HTML = r"""<!doctype html>
       statusEl.className = 'panel';
       statusEl.innerHTML = `<b>הסריקה הסתיימה.</b><br>נסרקו ${data.files} קבצים. החלטת מערכת: <code>${data.decision}</code>`;
       summaryEl.hidden = false;
-      summaryEl.innerHTML = ['ready','backed','synthesis','unsupported','contradiction'].map(k => metric(k, data.counts[k])).join('');
+      summaryEl.innerHTML = ['ready','backed','indexed','synthesis','unsupported','contradiction'].map(k => metric(k, data.counts[k])).join('');
 
       const links = Object.entries(data.downloads || {}).map(([name, path]) => {
         return `<a href="/download?path=${encodeURIComponent(path)}">${downloadNames[name] || name}</a>`;
@@ -337,7 +346,7 @@ HTML = r"""<!doctype html>
       try {
         const response = await fetch('/api/scan', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
+          headers: {'Content-Type': 'application/json', 'X-Anti-Silo-CSRF': csrfToken},
           body: JSON.stringify({path})
         });
         const data = await response.json();
@@ -363,7 +372,7 @@ HTML = r"""<!doctype html>
       if (!lastReport || !lastReport.temporary) return;
       await fetch('/api/discard', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type': 'application/json', 'X-Anti-Silo-CSRF': csrfToken},
         body: JSON.stringify({staged_vault: lastReport.staged_vault})
       });
       statusEl.className = 'panel empty';
@@ -402,10 +411,15 @@ class AntiSiloGuiHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _valid_csrf_token(self) -> bool:
+        expected = str(getattr(self.server, "csrf_token", ""))
+        provided = self.headers.get("X-Anti-Silo-CSRF", "")
+        return bool(expected) and hmac.compare_digest(provided, expected)
+
     def do_GET(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
         if parsed.path == "/":
-            body = HTML.encode("utf-8")
+            body = HTML.replace("__CSRF_TOKEN__", str(getattr(self.server, "csrf_token", ""))).encode("utf-8")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
@@ -430,6 +444,9 @@ class AntiSiloGuiHandler(BaseHTTPRequestHandler):
         self.send_error(HTTPStatus.NOT_FOUND)
 
     def do_POST(self) -> None:  # noqa: N802
+        if not self._valid_csrf_token():
+            self._send_json({"error": "invalid local request token"}, HTTPStatus.FORBIDDEN)
+            return
         path = urlparse(self.path).path
         if path == "/api/discard":
             try:
@@ -462,12 +479,14 @@ class AntiSiloGuiHandler(BaseHTTPRequestHandler):
 class AntiSiloGuiServer(ThreadingHTTPServer):
     config: dict[str, Any]
     allowed_roots: list[Path]
+    csrf_token: str
 
 
 def serve_gui(config: dict[str, Any], host: str = "127.0.0.1", port: int = 8765, open_browser: bool = True) -> str:
     server = AntiSiloGuiServer((host, port), AntiSiloGuiHandler)
     server.config = config
     server.allowed_roots = []
+    server.csrf_token = secrets.token_urlsafe(32)
     url = f"http://{server.server_address[0]}:{server.server_address[1]}/"
     if open_browser:
         threading.Timer(0.3, lambda: webbrowser.open(url)).start()

@@ -74,6 +74,24 @@ def _reported_source_hash(claim: Claim, source: Surface) -> str:
 
 def classify_claim(claim: Claim, surfaces: list[Surface], config: dict[str, Any] | None = None) -> TriangulationRow:
     config = config or {}
+    intake_kind = claim.metadata.get("intake_kind", "").lower()
+    extraction_status = claim.metadata.get("extraction_status", "complete").lower()
+    if intake_kind == "self_indexed":
+        reason = "self_indexed_intake"
+        if extraction_status == "failed":
+            reason = "self_indexed_intake; extraction_failed"
+        elif extraction_status == "truncated":
+            reason = "self_indexed_intake; extraction_truncated"
+        return TriangulationRow(
+            claim.file,
+            "indexed_unverified",
+            "",
+            "",
+            reason,
+            "",
+            claim.claim_kind,
+            "review the original file and attach an independent source before relying on it",
+        )
     source, source_status = _best_source(claim, surfaces, config)
     if claim.blocked:
         source_hash = _reported_source_hash(claim, source) if source else ""
@@ -127,7 +145,7 @@ def write_triangulation(vault: Path, config: dict[str, Any]) -> dict[str, Any]:
         for row in rows:
             writer.writerow(row.__dict__)
     md = ["# Triangulation Gate", "", f"- total claims: **{payload['total']}**", ""]
-    for tier in ["triangulated", "source_backed", "corroborated_no_source", "ledger_supported", "graph_only", "refuted_or_blocked"]:
+    for tier in ["triangulated", "source_backed", "indexed_unverified", "corroborated_no_source", "ledger_supported", "graph_only", "refuted_or_blocked"]:
         md.append(f"- `{tier}`: {counts.get(tier, 0)}")
     md += ["", "## Rows", "", "| file | tier | kind | reason | needs |", "|---|---|---|---|---|"]
     for row in rows:

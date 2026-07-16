@@ -124,6 +124,7 @@ or staging folder is.
 |---|---|
 | מוכן לשימוש | `triangulated` |
 | מגובה, דורש אימות נוסף | `source_backed` |
+| נסרק, טרם אומת | `indexed_unverified` |
 | סיכום שצריך השלמת מקורות | synthesis without a source spine |
 | חסר אסמכתא | `graph_only`, `ledger_supported`, or `corroborated_no_source` |
 | סתירה או חסם אמון | refuted/blocked or contradiction hard block |
@@ -146,7 +147,15 @@ case, paste the folder path into the input. The same UI is ready for desktop
 packaging, where drag/drop can expose the path reliably.
 
 The GUI is still fully local and deterministic. It binds to `127.0.0.1` by
-default, does not call cloud APIs, and uses the same report files as the CLI.
+default, does not call cloud APIs, requires a per-session local request token
+for state-changing actions, and uses the same report files as the CLI.
+
+### GUI Trust Boundary
+
+Anti-Silo checks provenance, source linkage, and whether the inspected text was
+complete. It does not determine semantic or professional truth. A local file
+that was merely staged for inspection is reported as `indexed_unverified`; it
+cannot be used as its own independent source.
 
 Optional GUI flags:
 
@@ -171,9 +180,9 @@ python -m anti_silo.cli pulse --vault path/to/staging-vault
 
 `ingest` stages supported files as Markdown review units and records:
 
-- `source_hash`
-- `raw_source_hash`
-- original relative file path
+- intake hash and original relative file path
+- `intake_kind: self_indexed`
+- extraction status: `complete`, `truncated`, or `failed`
 - original extension
 - a `SOURCE_MANIFEST.json` audit manifest
 
@@ -183,9 +192,10 @@ Supported intake extensions are `.md`, `.txt`, `.csv`, `.json`, `.html`,
 available, and otherwise the staged file records that extraction was
 unavailable.
 
-Intake mode does not certify semantic truth. It creates deterministic
-`source_backed` candidates so a reviewer can add corroboration, ledger support,
-or promotion decisions later.
+Intake mode does not certify semantic truth and does not create a source claim
+from a file's own hash. It produces `indexed_unverified` review items. Failed
+or truncated extraction is a hard trust block until the original material is
+reviewed completely or extracted again.
 
 ## CLI
 
@@ -238,6 +248,7 @@ The `cor-sys` profile keeps full grounding strict (`triangulated` only) but mark
 |---|---|
 | `triangulated` | claim + source anchor + corroboration |
 | `source_backed` | claim + source anchor, still needs corroboration |
+| `indexed_unverified` | locally staged file; no independent source verification |
 | `corroborated_no_source` | claim + corroboration, but source is missing |
 | `ledger_supported` | ledger mention exists, but support is weak |
 | `graph_only` | graph assertion only |

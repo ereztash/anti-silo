@@ -165,7 +165,7 @@ def test_blocked_marker_still_honors_status_field(tmp_path) -> None:
     assert claim.tier == "refuted_or_blocked"
 
 
-def test_ingest_stages_source_documents_with_raw_source_hash(tmp_path) -> None:
+def test_ingest_stages_source_documents_as_unverified_intake(tmp_path) -> None:
     source = tmp_path / "source"
     source.mkdir()
     (source / "note.txt").write_text("source_hash: stale\nlocal source note", encoding="utf-8")
@@ -176,11 +176,12 @@ def test_ingest_stages_source_documents_with_raw_source_hash(tmp_path) -> None:
     assert payload["files"] == 1
     assert staged_note.exists()
     text = staged_note.read_text(encoding="utf-8")
-    assert "raw_source_hash:" in text
+    assert "intake_kind: self_indexed" in text
+    assert "raw_source_hash:" not in text
     assert "claim: extracted document content" in text
     assert (staged / "SOURCE_MANIFEST.json").exists()
     row = next(row for row in build_triangulation(staged, load_config()) if row.file == "note.md")
-    assert row.tier == "source_backed"
+    assert row.tier == "indexed_unverified"
 
 
 def test_pulse_names_source_backed_only_block_as_pending_corroboration(tmp_path) -> None:
@@ -204,9 +205,9 @@ def test_gui_human_report_translates_tiers_for_nontechnical_users(tmp_path) -> N
 
     report = build_human_report(source, load_config(), output_vault=staged)
     assert report["files"] == 1
-    assert report["counts"]["backed"] == 1
-    assert report["rows"][0]["status"] == "מגובה במקור"
-    assert report["rows"][0]["technical_tier"] == "source_backed"
+    assert report["counts"]["indexed"] == 1
+    assert report["rows"][0]["status"] == "נסרק, טרם אומת"
+    assert report["rows"][0]["technical_tier"] == "indexed_unverified"
     assert report["rows"][0]["action"]
     assert report["temporary"] is False
     assert "html_report" in report["downloads"]
@@ -219,6 +220,22 @@ def test_gui_html_exposes_shelf_product_controls() -> None:
     assert "שמור דוח HTML" in HTML
     assert "אשף תיקון" in HTML
     assert "תצוגה פשוטה / מקצועית" in HTML
+    assert "__CSRF_TOKEN__" in HTML
+    assert "גבול אמון" in HTML
+
+
+def test_ingest_extraction_failure_and_truncation_create_hard_blocks(tmp_path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "large.csv").write_text("\n".join(f"{index},value" for index in range(250)), encoding="utf-8")
+    staged = tmp_path / "staged"
+
+    write_ingest(source, load_config(), staged)
+    payload = write_pulse(staged, {**load_config(), "output_dir": "out"})
+    assert payload["triangulation"]["indexed_unverified"] == 1
+    assert payload["contradiction_penalty"]["hard_blocks"] == 1
+    assert payload["contradiction_penalty"]["by_rule"]["extraction_truncated"] == 1
+    assert payload["decision"] == "blocked"
 
 
 def test_quick_scan_uses_temporary_staging_and_localized_outputs(tmp_path) -> None:

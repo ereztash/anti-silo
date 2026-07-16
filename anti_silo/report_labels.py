@@ -11,6 +11,7 @@ from .config import output_dir
 TIER_LABELS_HE = {
     "triangulated": "מאומת",
     "source_backed": "מגובה_במקור",
+    "indexed_unverified": "נסרק_טרם_אומת",
     "graph_only": "ללא_תימוכין",
     "ledger_supported": "רישום_ללא_מקור",
     "corroborated_no_source": "חיזוק_ללא_מקור",
@@ -29,6 +30,7 @@ DECISION_LABELS_HE = {
 ACTION_LABELS_HE = {
     "ready": "אפשר להשתמש",
     "backed": "הוסף אימות נוסף",
+    "indexed": "צרף מקור עצמאי לפני הסתמכות",
     "synthesis": "השלם רשימת מקורות",
     "unsupported": "הוסף קובץ מקור תומך",
     "contradiction": "תקן לפני הסתמכות",

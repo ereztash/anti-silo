@@ -7,6 +7,7 @@ import json
 import re
 import shutil
 from datetime import datetime, timezone
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,13 @@ DEFAULT_INGEST_EXTENSIONS = {
     ".xlsx",
     ".pdf",
 }
+
+
+@dataclass(frozen=True)
+class ExtractionResult:
+    text: str
+    status: str = "complete"
+    note: str = ""
 
 
 def _sha256(path: Path) -> str:
@@ -63,22 +71,24 @@ def _prepare_output(source_root: Path, output_vault: Path) -> None:
     output_vault.mkdir(parents=True, exist_ok=True)
 
 
-def _extract_csv(path: Path) -> str:
+def _extract_csv(path: Path) -> ExtractionResult:
     rows: list[str] = []
     with path.open("r", encoding="utf-8-sig", newline="", errors="replace") as f:
         reader = csv.reader(f)
         for idx, row in enumerate(reader):
             if idx >= 200:
-                rows.append("[truncated after 200 rows]")
-                break
+                return ExtractionResult("\n".join(rows), "truncated", "CSV limited to the first 200 rows")
             rows.append(" | ".join(cell.strip() for cell in row))
-    return "\n".join(rows)
+    return ExtractionResult("\n".join(rows))
 
 
-def _extract_json(path: Path) -> str:
+def _extract_json(path: Path) -> ExtractionResult:
     with path.open("r", encoding="utf-8-sig", errors="replace") as f:
         data = json.load(f)
-    return json.dumps(data, ensure_ascii=False, indent=2)[:20000]
+    text = json.dumps(data, ensure_ascii=False, indent=2)
+    if len(text) > 20000:
+        return ExtractionResult(text[:20000], "truncated", "JSON limited to the first 20,000 characters")
+    return ExtractionResult(text)
 
 
 def _strip_html(text: str) -> str:
@@ -88,66 +98,73 @@ def _strip_html(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def _extract_docx(path: Path) -> str:
+def _extract_docx(path: Path) -> ExtractionResult:
     try:
         import docx  # type: ignore[import-not-found]
     except Exception as exc:  # pragma: no cover - depends on optional package
-        return f"[docx extraction unavailable: {exc}]"
+        return ExtractionResult("", "failed", f"DOCX extraction unavailable: {exc}")
     document = docx.Document(str(path))
-    return "\n".join(paragraph.text for paragraph in document.paragraphs if paragraph.text.strip())
+    return ExtractionResult("\n".join(paragraph.text for paragraph in document.paragraphs if paragraph.text.strip()))
 
 
-def _extract_xlsx(path: Path) -> str:
+def _extract_xlsx(path: Path) -> ExtractionResult:
     try:
         import openpyxl  # type: ignore[import-not-found]
     except Exception as exc:  # pragma: no cover - depends on optional package
-        return f"[xlsx extraction unavailable: {exc}]"
+        return ExtractionResult("", "failed", f"XLSX extraction unavailable: {exc}")
     workbook = openpyxl.load_workbook(path, read_only=True, data_only=True)
     chunks: list[str] = []
+    truncated = False
     for sheet in workbook.worksheets:
         chunks.append(f"## Sheet: {sheet.title}")
         for idx, row in enumerate(sheet.iter_rows(values_only=True)):
             if idx >= 200:
-                chunks.append("[sheet truncated after 200 rows]")
+                truncated = True
                 break
             values = ["" if value is None else str(value) for value in row]
             if any(value.strip() for value in values):
                 chunks.append(" | ".join(values))
     workbook.close()
-    return "\n".join(chunks)
+    return ExtractionResult(
+        "\n".join(chunks),
+        "truncated" if truncated else "complete",
+        "XLSX sheets limited to the first 200 rows" if truncated else "",
+    )
 
 
-def _extract_pdf(path: Path) -> str:
+def _extract_pdf(path: Path) -> ExtractionResult:
     try:
         from pypdf import PdfReader  # type: ignore[import-not-found]
     except Exception as exc:  # pragma: no cover - depends on optional package
-        return f"[pdf extraction unavailable: {exc}]"
+        return ExtractionResult("", "failed", f"PDF extraction unavailable: {exc}")
     reader = PdfReader(str(path))
     pages: list[str] = []
     for page in reader.pages[:20]:
         pages.append(page.extract_text() or "")
-    if len(reader.pages) > 20:
-        pages.append("[truncated after 20 pages]")
-    return "\n".join(pages)
+    return ExtractionResult(
+        "\n".join(pages),
+        "truncated" if len(reader.pages) > 20 else "complete",
+        "PDF limited to the first 20 pages" if len(reader.pages) > 20 else "",
+    )
 
 
-def extract_text(path: Path) -> str:
+def extract_text(path: Path) -> ExtractionResult:
     ext = path.suffix.lower()
     if ext in {".md", ".txt"}:
-        return read_text(path)
+        return ExtractionResult(read_text(path))
     if ext == ".csv":
         return _extract_csv(path)
     if ext == ".json":
         return _extract_json(path)
     if ext in {".html", ".htm"}:
-        return _strip_html(read_text(path))
+        return ExtractionResult(_strip_html(read_text(path)))
     if ext == ".docx":
         return _extract_docx(path)
     if ext == ".xlsx":
         return _extract_xlsx(path)
     if ext == ".pdf":
         return _extract_pdf(path)
-    return "[unsupported file type]"
+    return ExtractionResult("", "failed", "Unsupported file type")
 
 
 def iter_source_files(source_root: Path, config: dict[str, Any]) -> list[Path]:
@@ -178,21 +195,23 @@ def write_ingest(source_root: Path, config: dict[str, Any], output_vault: Path |
         digest = _sha256(source)
         ext = source.suffix.lower()
         by_extension[ext] = by_extension.get(ext, 0) + 1
-        extracted = extract_text(source).strip()
+        extraction = extract_text(source)
+        extracted = extraction.text.strip()
         target = output_vault / _safe_name(rel_path)
         target.write_text(
             "\n".join(
                 [
                     "type: extracted_source_document",
                     "claim_kind: synthesis",
-                    "source_of_truth: true",
-                    f"source_hash: {digest}",
-                    f"raw_source_hash: {digest}",
+                    "intake_kind: self_indexed",
+                    f"extraction_status: {extraction.status}",
+                    f"extraction_note: {json.dumps(extraction.note, ensure_ascii=False)}",
+                    f"intake_hash: {digest}",
                     f"source_file: {json.dumps(rel_path.as_posix(), ensure_ascii=False)}",
                     f"source_extension: {ext}",
                     "---",
-                    f"source-of-truth: extracted from local source file `{rel_path.as_posix()}`",
-                    "claim: extracted document content for Anti-Silo triangulation review",
+                    f"source-of-truth: local intake copy from `{rel_path.as_posix()}`; not independent evidence",
+                    "claim: extracted document content awaiting independent source verification",
                     "",
                     extracted or "[no extractable text]",
                     "",
@@ -207,6 +226,8 @@ def write_ingest(source_root: Path, config: dict[str, Any], output_vault: Path |
                 "extension": ext,
                 "raw_source_hash": digest,
                 "bytes": source.stat().st_size,
+                "extraction_status": extraction.status,
+                "extraction_note": extraction.note,
             }
         )
 
