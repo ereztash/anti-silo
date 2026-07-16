@@ -157,6 +157,28 @@ complete. It does not determine semantic or professional truth. A local file
 that was merely staged for inspection is reported as `indexed_unverified`; it
 cannot be used as its own independent source.
 
+## Local Second Brain
+
+Anti-Silo can also run as an independent local second brain:
+
+```powershell
+python -m anti_silo.cli brain
+```
+
+The Brain opens on the same local-only interface and stores its data in a
+separate local `brain.json` file. It does not import, depend on, or expose any
+specific knowledge graph or client system.
+
+Use the Brain to keep notes, questions, tasks, decisions, and sources from a
+Quick Scan. A source retains the exact trust tier it had during scanning;
+adding it to the Brain cannot promote it. Decisions can be linked to their
+supporting sources. The review queue flags decisions with no linked source and
+decisions that depend on a source below `triangulated`.
+
+This makes the Brain a memory and decision surface, while Anti-Silo remains the
+provenance gate. It is deliberately not a semantic-truth engine, user-value
+measurement system, or product-validation system.
+
 Optional GUI flags:
 
 ```powershell
@@ -201,6 +223,7 @@ reviewed completely or extracted again.
 
 ```powershell
 python -m anti_silo.cli gui
+python -m anti_silo.cli brain
 python -m anti_silo.cli ingest --vault path/to/source-folder --output-vault path/to/staging-vault
 python -m anti_silo.cli index --vault examples/mini_vault
 python -m anti_silo.cli triangulate --vault examples/mini_vault

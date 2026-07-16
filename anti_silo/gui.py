@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote, unquote, urlparse
 
+from .brain import BrainStore
 from .config import output_dir
 from .ingest import write_ingest
 from .pulse import write_pulse
@@ -216,6 +217,12 @@ HTML = r"""<!doctype html>
     .pill.ready { background:#e7f5ed; color:var(--ok); }
     .pill.backed, .pill.synthesis, .pill.indexed { background:#fff4d8; color:var(--warn); }
     .boundary { margin-top: 12px; padding: 10px 12px; border-right: 3px solid #9a6500; background:#fff8e8; color:#5f4a00; font-size: 14px; }
+    textarea, select { width:100%; min-height:42px; padding:9px 12px; border:1px solid var(--line); border-radius:6px; background:#fff; font:inherit; }
+    textarea { min-height:92px; resize:vertical; }
+    .brain-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:18px; }
+    .brain-list { margin:12px 0 0; padding:0; list-style:none; }
+    .brain-list li { padding:9px 0; border-bottom:1px solid var(--line); }
+    .brain-list li:last-child { border-bottom:0; }
     .pill.unsupported, .pill.contradiction { background:#fdebea; color:var(--bad); }
     .downloads a { display:inline-block; margin: 6px 0 0 8px; color:#1d4ed8; font-weight:700; }
     .actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
@@ -232,7 +239,7 @@ HTML = r"""<!doctype html>
     <div class="boundary">גבול אמון: Anti-Silo בודק שרשרת מקורות ושלמות חילוץ. הוא לא מאמת שהטקסט נכון מבחינה מקצועית או עובדתית.</div>
   </header>
   <main>
-    <section class="panel">
+    <section id="scan-panel" class="panel">
       <label for="path">תיקייה לסריקה</label>
       <div class="row">
         <input id="path" placeholder="C:\Users\me\Desktop\project-docs">
@@ -247,6 +254,7 @@ HTML = r"""<!doctype html>
     <section id="downloads" class="panel downloads" hidden></section>
     <section id="wizard" class="panel" hidden></section>
     <section id="results" hidden></section>
+    <section id="brain" class="panel" hidden></section>
   </main>
   <script>
     const labels = {
@@ -269,11 +277,13 @@ HTML = r"""<!doctype html>
     const resultsEl = document.getElementById('results');
     const downloadsEl = document.getElementById('downloads');
     const wizardEl = document.getElementById('wizard');
+    const brainEl = document.getElementById('brain');
     const dropzone = document.getElementById('dropzone');
     const button = document.getElementById('scan');
     const csrfToken = '__CSRF_TOKEN__';
     let lastReport = null;
     let lastPath = '';
+    const initialView = '__INITIAL_VIEW__';
 
     function metric(key, value) {
       return `<div class="metric ${key}"><b>${value || 0}</b><span>${labels[key]}</span></div>`;
@@ -324,6 +334,7 @@ HTML = r"""<!doctype html>
 
       resultsEl.hidden = false;
       resultsEl.innerHTML = table(data.rows);
+      loadBrain();
     }
 
     function downloadTodo() {
@@ -378,6 +389,89 @@ HTML = r"""<!doctype html>
       statusEl.className = 'panel empty';
       statusEl.textContent = 'תוצאות זמניות נמחקו.';
     }
+
+    async function api(path, method = 'GET', body = null) {
+      const response = await fetch(path, {
+        method,
+        headers: method === 'GET' ? {} : {'Content-Type': 'application/json', 'X-Anti-Silo-CSRF': csrfToken},
+        body: body ? JSON.stringify(body) : null
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'request failed');
+      return data;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>'"]/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+      })[char]);
+    }
+
+    function brainEntry(entry) {
+      const detail = entry.kind === 'source' ? entry.trust_status || entry.trust_tier : entry.body;
+      return `<li><b>${escapeHtml(entry.title)}</b><br><span class="hint">${escapeHtml(entry.kind)}${detail ? ` | ${escapeHtml(detail)}` : ''}</span></li>`;
+    }
+
+    async function loadBrain() {
+      try {
+        const data = await api('/api/brain');
+        brainEl.hidden = false;
+        const counts = data.counts;
+        const sources = data.entries.filter(entry => entry.kind === 'source');
+        const sourceOptions = sources.map(entry => `<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.title)} (${escapeHtml(entry.trust_status || entry.trust_tier)})</option>`).join('');
+        const queue = data.review_queue.length
+          ? `<ul class="brain-list">${data.review_queue.map(item => `<li><b>${escapeHtml(item.title)}</b><br><span class="hint">${escapeHtml(item.reason)}</span></li>`).join('')}</ul>`
+          : '<p class="hint">אין כרגע פריטים שמחכים לבדיקה.</p>';
+        brainEl.innerHTML = `
+          <b>המוח השני שלך</b>
+          <p class="hint">הידע נשמר מקומית ב-${escapeHtml(data.root)}. המקורות שומרים את דרגת האמון שבה נסרקו; יצירת הערה או החלטה אינה משנה אותה.</p>
+          <div class="summary">${metric('ready', counts.trusted_sources)}${metric('indexed', counts.sources - counts.trusted_sources)}${metric('backed', counts.notes)}${metric('synthesis', counts.decisions)}${metric('unsupported', counts.questions)}${metric('contradiction', queue)}</div>
+          <div class="actions"><button class="secondary" type="button" onclick="importLastScan()">הוסף את תוצאות הסריקה למוח השני</button></div>
+          <div class="brain-grid">
+            <div>
+              <label for="brain-kind">פריט חדש</label>
+              <select id="brain-kind"><option value="note">הערה</option><option value="decision">החלטה</option><option value="question">שאלה</option><option value="task">משימה</option></select>
+              <input id="brain-title" placeholder="כותרת" style="margin-top:8px; direction:rtl; text-align:right;">
+              <textarea id="brain-body" placeholder="מה חשוב לזכור או להחליט?"></textarea>
+              <label for="brain-sources" class="hint">מקורות קשורים</label>
+              <select id="brain-sources" multiple size="4">${sourceOptions}</select>
+              <div class="actions"><button type="button" onclick="addBrainEntry()">שמור במוח השני</button></div>
+            </div>
+            <div><b>תור בדיקה</b>${queue}</div>
+          </div>
+          <div><b>פריטים אחרונים</b><ul class="brain-list">${data.entries.slice(0, 8).map(brainEntry).join('') || '<li class="hint">עדיין אין פריטים.</li>'}</ul></div>`;
+      } catch (err) {
+        brainEl.hidden = false;
+        brainEl.innerHTML = `<b>המוח השני לא נטען.</b><p class="hint">${err.message}</p>`;
+      }
+    }
+
+    async function importLastScan() {
+      try {
+        const data = await api('/api/brain/import-last-scan', 'POST');
+        statusEl.className = 'panel';
+        statusEl.textContent = `נוספו ${data.added} מקורות למוח השני.`;
+        loadBrain();
+      } catch (err) {
+        statusEl.className = 'panel';
+        statusEl.textContent = err.message;
+      }
+    }
+
+    async function addBrainEntry() {
+      const kind = document.getElementById('brain-kind').value;
+      const title = document.getElementById('brain-title').value.trim();
+      const body = document.getElementById('brain-body').value.trim();
+      const sourceIds = Array.from(document.getElementById('brain-sources').selectedOptions).map(option => option.value);
+      if (!title) return;
+      try {
+        await api('/api/brain/entries', 'POST', {kind, title, body, source_ids: sourceIds});
+        loadBrain();
+      } catch (err) {
+        statusEl.className = 'panel';
+        statusEl.textContent = err.message;
+      }
+    }
     button.addEventListener('click', scan);
     document.getElementById('path').addEventListener('keydown', event => { if (event.key === 'Enter') scan(); });
     dropzone.addEventListener('dragover', event => { event.preventDefault(); dropzone.classList.add('active'); });
@@ -394,6 +488,11 @@ HTML = r"""<!doctype html>
         statusEl.innerHTML = '<b>הדפדפן לא חשף נתיב תיקייה מלא.</b><br>בגרסת דפדפן רגילה יש להדביק את הנתיב בשדה. באריזת Desktop הפעולה הזו תעבוד כגרירה מלאה.';
       }
     });
+    if (initialView === 'brain') {
+      document.getElementById('scan-panel').hidden = true;
+      statusEl.hidden = true;
+      loadBrain();
+    }
   </script>
 </body>
 </html>
@@ -419,7 +518,9 @@ class AntiSiloGuiHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
         if parsed.path == "/":
-            body = HTML.replace("__CSRF_TOKEN__", str(getattr(self.server, "csrf_token", ""))).encode("utf-8")
+            body = HTML.replace("__CSRF_TOKEN__", str(getattr(self.server, "csrf_token", ""))).replace(
+                "__INITIAL_VIEW__", str(getattr(self.server, "initial_view", "scan"))
+            ).encode("utf-8")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
@@ -441,6 +542,9 @@ class AntiSiloGuiHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(data)
             return
+        if parsed.path == "/api/brain":
+            self._send_json(self.server.brain_store.dashboard())
+            return
         self.send_error(HTTPStatus.NOT_FOUND)
 
     def do_POST(self) -> None:  # noqa: N802
@@ -457,6 +561,29 @@ class AntiSiloGuiHandler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
             return
+        if path == "/api/brain/import-last-scan":
+            try:
+                report = getattr(self.server, "last_report", None)
+                if not report:
+                    raise ValueError("יש לבצע סריקה לפני ייבוא מקורות למוח השני")
+                self._send_json(self.server.brain_store.import_scan_report(report))
+            except Exception as exc:
+                self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+        if path == "/api/brain/entries":
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                payload = json.loads(self.rfile.read(length).decode("utf-8"))
+                entry = self.server.brain_store.add_entry(
+                    kind=str(payload.get("kind", "note")),
+                    title=str(payload.get("title", "")),
+                    body=str(payload.get("body", "")),
+                    source_ids=[str(item) for item in payload.get("source_ids", [])],
+                )
+                self._send_json({"entry": entry})
+            except Exception as exc:
+                self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
         if path != "/api/scan":
             self.send_error(HTTPStatus.NOT_FOUND)
             return
@@ -468,6 +595,7 @@ class AntiSiloGuiHandler(BaseHTTPRequestHandler):
                 raise ValueError("התיקייה לא קיימת")
             report = build_human_report(source_root, self.server.config)
             self.server.allowed_roots = [Path(report["staged_vault"]).resolve(), Path(report["output_dir"]).resolve()]
+            self.server.last_report = report
             self._send_json(report)
         except Exception as exc:
             self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
@@ -480,13 +608,25 @@ class AntiSiloGuiServer(ThreadingHTTPServer):
     config: dict[str, Any]
     allowed_roots: list[Path]
     csrf_token: str
+    brain_store: BrainStore
+    initial_view: str
+    last_report: dict[str, Any] | None
 
 
-def serve_gui(config: dict[str, Any], host: str = "127.0.0.1", port: int = 8765, open_browser: bool = True) -> str:
+def serve_gui(
+    config: dict[str, Any],
+    host: str = "127.0.0.1",
+    port: int = 8765,
+    open_browser: bool = True,
+    initial_view: str = "scan",
+) -> str:
     server = AntiSiloGuiServer((host, port), AntiSiloGuiHandler)
     server.config = config
     server.allowed_roots = []
     server.csrf_token = secrets.token_urlsafe(32)
+    server.brain_store = BrainStore()
+    server.initial_view = initial_view
+    server.last_report = None
     url = f"http://{server.server_address[0]}:{server.server_address[1]}/"
     if open_browser:
         threading.Timer(0.3, lambda: webbrowser.open(url)).start()

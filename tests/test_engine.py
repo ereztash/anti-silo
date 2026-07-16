@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
+from anti_silo.brain import BrainStore
 from anti_silo.config import load_config
 from anti_silo.contradiction import build_contradiction_penalties
 from anti_silo.evidence_queue import build_queue
@@ -361,3 +362,40 @@ def test_contradiction_hard_block_overrides_review_tier(tmp_path) -> None:
     claim = next(row for row in rows if row.file == "claim.md")
     assert claim.decision == "block"
     assert "contradiction penalty hard block" in claim.reason
+
+
+def test_brain_preserves_source_trust_and_reviews_unsupported_decisions(tmp_path) -> None:
+    store = BrainStore(tmp_path / "brain")
+    report = {
+        "source_root": str(tmp_path / "sources"),
+        "rows": [
+            {
+                "file": "verified.md",
+                "technical_tier": "triangulated",
+                "status": "verified",
+                "action": "ready",
+                "explanation": "raw source and corroboration",
+            },
+            {
+                "file": "draft.md",
+                "technical_tier": "indexed_unverified",
+                "status": "indexed only",
+                "action": "review",
+                "explanation": "missing source evidence",
+            },
+        ],
+    }
+
+    assert store.import_scan_report(report) == {"added": 2, "skipped": 0}
+    assert store.import_scan_report(report) == {"added": 0, "skipped": 2}
+    dashboard = store.dashboard()
+    assert dashboard["counts"]["sources"] == 2
+    assert dashboard["counts"]["trusted_sources"] == 1
+
+    store.add_entry(kind="decision", title="unsupported decision")
+    trusted_source = next(entry for entry in store.entries() if entry.get("trust_tier") == "triangulated")
+    supported = store.add_entry(kind="decision", title="supported decision", source_ids=[trusted_source["id"]])
+
+    queued_ids = {item["id"] for item in store.review_queue()}
+    assert any(item["title"] == "unsupported decision" for item in store.review_queue())
+    assert supported["id"] not in queued_ids
