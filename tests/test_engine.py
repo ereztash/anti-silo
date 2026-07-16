@@ -7,7 +7,7 @@ from anti_silo.config import load_config
 from anti_silo.contradiction import build_contradiction_penalties
 from anti_silo.evidence_queue import build_queue
 from anti_silo.eligible import build_eligible_sources, build_internal_grounding_candidates
-from anti_silo.gui import build_human_report
+from anti_silo.gui import HTML, build_human_report
 from anti_silo.ingest import write_ingest
 from anti_silo.index import build_index
 from anti_silo.pulse import write_pulse
@@ -205,7 +205,15 @@ def test_gui_human_report_translates_tiers_for_nontechnical_users(tmp_path) -> N
     assert report["counts"]["backed"] == 1
     assert report["rows"][0]["status"] == "מגובה במקור"
     assert report["rows"][0]["technical_tier"] == "source_backed"
+    assert "html_report" in report["downloads"]
     assert "manifest" in report["downloads"]
+    assert Path(report["downloads"]["html_report"]).exists()
+
+
+def test_gui_html_exposes_shelf_product_controls() -> None:
+    assert "dropzone" in HTML
+    assert "שמור דוח HTML" in HTML
+    assert "אשף תיקון" in HTML
 
 
 def test_research_library_indexes_pdf_and_html_without_text_parsing(tmp_path) -> None:

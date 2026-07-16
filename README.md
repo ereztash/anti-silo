@@ -116,7 +116,7 @@ python -m anti_silo.cli gui
 
 Anti-Silo opens a browser at `http://127.0.0.1:8765/`. The UI asks for a local
 folder path, stages the folder with `ingest`, runs `pulse`, and shows a plain
-language trust report:
+language trust report.
 
 | UI Label | Engine Meaning |
 |---|---|
@@ -125,6 +125,19 @@ language trust report:
 | סיכום שצריך השלמת מקורות | synthesis without a source spine |
 | חסר אסמכתא | `graph_only`, `ledger_supported`, or `corroborated_no_source` |
 | סתירה או חסם אמון | refuted/blocked or contradiction hard block |
+
+The GUI includes:
+
+- folder path scan
+- best-effort drag/drop folder target
+- Hebrew summary cards and a plain-language file table
+- "שמור דוח HTML" export via `ANTI_SILO_REPORT.html`
+- source allowlist and source TODO downloads
+- a small repair wizard that filters files needing source repair
+
+Browser security usually hides the full local path during drag/drop. In that
+case, paste the folder path into the input. The same UI is ready for desktop
+packaging, where drag/drop can expose the path reliably.
 
 The GUI is still fully local and deterministic. It binds to `127.0.0.1` by
 default, does not call cloud APIs, and uses the same report files as the CLI.
@@ -359,6 +372,25 @@ python -m anti_silo.cli snapshot --vault path/to/vault --message "Trust snapshot
 ```
 
 Use `--sign` to request `git commit -S`.
+
+## Desktop Packaging
+
+Anti-Silo can be packaged as a Windows desktop executable with PyInstaller:
+
+```powershell
+python -m pip install -e ".[desktop]"
+pyinstaller packaging/anti_silo_gui.spec
+```
+
+The output is written to:
+
+```text
+dist/Anti-Silo.exe
+```
+
+The executable opens the same local GUI and keeps the same trust boundary:
+local processing, deterministic reports, and no cloud calls. Packaging notes
+live in `packaging/README.md`.
 
 ## Product Boundary
 
