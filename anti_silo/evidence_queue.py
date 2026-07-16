@@ -11,6 +11,7 @@ from .triangulation import build_triangulation
 
 
 REPAIR_RULES = {
+    "indexed_unverified": ("source_anchor_backfill", "attach an independent source selected by the user"),
     "graph_only": ("source_and_corroboration_backfill", "add source anchor and independent corroboration"),
     "source_backed": ("corroboration_backfill", "add independent field or methodological corroboration"),
     "corroborated_no_source": ("source_anchor_backfill", "add explicit source anchor"),

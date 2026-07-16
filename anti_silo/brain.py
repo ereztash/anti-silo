@@ -64,7 +64,17 @@ class BrainStore:
             "updated_at": _now(),
         }
         if kind == "decision":
-            entry["decision_status"] = "draft_requires_sources" if not entry["source_ids"] else "needs_source_review"
+            by_id = {str(row.get("id")): row for row in entries}
+            linked_sources = [by_id[source_id] for source_id in entry["source_ids"] if source_id in by_id]
+            if not linked_sources:
+                entry["decision_status"] = "draft_requires_sources"
+            elif len(linked_sources) == len(entry["source_ids"]) and all(
+                source.get("kind") == "source" and source.get("trust_tier") == "triangulated"
+                for source in linked_sources
+            ):
+                entry["decision_status"] = "supported"
+            else:
+                entry["decision_status"] = "needs_source_review"
         entries.append(entry)
         self._save(data)
         return entry
@@ -112,10 +122,13 @@ class BrainStore:
             if entry.get("kind") == "source" and entry.get("trust_tier") != "triangulated":
                 queue.append({"id": str(entry["id"]), "title": str(entry["title"]), "reason": "המקור טרם הגיע לדרגת אמון מלאה"})
             if entry.get("kind") == "decision":
-                sources = [by_id[source_id] for source_id in entry.get("source_ids", []) if source_id in by_id]
+                source_ids = entry.get("source_ids", [])
+                sources = [by_id[source_id] for source_id in source_ids if source_id in by_id]
                 if not sources:
                     queue.append({"id": str(entry["id"]), "title": str(entry["title"]), "reason": "החלטה ללא מקורות מקושרים"})
-                elif any(source.get("trust_tier") != "triangulated" for source in sources):
+                elif len(sources) != len(source_ids) or any(
+                    source.get("kind") != "source" or source.get("trust_tier") != "triangulated" for source in sources
+                ):
                     queue.append({"id": str(entry["id"]), "title": str(entry["title"]), "reason": "החלטה נשענת על מקור שעדיין דורש אימות"})
         return queue
 

@@ -1,4 +1,6 @@
-#define AppVersion "0.3.3"
+#ifndef AppVersion
+  #define AppVersion "0.3.3"
+#endif
 
 [Setup]
 AppId={{6B2382DD-8B5B-4D8D-A6C5-7E489B4D3D20}
@@ -22,7 +24,7 @@ Name: "{autodesktop}\Anti-Silo"; Filename: "{app}\Anti-Silo.exe"; Tasks: desktop
 Name: "{group}\Anti-Silo"; Filename: "{app}\Anti-Silo.exe"
 
 [Tasks]
-Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked
+Name: "desktopicon"; Description: "Create a desktop shortcut"
 
 [Run]
 Filename: "{app}\Anti-Silo.exe"; Description: "Open Anti-Silo"; Flags: nowait postinstall skipifsilent

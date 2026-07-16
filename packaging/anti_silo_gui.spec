@@ -5,12 +5,14 @@
 #   pyinstaller packaging/anti_silo_gui.spec
 
 from PyInstaller.utils.hooks import collect_submodules
+from importlib.metadata import version
 from pathlib import Path
 import sys
 
 
 hiddenimports = collect_submodules("anti_silo")
 ROOT = Path(SPECPATH).parent
+APP_VERSION = version("anti-silo")
 
 a = Analysis(
     [str(ROOT / "packaging" / "run_gui.py")],
@@ -53,7 +55,7 @@ if sys.platform == "darwin":
         bundle_identifier="com.ereztash.antisilo",
         info_plist={
             "CFBundleDisplayName": "Anti-Silo",
-            "CFBundleShortVersionString": "0.2.0",
-            "CFBundleVersion": "0.2.0",
+            "CFBundleShortVersionString": APP_VERSION,
+            "CFBundleVersion": APP_VERSION,
         },
     )

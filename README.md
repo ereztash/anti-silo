@@ -1,6 +1,8 @@
 # Anti-Silo
 
-Anti-Silo is a portable trust engine for local knowledge graphs.
+Anti-Silo is a local provenance gate that answers a practical question before
+files enter AI or RAG: which files have enough source support to rely on, and
+which still need evidence repair?
 
 ## Start Here: Windows App
 
@@ -59,12 +61,14 @@ In short: **grounding eligible is not the same as used, useful, adopted, or comm
 - Produces machine-readable JSON/CSV and human-readable Markdown reports.
 - Produces a strict `eligible_sources` allowlist for AI/RAG grounding.
 - Produces source-spine repair templates for synthesis claims.
-- Stages ordinary source folders into an Anti-Silo review vault with stable raw-source hashes.
+- Preserves provenance metadata when scanning an existing structured vault.
+- Stages ordinary document folders into an Anti-Silo review vault without treating a file as its own source.
+- Lets a user attach an independent local source to an unverified file and rerun the trust check.
 - Runs fully locally.
 
 ## What It Does Not Do
 
-- Does not measure product usage or adoption.
+- Does not infer external product adoption from local workflow events.
 - Does not infer user value or commercial validation.
 - Does not use NLP, embeddings, or semantic similarity as the core trust decision.
 - Does not promote claims because they are internally coherent.
@@ -84,7 +88,7 @@ Anti-Silo is designed for teams that already have valuable knowledge spread acro
    Unsupported claims are blocked by the promotion gate. The system exits with a non-zero code when blocked claims exist, so it can be wired into local scripts, CI, release checks, RAG ingestion, or audit workflows.
 
 4. **Repair**  
-   Anti-Silo generates an evidence-upgrade queue that tells the team what kind of evidence is missing: source anchor, corroboration, ledger validation, or repair/retirement.
+   Anti-Silo generates an evidence-upgrade queue that tells the team what kind of evidence is missing: source anchor, corroboration, ledger validation, or repair/retirement. In the desktop flow, an unverified file can be linked to a user-selected independent local source and rescanned immediately. The link establishes provenance only; it does not verify semantic agreement.
 
 5. **Grounding Allowlist**  
    AI/RAG systems consume `eligible_sources.json`, not the whole folder. By default, only `triangulated` sources are allowed into grounding.
@@ -140,10 +144,11 @@ python -m anti_silo.cli gui
 ```
 
 Anti-Silo opens a browser at `http://127.0.0.1:8765/`. The default flow is
-**Quick Scan**: the user chooses a local folder, Anti-Silo creates a temporary
-staging vault under the system temp folder, runs `ingest` + `pulse`, and shows a
-plain-language trust report. The user never needs to know what a vault, ingest,
-or staging folder is.
+**Quick Scan**: the user chooses a local folder and receives a plain-language
+trust report. If the folder is already an Anti-Silo structured vault, Quick Scan
+mirrors it temporarily and preserves its source relationships. If it is an
+ordinary document folder, Quick Scan stages the files as unverified intake.
+The user never needs to know what a vault, ingest, or staging folder is.
 
 | UI Label | Engine Meaning |
 |---|---|
@@ -166,8 +171,9 @@ The GUI includes:
 - one-click rescan after the user adds or edits files
 - "שמור דוח HTML" export via `ANTI_SILO_REPORT.html`
 - source allowlist and source TODO downloads
-- a small repair wizard that filters files needing source repair
+- a per-file repair action for selecting an independent local source and rescanning
 - opt-in local Watch Mode for folders the user chooses to monitor
+- an explicit close action that stops Watch Mode and the local server
 - localized companion outputs such as `pulse.he.json`, `PULSE_HE.md`, and `triangulation_gate.he.csv`
 
 Browser security usually hides the full local path during drag/drop. In that
@@ -200,8 +206,9 @@ specific knowledge graph or client system.
 Use the Brain to keep notes, questions, tasks, decisions, and sources from a
 Quick Scan. A source retains the exact trust tier it had during scanning;
 adding it to the Brain cannot promote it. Decisions can be linked to their
-supporting sources. The review queue flags decisions with no linked source and
-decisions that depend on a source below `triangulated`.
+supporting sources. A decision is marked `supported` only when all linked entries
+are triangulated sources. The review queue flags decisions with no linked source
+or decisions that depend on a source below `triangulated`.
 
 This makes the Brain a memory and decision surface, while Anti-Silo remains the
 provenance gate. It is deliberately not a semantic-truth engine, user-value
@@ -216,10 +223,12 @@ python -m anti_silo.cli gui --open-path path/to/folder
 ```
 
 Watch Mode is opt-in. After a scan, select the local monitoring action and
-Anti-Silo records the folder in a local watch list. A small local polling
-service notices file additions or edits, runs a fresh trust check, and stores a
-recent event summary. It makes no network calls and never watches a folder
-until the user explicitly selects it.
+Anti-Silo records the folder in a local watch list. While the app is open, a
+small local polling service notices file additions or edits, runs a fresh trust
+check, and stores a recent event summary. It makes no network calls and never
+watches a folder until the user explicitly selects it. Closing Anti-Silo stops
+the local server and the active watcher; the saved watch list is available on
+the next launch.
 
 ## Source Intake
 

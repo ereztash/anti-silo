@@ -14,8 +14,10 @@ secrets:
 - `AZURE_CODE_SIGNING_NAME`
 - `AZURE_CERT_PROFILE_NAME`
 
-The workflow signs automatically only when every value is present. Never store
-a certificate, password, or Azure credential in the repository. A verified
+The workflow signs the portable `Anti-Silo.exe` before embedding it in the
+installer, then signs `Anti-Silo-Setup.exe` as a separate artifact. Signing runs
+automatically only when every value is present. Never store a certificate,
+password, or Azure credential in the repository. A verified
 publisher identity improves SmartScreen reputation, but Microsoft notes that a
 new publisher can still receive warnings until it has accumulated clean
 download history.

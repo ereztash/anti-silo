@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import hashlib
-import json
+import tomllib
 from pathlib import Path
 
+import anti_silo
 from anti_silo.brain import BrainStore
 from anti_silo.config import load_config
 from anti_silo.contradiction import build_contradiction_penalties
@@ -15,6 +16,7 @@ from anti_silo.index import build_index
 from anti_silo.pulse import write_pulse
 from anti_silo.promotion import build_enforcement
 from anti_silo.quick_scan import discard_quick_scan, run_quick_scan
+from anti_silo.repair import RepairStore
 from anti_silo.report_labels import tier_label
 from anti_silo.telemetry import LocalTelemetry
 from anti_silo.spine import build_source_spine_todos
@@ -25,6 +27,11 @@ from anti_silo.watch import WatchStore
 
 ROOT = Path(__file__).resolve().parents[1]
 VAULT = ROOT / "examples" / "mini_vault"
+
+
+def test_runtime_version_matches_project_version() -> None:
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    assert anti_silo.__version__ == project["project"]["version"]
 
 
 def test_truth_surface_index_finds_sources() -> None:
@@ -219,12 +226,45 @@ def test_gui_human_report_translates_tiers_for_nontechnical_users(tmp_path) -> N
     assert Path(report["downloads"]["html_report"]).exists()
 
 
+def test_gui_quick_scan_preserves_structured_vault_provenance() -> None:
+    report = build_human_report(VAULT, load_config())
+    try:
+        assert report["input_mode"] == "structured_vault"
+        assert report["counts"]["ready"] == 1
+        pricing = next(row for row in report["rows"] if row["file"].endswith("pricing.md"))
+        assert pricing["technical_tier"] == "triangulated"
+    finally:
+        discard_quick_scan(report["staged_vault"])
+
+
+def test_gui_repair_link_changes_document_from_indexed_to_source_backed(tmp_path) -> None:
+    source = tmp_path / "documents"
+    source.mkdir()
+    (source / "note.txt").write_text("local claim", encoding="utf-8")
+    independent_source = tmp_path / "independent-source.md"
+    independent_source.write_text("independent source material", encoding="utf-8")
+    repairs = RepairStore(tmp_path / "repairs.json")
+    repairs.add(source, "note.txt", independent_source)
+
+    report = build_human_report(source, load_config(), repair_store=repairs)
+    try:
+        assert report["input_mode"] == "document_folder"
+        assert report["counts"]["indexed"] == 0
+        assert report["counts"]["backed"] == 1
+        assert report["rows"][0]["technical_tier"] == "source_backed"
+    finally:
+        discard_quick_scan(report["staged_vault"])
+
+
 def test_gui_html_exposes_shelf_product_controls() -> None:
     assert "dropzone" in HTML
     assert "שמור דוח HTML" in HTML
     assert "הפעולה הבאה" in HTML
     assert "הצג פרטים למתקדמים" in HTML
     assert "__CSRF_TOKEN__" in HTML
+    assert "attachSource" in HTML
+    assert "exitApp" in HTML
+    assert "escapeHtml(row.file)" in HTML
     assert "גבול אמון" in HTML
 
 
@@ -399,10 +439,18 @@ def test_brain_preserves_source_trust_and_reviews_unsupported_decisions(tmp_path
     assert unsupported["decision_status"] == "draft_requires_sources"
     trusted_source = next(entry for entry in store.entries() if entry.get("trust_tier") == "triangulated")
     supported = store.add_entry(kind="decision", title="supported decision", source_ids=[trusted_source["id"]])
+    missing_link = store.add_entry(
+        kind="decision",
+        title="decision with a missing source",
+        source_ids=[trusted_source["id"], "entry-missing"],
+    )
 
     queued_ids = {item["id"] for item in store.review_queue()}
     assert any(item["title"] == "unsupported decision" for item in store.review_queue())
+    assert supported["decision_status"] == "supported"
     assert supported["id"] not in queued_ids
+    assert missing_link["decision_status"] == "needs_source_review"
+    assert missing_link["id"] in queued_ids
 
 
 def test_watch_store_detects_local_change_and_records_scan_result(tmp_path) -> None:
@@ -425,7 +473,11 @@ def test_watch_store_detects_local_change_and_records_scan_result(tmp_path) -> N
 def test_local_telemetry_never_records_file_paths_or_titles(tmp_path) -> None:
     telemetry = LocalTelemetry(tmp_path / "events.jsonl")
     telemetry.record("first_scan_completed", files=3, path="C:/private", title="private note")
+    telemetry.record("scan_completed", files=3)
+    telemetry.record("scan_completed", files=4)
 
-    record = json.loads((tmp_path / "events.jsonl").read_text(encoding="utf-8"))
+    record = telemetry.events()[0]
     assert record["event"] == "first_scan_completed"
     assert record["properties"] == {"files": 3}
+    assert telemetry.has_event("first_scan_completed")
+    assert telemetry.summary() == {"first_scan_completed": 1, "scan_completed": 2}

@@ -183,12 +183,19 @@ def iter_source_files(source_root: Path, config: dict[str, Any]) -> list[Path]:
     return sorted(files)
 
 
-def write_ingest(source_root: Path, config: dict[str, Any], output_vault: Path | None = None) -> dict[str, Any]:
+def write_ingest(
+    source_root: Path,
+    config: dict[str, Any],
+    output_vault: Path | None = None,
+    source_links: dict[str, Path] | None = None,
+) -> dict[str, Any]:
     source_root = source_root.resolve()
     output_vault = (output_vault or (source_root.parent / f"{source_root.name}_anti_silo_staging")).resolve()
     _prepare_output(source_root, output_vault)
 
     rows: list[dict[str, Any]] = []
+    source_links = source_links or {}
+    repair_sources = output_vault / "repair_sources"
     by_extension: dict[str, int] = {}
     for source in iter_source_files(source_root, config):
         rel_path = source.relative_to(source_root) if source_root.is_dir() else Path(source.name)
@@ -198,12 +205,36 @@ def write_ingest(source_root: Path, config: dict[str, Any], output_vault: Path |
         extraction = extract_text(source)
         extracted = extraction.text.strip()
         target = output_vault / _safe_name(rel_path)
+        linked_source = source_links.get(rel_path.as_posix())
+        linked_digest = _sha256(linked_source) if linked_source and linked_source.is_file() else ""
+        intake_metadata = ["intake_kind: self_indexed"]
+        claim_text = "claim: extracted document content awaiting independent source verification"
+        if linked_digest:
+            intake_metadata = ["repair_linked_source: true", f"source_hash: {linked_digest}"]
+            claim_text = "claim: extracted document content linked to a user-selected independent source; semantic match not verified"
+            repair_sources.mkdir(parents=True, exist_ok=True)
+            pointer = repair_sources / f"{linked_digest}.md"
+            if not pointer.exists():
+                pointer.write_text(
+                    "\n".join(
+                        [
+                            "type: user_selected_source",
+                            "source_of_truth: true",
+                            f"raw_source_hash: {linked_digest}",
+                            f"source_name: {json.dumps(linked_source.name, ensure_ascii=False)}",
+                            "---",
+                            "source-of-truth: user-selected independent local file; semantic match not verified",
+                            "",
+                        ]
+                    ),
+                    encoding="utf-8",
+                )
         target.write_text(
             "\n".join(
                 [
                     "type: extracted_source_document",
                     "claim_kind: synthesis",
-                    "intake_kind: self_indexed",
+                    *intake_metadata,
                     f"extraction_status: {extraction.status}",
                     f"extraction_note: {json.dumps(extraction.note, ensure_ascii=False)}",
                     f"intake_hash: {digest}",
@@ -211,7 +242,7 @@ def write_ingest(source_root: Path, config: dict[str, Any], output_vault: Path |
                     f"source_extension: {ext}",
                     "---",
                     f"source-of-truth: local intake copy from `{rel_path.as_posix()}`; not independent evidence",
-                    "claim: extracted document content awaiting independent source verification",
+                    claim_text,
                     "",
                     extracted or "[no extractable text]",
                     "",
@@ -228,6 +259,7 @@ def write_ingest(source_root: Path, config: dict[str, Any], output_vault: Path |
                 "bytes": source.stat().st_size,
                 "extraction_status": extraction.status,
                 "extraction_note": extraction.note,
+                "linked_source": linked_source.name if linked_digest and linked_source else "",
             }
         )
 
