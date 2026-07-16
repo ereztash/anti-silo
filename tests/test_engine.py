@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 
 from anti_silo.brain import BrainStore
@@ -15,6 +16,7 @@ from anti_silo.pulse import write_pulse
 from anti_silo.promotion import build_enforcement
 from anti_silo.quick_scan import discard_quick_scan, run_quick_scan
 from anti_silo.report_labels import tier_label
+from anti_silo.telemetry import LocalTelemetry
 from anti_silo.spine import build_source_spine_todos
 from anti_silo.triangulation import build_triangulation
 from anti_silo.scanner import scan_claims
@@ -220,8 +222,8 @@ def test_gui_human_report_translates_tiers_for_nontechnical_users(tmp_path) -> N
 def test_gui_html_exposes_shelf_product_controls() -> None:
     assert "dropzone" in HTML
     assert "שמור דוח HTML" in HTML
-    assert "אשף תיקון" in HTML
-    assert "תצוגה פשוטה / מקצועית" in HTML
+    assert "הפעולה הבאה" in HTML
+    assert "הצג פרטים למתקדמים" in HTML
     assert "__CSRF_TOKEN__" in HTML
     assert "גבול אמון" in HTML
 
@@ -393,7 +395,8 @@ def test_brain_preserves_source_trust_and_reviews_unsupported_decisions(tmp_path
     assert dashboard["counts"]["sources"] == 2
     assert dashboard["counts"]["trusted_sources"] == 1
 
-    store.add_entry(kind="decision", title="unsupported decision")
+    unsupported = store.add_entry(kind="decision", title="unsupported decision")
+    assert unsupported["decision_status"] == "draft_requires_sources"
     trusted_source = next(entry for entry in store.entries() if entry.get("trust_tier") == "triangulated")
     supported = store.add_entry(kind="decision", title="supported decision", source_ids=[trusted_source["id"]])
 
@@ -417,3 +420,12 @@ def test_watch_store_detects_local_change_and_records_scan_result(tmp_path) -> N
     assert events[0]["kind"] == "changed"
     assert events[0]["report"]["files"] == 2
     assert store.dashboard()["events"][0]["path"] == str(watched.resolve())
+
+
+def test_local_telemetry_never_records_file_paths_or_titles(tmp_path) -> None:
+    telemetry = LocalTelemetry(tmp_path / "events.jsonl")
+    telemetry.record("first_scan_completed", files=3, path="C:/private", title="private note")
+
+    record = json.loads((tmp_path / "events.jsonl").read_text(encoding="utf-8"))
+    assert record["event"] == "first_scan_completed"
+    assert record["properties"] == {"files": 3}

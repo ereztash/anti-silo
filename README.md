@@ -7,16 +7,17 @@ Anti-Silo is a portable trust engine for local knowledge graphs.
 Most people should **not** run Anti-Silo from the repository or install Python.
 
 1. Open the [latest Windows download](https://github.com/ereztash/anti-silo/releases/latest).
-2. Download `Anti-Silo-Windows.zip` from **Assets**.
-3. Extract the ZIP anywhere convenient.
-4. Double-click `Anti-Silo.exe`.
+2. Download `Anti-Silo-Setup.exe` from **Assets**.
+3. Double-click it and follow the short installation steps.
+4. Open **Anti-Silo** from the Desktop shortcut or Start menu.
 
 The app opens in the browser automatically and starts with a choice to scan the
 Desktop, choose another folder, or open the Brain. Nothing is uploaded.
 
-If Windows shows a protection prompt for an unsigned new app, choose **More
-info** and then **Run anyway** only after verifying that the download came from
-the official `ereztash/anti-silo` release page.
+`Anti-Silo-Windows.zip` remains available for portable use. If Windows shows a
+protection prompt, verify the download came from the official `ereztash/anti-silo`
+release page. A publisher signature is applied automatically once the release
+repository has the Azure Artifact Signing secrets configured.
 
 ## Start Here: macOS App
 

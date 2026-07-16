@@ -18,6 +18,7 @@ from .ingest import write_ingest
 from .pulse import write_pulse
 from .quick_scan import discard_quick_scan, run_quick_scan
 from .report_labels import action_label
+from .telemetry import LocalTelemetry
 from .watch import WatchService, WatchStore
 
 
@@ -285,13 +286,12 @@ HTML = r"""<!doctype html>
   </header>
   <main>
     <section id="onboarding" class="panel welcome">
-      <h2>ברוכים הבאים ל-Anti-Silo</h2>
-      <p>אפשר לבדוק את הקבצים שלך ולשמור מחשבות והחלטות במקום אחד.</p>
+      <h2>בדוק את הקבצים שלי</h2>
+      <p>נבדוק אילו קבצים אפשר להסתמך עליהם ומה כדאי לעשות הלאה. הקבצים נשארים במחשב שלך.</p>
       <div class="actions">
         <button type="button" onclick="scanDesktop()">בדוק את שולחן העבודה שלי</button>
-        <button class="secondary" type="button" onclick="chooseFolder()">סרוק תיקייה אחרת</button>
-        <button class="secondary" type="button" onclick="openBrain()">פתח את המוח השני שלי</button>
       </div>
+      <div class="actions"><button class="secondary" type="button" onclick="chooseFolder()">בחר תיקייה אחרת</button><button class="secondary" type="button" onclick="openBrain()">פתח את המוח השני</button></div>
     </section>
     <section id="scan-panel" class="panel">
       <label for="path">תיקייה לסריקה</label>
@@ -299,6 +299,8 @@ HTML = r"""<!doctype html>
         <input id="path" placeholder="C:\Users\me\Desktop\project-docs">
         <button id="scan">סרוק ואמת</button>
       </div>
+      <label for="reliance-purpose" class="hint">למה הקבצים ישמשו אותך?</label>
+      <select id="reliance-purpose"><option value="general">לשימוש כללי</option><option value="study">ללימודים</option><option value="work">לעבודה</option><option value="decision">להחלטה חשובה</option></select>
       <div id="dropzone" class="dropzone">גרור תיקייה לכאן, או הדבק נתיב מקומי בשדה למעלה.</div>
       <div class="hint">הכל רץ על המחשב שלך דרך 127.0.0.1. לא מתבצעת קריאת רשת ולא נשלחים קבצים לענן.</div>
     </section>
@@ -370,6 +372,7 @@ HTML = r"""<!doctype html>
       };
       resultsEl.hidden = false;
       resultsEl.innerHTML = table(lastReport.rows.filter(row => groups[group].includes(row.category)));
+      recordEvent('result_action_taken', {group});
     }
 
     function renderSimpleSummary(data) {
@@ -386,9 +389,12 @@ HTML = r"""<!doctype html>
     function render(data) {
       lastReport = data;
       statusEl.className = 'panel';
-      statusEl.innerHTML = `<b>הסריקה הסתיימה.</b><br>נסרקו ${data.files} קבצים. החלטת מערכת: <code>${data.decision}</code>`;
-      summaryEl.hidden = false;
-      summaryEl.innerHTML = ['ready','backed','indexed','synthesis','unsupported','contradiction'].map(k => metric(k, data.counts[k])).join('');
+      const trusted = data.counts.ready || 0;
+      const needs = (data.counts.backed || 0) + (data.counts.indexed || 0) + (data.counts.synthesis || 0);
+      const blocked = (data.counts.unsupported || 0) + (data.counts.contradiction || 0);
+      const headline = blocked ? 'יש קבצים שלא מומלץ להסתמך עליהם כרגע.' : needs ? 'יש קבצים שכדאי לבדוק לפני שמסתמכים עליהם.' : 'אפשר להסתמך בביטחון על הקבצים שנבדקו.';
+      statusEl.innerHTML = `<b>${headline}</b><br><span class="hint">נסרקו ${data.files} קבצים. Anti-Silo בודק מקורות ושלמות חילוץ, לא אמת מקצועית או עובדתית.</span>`;
+      summaryEl.hidden = true;
       renderSimpleSummary(data);
 
       const links = Object.entries(data.downloads || {}).map(([name, path]) => {
@@ -397,18 +403,18 @@ HTML = r"""<!doctype html>
       downloadsEl.hidden = false;
       downloadsEl.innerHTML = `<b>ייצוא:</b><br>${links || 'אין קבצי ייצוא זמינים.'}<div class="hint">אפשר לפתוח את דוח ה-HTML ולשמור PDF דרך Print / Save as PDF בדפדפן.</div>`;
       downloadsEl.innerHTML += `<div class="actions">
-        <button class="secondary" type="button" onclick="toggleMode()">תצוגה פשוטה / מקצועית</button>
+        <button class="secondary" type="button" onclick="showTechnicalSummary()">הצג פרטים למתקדמים</button>
         <button class="secondary" type="button" onclick="rescan()">בדיקה חוזרת</button>
         <button class="secondary" type="button" onclick="discardResults()">מחק תוצאות זמניות</button>
         <button class="secondary" type="button" onclick="watchLastFolder()">עקוב אחרי התיקייה הזו</button>
       </div>`;
 
-      const needsRepair = (data.counts.synthesis || 0) + (data.counts.unsupported || 0) + (data.counts.contradiction || 0);
+      const needsRepair = needs + blocked;
       wizardEl.hidden = needsRepair === 0;
       if (needsRepair > 0) {
         wizardEl.innerHTML = `
-          <b>אשף תיקון</b>
-          <p class="hint">נמצאו ${needsRepair} פריטים שדורשים השלמת אסמכתאות או תיקון אמון.</p>
+          <b>הפעולה הבאה</b>
+          <p class="hint">נמצאו ${needsRepair} פריטים שכדאי לבדוק לפני שמסתמכים עליהם.</p>
           <div class="actions">
             <button class="secondary" type="button" onclick="downloadTodo()">צור תבנית להשלמת מקורות</button>
             <button class="secondary" type="button" onclick="filterNeedsRepair()">הצג רק מה שדורש תיקון</button>
@@ -451,6 +457,7 @@ HTML = r"""<!doctype html>
       onboardingEl.hidden = true;
       document.getElementById('scan-panel').hidden = true;
       statusEl.hidden = true;
+      recordEvent('brain_opened');
       loadBrain(true);
     }
 
@@ -461,7 +468,8 @@ HTML = r"""<!doctype html>
 
     function filterNeedsRepair() {
       if (!lastReport) return;
-      resultsEl.innerHTML = table(lastReport.rows.filter(row => row.category !== 'ready' && row.category !== 'backed'));
+      resultsEl.innerHTML = table(lastReport.rows.filter(row => row.category !== 'ready'));
+      recordEvent('repair_started');
     }
 
     async function scan() {
@@ -470,12 +478,12 @@ HTML = r"""<!doctype html>
       lastPath = path;
       button.disabled = true;
       statusEl.className = 'panel empty';
-      statusEl.textContent = 'סורק ומאמת...';
+      statusEl.textContent = 'בודק מקורות, התאמה ביניהם וחוסרים...';
       try {
         const response = await fetch('/api/scan', {
           method: 'POST',
           headers: {'Content-Type': 'application/json', 'X-Anti-Silo-CSRF': csrfToken},
-          body: JSON.stringify({path})
+          body: JSON.stringify({path, purpose: document.getElementById('reliance-purpose').value})
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'scan failed');
@@ -493,8 +501,12 @@ HTML = r"""<!doctype html>
         scan();
       }
     }
-    function toggleMode() {
+    function showTechnicalSummary() {
+      if (!lastReport) return;
+      summaryEl.hidden = false;
+      summaryEl.innerHTML = ['ready','backed','indexed','synthesis','unsupported','contradiction'].map(k => metric(k, lastReport.counts[k])).join('');
       document.body.classList.toggle('pro');
+      recordEvent('result_action_taken', {group: 'technical_details'});
     }
     async function discardResults() {
       if (!lastReport || !lastReport.temporary) return;
@@ -548,6 +560,10 @@ HTML = r"""<!doctype html>
       return data;
     }
 
+    function recordEvent(event, properties = {}) {
+      api('/api/event', 'POST', {event, properties}).catch(() => {});
+    }
+
     function escapeHtml(value) {
       return String(value ?? '').replace(/[&<>'"]/g, char => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
@@ -555,7 +571,7 @@ HTML = r"""<!doctype html>
     }
 
     function brainEntry(entry) {
-      const detail = entry.kind === 'source' ? entry.trust_status || entry.trust_tier : entry.body;
+      const detail = entry.kind === 'source' ? entry.trust_status || entry.trust_tier : entry.kind === 'decision' ? (entry.decision_status === 'draft_requires_sources' ? 'טיוטה: יש לצרף מקור' : 'ממתינה לבדיקת המקורות') : entry.body;
       return `<li><b>${escapeHtml(entry.title)}</b><br><span class="hint">${escapeHtml(entry.kind)}${detail ? ` | ${escapeHtml(detail)}` : ''}</span></li>`;
     }
 
@@ -594,6 +610,7 @@ HTML = r"""<!doctype html>
               <textarea id="brain-body" placeholder="מה חשוב לזכור או להחליט?"></textarea>
               <label for="brain-sources" class="hint">מקורות קשורים</label>
               <select id="brain-sources" multiple size="4">${sourceOptions}</select>
+              <p class="hint">החלטה ללא מקור נשמרת כטיוטה לבדיקה. מקור שאינו מאומת נשאר מסומן כך גם כאן.</p>
               <div class="actions"><button type="button" onclick="addBrainEntry()">שמור במוח השני</button></div>
             </div>
             <div><b>תור בדיקה</b>${queue}</div>
@@ -691,6 +708,7 @@ class AntiSiloGuiHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
         if parsed.path == "/":
+            self.server.telemetry.record("app_opened", initial_view=getattr(self.server, "initial_view", "scan"))
             body = HTML.replace("__CSRF_TOKEN__", str(getattr(self.server, "csrf_token", ""))).replace(
                 "__INITIAL_VIEW__", str(getattr(self.server, "initial_view", "scan"))
             ).replace("__INITIAL_PATH_JSON__", json.dumps(str(getattr(self.server, "initial_path", "")))).encode("utf-8")
@@ -729,6 +747,7 @@ class AntiSiloGuiHandler(BaseHTTPRequestHandler):
             return
         path = urlparse(self.path).path
         if path == "/api/default-desktop":
+            self.server.telemetry.record("scan_started", source="desktop")
             self._send_json({"path": str(_default_desktop_dir())})
             return
         if path == "/api/pick-folder":
@@ -737,11 +756,25 @@ class AntiSiloGuiHandler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
             return
+        if path == "/api/event":
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                payload = json.loads(self.rfile.read(length).decode("utf-8"))
+                event = str(payload.get("event", ""))
+                allowed = {"result_action_taken", "brain_opened", "brain_decision_saved", "watch_enabled", "repair_started"}
+                if event not in allowed:
+                    raise ValueError("unknown local usage event")
+                self.server.telemetry.record(event, **dict(payload.get("properties", {})))
+                self._send_json({"recorded": True})
+            except Exception as exc:
+                self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
         if path == "/api/watch":
             try:
                 length = int(self.headers.get("Content-Length", "0"))
                 payload = json.loads(self.rfile.read(length).decode("utf-8"))
                 self._send_json({"watch": self.server.watch_store.add(Path(str(payload.get("path", ""))))})
+                self.server.telemetry.record("watch_enabled")
             except Exception as exc:
                 self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
             return
@@ -774,6 +807,8 @@ class AntiSiloGuiHandler(BaseHTTPRequestHandler):
                     source_ids=[str(item) for item in payload.get("source_ids", [])],
                 )
                 self._send_json({"entry": entry})
+                if entry.get("kind") == "decision":
+                    self.server.telemetry.record("brain_decision_saved", has_sources=bool(entry.get("source_ids")))
             except Exception as exc:
                 self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
             return
@@ -789,6 +824,7 @@ class AntiSiloGuiHandler(BaseHTTPRequestHandler):
             report = build_human_report(source_root, self.server.config)
             self.server.allowed_roots = [Path(report["staged_vault"]).resolve(), Path(report["output_dir"]).resolve()]
             self.server.last_report = report
+            self.server.telemetry.record("first_scan_completed", files=report["files"], decision=report["decision"])
             self._send_json(report)
         except Exception as exc:
             self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
@@ -807,6 +843,7 @@ class AntiSiloGuiServer(ThreadingHTTPServer):
     initial_view: str
     initial_path: str
     last_report: dict[str, Any] | None
+    telemetry: LocalTelemetry
 
 
 def serve_gui(
@@ -828,6 +865,7 @@ def serve_gui(
     server.initial_view = initial_view
     server.initial_path = str(initial_path.resolve()) if initial_path else ""
     server.last_report = None
+    server.telemetry = LocalTelemetry()
     url = f"http://{server.server_address[0]}:{server.server_address[1]}/"
     if open_browser:
         threading.Timer(0.3, lambda: webbrowser.open(url)).start()

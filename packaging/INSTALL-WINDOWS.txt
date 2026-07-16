@@ -1,8 +1,12 @@
 ANTI-SILO FOR WINDOWS
 
+Preferred option: download Anti-Silo-Setup.exe, open it, and follow the installer.
+It creates an Anti-Silo shortcut for you.
+
+Portable option:
 1. Extract this folder anywhere on your computer.
 2. Double-click Anti-Silo.exe.
-3. In the window that opens, choose one of the three large buttons.
+3. Choose "בדוק את הקבצים שלי".
 
 You do not need Python, GitHub Desktop, a terminal, or an account.
 

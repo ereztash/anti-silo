@@ -63,6 +63,8 @@ class BrainStore:
             "created_at": _now(),
             "updated_at": _now(),
         }
+        if kind == "decision":
+            entry["decision_status"] = "draft_requires_sources" if not entry["source_ids"] else "needs_source_review"
         entries.append(entry)
         self._save(data)
         return entry

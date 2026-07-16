@@ -2,8 +2,9 @@
 
 ## Windows
 
-The release workflow always builds `Anti-Silo-Windows.zip`. To sign the EXE in
-production, configure Azure Artifact Signing and add these GitHub Actions
+The release workflow builds `Anti-Silo-Setup.exe` as the primary download and
+keeps `Anti-Silo-Windows.zip` for a portable option. To sign both Windows
+executables in production, configure Azure Artifact Signing and add these GitHub Actions
 secrets:
 
 - `AZURE_TENANT_ID`
