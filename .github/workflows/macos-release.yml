@@ -12,6 +12,13 @@ permissions:
 jobs:
   build-macos:
     runs-on: macos-latest
+    env:
+      APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -22,10 +29,7 @@ jobs:
       - name: Build app bundle
         run: pyinstaller --noconfirm packaging/anti_silo_gui.spec
       - name: Import Developer ID certificate
-        if: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' }}
-        env:
-          APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        if: ${{ env.APPLE_CERTIFICATE_P12_BASE64 != '' && env.APPLE_CERTIFICATE_PASSWORD != '' }}
         run: |
           echo "$APPLE_CERTIFICATE_P12_BASE64" | base64 --decode > certificate.p12
           security create-keychain -p temporary build.keychain
@@ -35,18 +39,12 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -s -k temporary build.keychain
           security list-keychain -d user -s build.keychain
       - name: Sign app bundle
-        if: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 != '' && secrets.APPLE_SIGNING_IDENTITY != '' }}
-        env:
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        if: ${{ env.APPLE_CERTIFICATE_P12_BASE64 != '' && env.APPLE_SIGNING_IDENTITY != '' }}
         run: codesign --force --deep --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" dist/Anti-Silo.app
       - name: Create DMG
         run: hdiutil create -volname "Anti-Silo" -srcfolder dist/Anti-Silo.app -ov -format UDZO dist/Anti-Silo-macOS.dmg
       - name: Notarize and staple DMG
-        if: ${{ secrets.APPLE_ID != '' && secrets.APPLE_APP_SPECIFIC_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' }}
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        if: ${{ env.APPLE_ID != '' && env.APPLE_APP_SPECIFIC_PASSWORD != '' && env.APPLE_TEAM_ID != '' }}
         run: |
           xcrun notarytool submit dist/Anti-Silo-macOS.dmg --apple-id "$APPLE_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
           xcrun stapler staple dist/Anti-Silo-macOS.dmg
