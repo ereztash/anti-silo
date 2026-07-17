@@ -300,10 +300,14 @@ class handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self) -> None:  # noqa: N802
-        path = urlparse(self.path).path
+        parsed = urlparse(self.path)
+        path = parsed.path
         if path == "/":
+            destination = "/index.html"
+            if parsed.query:
+                destination += f"?{parsed.query}"
             self.send_response(307)
-            self.send_header("Location", "/index.html")
+            self.send_header("Location", destination)
             self.send_header("Cache-Control", "no-store")
             self.send_header("Content-Length", "0")
             self.end_headers()

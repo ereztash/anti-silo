@@ -137,10 +137,10 @@ def test_vercel_http_handler_redirects_root_and_rejects_other_routes() -> None:
     thread.start()
     connection = HTTPConnection("127.0.0.1", server.server_port, timeout=5)
     try:
-        connection.request("GET", "/")
+        connection.request("GET", "/?demo=1")
         response = connection.getresponse()
         assert response.status == 307
-        assert response.getheader("Location") == "/index.html"
+        assert response.getheader("Location") == "/index.html?demo=1"
         response.read()
 
         connection.request("POST", "/", body=b"{}", headers={"Content-Type": "application/json"})
