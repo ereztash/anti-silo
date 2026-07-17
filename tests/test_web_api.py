@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+from http.client import HTTPConnection
 import json
 import threading
 from http.server import HTTPServer
@@ -112,7 +113,7 @@ def test_vercel_http_handler_serves_demo_report() -> None:
     try:
         body = json.dumps({"demo": True}).encode("utf-8")
         request = Request(
-            f"http://127.0.0.1:{server.server_port}/",
+            f"http://127.0.0.1:{server.server_port}/api/scan",
             data=body,
             headers={"Content-Type": "application/json"},
             method="POST",
@@ -125,6 +126,29 @@ def test_vercel_http_handler_serves_demo_report() -> None:
         assert report["readiness_score"]["score"] >= 0
         assert report["risk_register"]
     finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_vercel_http_handler_redirects_root_and_rejects_other_routes() -> None:
+    server = HTTPServer(("127.0.0.1", 0), handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    connection = HTTPConnection("127.0.0.1", server.server_port, timeout=5)
+    try:
+        connection.request("GET", "/")
+        response = connection.getresponse()
+        assert response.status == 307
+        assert response.getheader("Location") == "/index.html"
+        response.read()
+
+        connection.request("POST", "/", body=b"{}", headers={"Content-Type": "application/json"})
+        response = connection.getresponse()
+        assert response.status == 404
+        response.read()
+    finally:
+        connection.close()
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)

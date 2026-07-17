@@ -6,12 +6,6 @@
       "excludeFiles": "{tests/**,docs/**,examples/**,packaging/**}"
     }
   },
-  "rewrites": [
-    {
-      "source": "/",
-      "destination": "/index.html"
-    }
-  ],
   "headers": [
     {
       "source": "/(.*)",

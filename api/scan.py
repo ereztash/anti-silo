@@ -300,6 +300,17 @@ class handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self) -> None:  # noqa: N802
+        path = urlparse(self.path).path
+        if path == "/":
+            self.send_response(307)
+            self.send_header("Location", "/index.html")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        if path != "/api/scan":
+            self._send_json(404, {"error": "Not found."})
+            return
         self._send_json(
             200,
             {
@@ -316,6 +327,8 @@ class handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         started = time.monotonic()
         try:
+            if urlparse(self.path).path != "/api/scan":
+                raise ScanRequestError("Not found.", 404)
             if not _origin_is_allowed(self.headers.get("Origin"), self.headers.get("Host")):
                 raise ScanRequestError("Cross-origin scan requests are not allowed.", 403)
             forwarded = self.headers.get("X-Forwarded-For", "")
