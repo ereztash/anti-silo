@@ -18,7 +18,10 @@ a = Analysis(
     [str(ROOT / "packaging" / "run_gui.py")],
     pathex=[str(ROOT)],
     binaries=[],
-    datas=[(str(ROOT / "contracts" / "default_config.json"), "contracts")],
+    datas=[
+        (str(ROOT / "contracts" / "default_config.json"), "contracts"),
+        (str(ROOT / "anti_silo" / "gui" / "static"), "anti_silo/gui/static"),
+    ],
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},

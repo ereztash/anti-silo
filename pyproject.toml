@@ -18,7 +18,10 @@ desktop = ["pyinstaller>=6"]
 anti-silo = "anti_silo.cli:main"
 
 [tool.setuptools]
-packages = ["anti_silo"]
+packages = ["anti_silo", "anti_silo.gui"]
+
+[tool.setuptools.package-data]
+"anti_silo.gui" = ["static/*.html", "static/*.css", "static/*.js"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
