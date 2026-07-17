@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_hosted_results_expose_auditable_score_and_client_artifact() -> None:
     html = (ROOT / "public" / "index.html").read_text(encoding="utf-8")
     script = (ROOT / "public" / "app.js").read_text(encoding="utf-8")
+    vercel = json.loads((ROOT / "vercel.json").read_text(encoding="utf-8"))
 
     for element_id in (
         'id="score-meter"',
@@ -32,6 +33,7 @@ def test_hosted_results_expose_auditable_score_and_client_artifact() -> None:
     assert "score.methodology" in script
     assert "report.trust_boundary" in script
     assert 'new URLSearchParams(window.location.search).get("demo") === "1"' in script
+    assert {"source": "/", "destination": "/index.html"} in vercel["rewrites"]
 
 
 def test_web_preview_script_can_be_invoked_directly() -> None:
