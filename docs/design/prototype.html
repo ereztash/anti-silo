@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Anti-Silo — Preflight Console</title>
+<style>
+/* ============ tokens ============ */
+:root{
+  color-scheme: light;
+  --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+  --hairline:#e1e0d9; --border:rgba(11,11,11,.10); --baseline:#c3c2b7;
+  --accent:#2a78d6; --accent-ink:#ffffff;
+  --good:#0ca30c; --good-text:#006300; --warn:#fab219; --serious:#ec835a; --crit:#d03b3b;
+  --shadow:0 1px 3px rgba(11,11,11,.07), 0 8px 24px rgba(11,11,11,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root:where(:not([data-theme="light"])){
+    color-scheme: dark;
+    --page:#0d0d0d; --surface:#1a1a19; --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
+    --hairline:#2c2c2a; --border:rgba(255,255,255,.10); --baseline:#383835;
+    --accent:#3987e5; --good-text:#0ca30c;
+    --shadow:0 1px 3px rgba(0,0,0,.5), 0 8px 24px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --page:#0d0d0d; --surface:#1a1a19; --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
+  --hairline:#2c2c2a; --border:rgba(255,255,255,.10); --baseline:#383835;
+  --accent:#3987e5; --good-text:#0ca30c;
+  --shadow:0 1px 3px rgba(0,0,0,.5), 0 8px 24px rgba(0,0,0,.4);
+}
+/* ============ base ============ */
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} *{transition:none!important;animation:none!important} }
+body{
+  font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;
+  background:var(--page); color:var(--ink);
+  min-width:720px;
+}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.skip{position:absolute;inset-inline-start:8px;top:-48px;background:var(--accent);color:var(--accent-ink);padding:8px 14px;border-radius:6px;z-index:99}
+.skip:focus{top:8px}
+.num{font-variant-numeric:tabular-nums}
+/* ============ header ============ */
+header.app{
+  display:flex;align-items:center;gap:16px;
+  padding:10px 24px;border-bottom:1px solid var(--hairline);
+  background:var(--surface);position:sticky;top:0;z-index:20;
+}
+.brand{display:flex;align-items:baseline;gap:8px;font-weight:700;letter-spacing:.06em}
+.brand .tag{font-weight:400;font-size:11px;color:var(--muted);letter-spacing:.08em;border:1px solid var(--hairline);border-radius:99px;padding:1px 8px}
+.projmeta{color:var(--ink2);font-size:13px;display:flex;gap:8px;align-items:baseline;min-width:0}
+.projmeta b{color:var(--ink);font-weight:600}
+.projmeta .sep{color:var(--muted)}
+.spacer{flex:1}
+.hbtn{padding:6px 12px;border:1px solid var(--hairline);border-radius:6px;color:var(--ink2);background:var(--surface)}
+.hbtn:hover{border-color:var(--baseline);color:var(--ink)}
+/* ============ layout ============ */
+main{max-width:1180px;margin:0 auto;padding:20px 24px 80px}
+section.panel{background:var(--surface);border:1px solid var(--hairline);border-radius:10px;box-shadow:var(--shadow);margin-block-end:18px;scroll-margin-top:120px}
+.panel > .phead{display:flex;align-items:baseline;gap:12px;padding:14px 20px;border-bottom:1px solid var(--hairline)}
+.panel > .phead h2{font-size:14px;font-weight:650;letter-spacing:.02em}
+.panel > .phead .sub{color:var(--muted);font-size:12.5px}
+.pbody{padding:16px 20px}
+/* coach ribbon */
+.coach{display:flex;gap:14px;align-items:center;background:var(--surface);border:1px solid var(--hairline);border-inline-start:3px solid var(--accent);border-radius:8px;padding:10px 16px;margin-block-end:14px;color:var(--ink2);font-size:13px}
+.coach b{color:var(--ink);font-weight:600}
+.coach .x{margin-inline-start:auto;color:var(--muted);font-size:16px;padding:2px 8px}
+/* ============ verdict band ============ */
+.band{display:grid;grid-template-columns:minmax(340px,1.25fr) minmax(300px,1fr) minmax(240px,.9fr);gap:0;background:var(--surface);border:1px solid var(--hairline);border-radius:12px;box-shadow:var(--shadow);margin-block-end:18px;overflow:hidden}
+.band > div{padding:22px 24px}
+.band > div + div{border-inline-start:1px solid var(--hairline)}
+@media (max-width: 980px){ .band{grid-template-columns:1fr} .band > div + div{border-inline-start:0;border-top:1px solid var(--hairline)} }
+.vword{display:flex;align-items:center;gap:10px;font-size:26px;font-weight:750;letter-spacing:.01em}
+.vword svg{flex:none}
+.vhead{font-size:15px;margin-top:10px;font-weight:550}
+.vsub{color:var(--ink2);margin-top:6px;font-size:13.5px;max-width:52ch}
+.vchip{display:inline-flex;align-items:center;gap:8px;border-radius:8px;padding:6px 14px 6px 10px}
+.vchip.STOP{background:color-mix(in srgb, var(--crit) 11%, var(--surface));border:1px solid color-mix(in srgb, var(--crit) 45%, var(--surface))}
+.vchip.CONDITIONAL{background:color-mix(in srgb, var(--warn) 13%, var(--surface));border:1px solid color-mix(in srgb, var(--warn) 55%, var(--surface))}
+.vchip.GO{background:color-mix(in srgb, var(--good) 11%, var(--surface));border:1px solid color-mix(in srgb, var(--good) 45%, var(--surface))}
+.trust{margin-top:14px;padding-top:12px;border-top:1px solid var(--hairline);font-size:12.5px;color:var(--muted);display:flex;gap:8px;align-items:baseline}
+.trust button{color:var(--accent);text-decoration:underline;text-underline-offset:2px;font-size:12.5px}
+.trustmore{margin-top:8px;font-size:12.5px;color:var(--ink2);background:var(--page);border:1px solid var(--hairline);border-radius:8px;padding:10px 12px;max-width:56ch}
+/* score */
+.scorelab{font-size:12px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+.hero{font-size:58px;font-weight:650;line-height:1.05;letter-spacing:-.01em}
+.hero small{font-size:20px;color:var(--muted);font-weight:500}
+.meter{position:relative;height:10px;border-radius:5px;margin-top:14px;background:var(--track)}
+.meter .fill{position:absolute;inset-block:0;inset-inline-start:0;border-radius:5px;background:var(--vcol);transition:width .5s ease}
+.meter .ghost{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--baseline)}
+.meter .tick{position:absolute;top:-4px;bottom:-4px;width:1px;background:var(--baseline)}
+.mlabels{position:relative;height:16px;margin-top:4px;font-size:10.5px;color:var(--muted)}
+.mlabels span{position:absolute;transform:translateX(-50%)}
+.ledger-toggle{margin-top:12px}
+.ledger-toggle summary{cursor:pointer;color:var(--accent);font-size:13px;list-style:none;display:inline-flex;align-items:center;gap:6px}
+.ledger-toggle summary::before{content:"▸";font-size:11px;transition:transform .15s}
+.ledger-toggle[open] summary::before{transform:rotate(90deg)}
+.ledger{margin-top:10px;font-size:12.5px}
+.ledger p.det{color:var(--muted);margin-block:6px 10px;max-width:50ch}
+.ledger table{width:100%;border-collapse:collapse}
+.ledger td,.ledger th{padding:4px 6px;text-align:end;border-bottom:1px solid var(--hairline)}
+.ledger td:first-child,.ledger th:first-child{text-align:start}
+.ledger th{color:var(--muted);font-weight:500;font-size:11.5px}
+.ledger .total td{font-weight:700;border-bottom:0;border-top:2px solid var(--baseline)}
+.ledger .zero td{color:var(--muted)}
+/* delta + action */
+.dlab{font-size:12px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+.delta-big{font-size:30px;font-weight:650;margin-top:4px}
+.delta-big .up{color:var(--good-text)}
+.delta-sub{color:var(--ink2);font-size:12.5px;margin-top:4px}
+.delta-detail{margin-top:8px;font-size:12.5px;color:var(--ink2);line-height:1.7}
+.delta-detail b{font-weight:600;color:var(--ink)}
+.cta{display:block;width:100%;margin-top:16px;background:var(--accent);color:var(--accent-ink);font-weight:650;font-size:14.5px;padding:12px 16px;border-radius:8px;text-align:center}
+.cta:hover{filter:brightness(1.07)}
+.cta-note{margin-top:8px;font-size:12px;color:var(--muted);text-align:center}
+/* ============ sub-nav ============ */
+.subnav{position:sticky;top:49px;z-index:15;display:flex;gap:6px;background:var(--page);padding:8px 0 10px}
+.subnav button{padding:6px 14px;border-radius:99px;border:1px solid var(--hairline);color:var(--ink2);background:var(--surface);font-size:13px}
+.subnav button:hover{color:var(--ink);border-color:var(--baseline)}
+.subnav .cnt{color:var(--muted);font-size:11.5px;margin-inline-start:4px}
+.subnav .kbd{margin-inline-start:auto;align-self:center;color:var(--muted);font-size:12px;border:0;background:none}
+kbd{font:11px/1 ui-monospace,Consolas,monospace;border:1px solid var(--hairline);border-bottom-width:2px;border-radius:4px;padding:2px 5px;color:var(--ink2);background:var(--surface)}
+/* ============ queue ============ */
+.qtools{margin-inline-start:auto;display:flex;gap:8px}
+.gbtn{padding:6px 12px;border:1px solid var(--hairline);border-radius:6px;color:var(--ink2);font-size:12.5px;background:var(--surface)}
+.gbtn:hover{color:var(--ink);border-color:var(--baseline)}
+.qitem{display:grid;grid-template-columns:auto 1fr auto;gap:4px 14px;padding:14px 20px;border-bottom:1px solid var(--hairline);align-items:start}
+.qitem:last-child{border-bottom:0}
+.sev{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:650;letter-spacing:.05em;padding-top:3px;width:92px}
+.sev i{width:9px;height:9px;border-radius:2px;flex:none}
+.sev.critical i{background:var(--crit)} .sev.critical{color:var(--crit)}
+.sev.high i{background:var(--serious)} .sev.high{color:color-mix(in srgb, var(--serious) 70%, var(--ink))}
+.sev.medium i{background:var(--warn)} .sev.medium{color:color-mix(in srgb, var(--warn) 55%, var(--ink))}
+.sev.low i{background:var(--baseline)} .sev.low{color:var(--muted)}
+.qmain h3{font-size:14px;font-weight:650}
+.qmain .qd{color:var(--ink2);font-size:13px;margin-top:3px;max-width:70ch}
+.qfiles{margin-top:6px;display:flex;flex-wrap:wrap;gap:6px}
+.fchip{font:11.5px ui-monospace,Consolas,monospace;border:1px solid var(--hairline);border-radius:5px;padding:2px 8px;color:var(--ink2);background:var(--page)}
+.qside{text-align:end;min-width:170px}
+.impact{font-weight:650;font-size:13.5px}
+.impact .clr{color:var(--good-text)}
+.effort{color:var(--muted);font-size:12px;margin-top:2px}
+.qact{margin-top:8px;display:flex;gap:8px;justify-content:flex-end}
+.abtn{padding:6px 12px;border-radius:6px;border:1px solid var(--accent);color:var(--accent);font-size:12.5px;font-weight:600}
+.abtn:hover{background:color-mix(in srgb, var(--accent) 10%, var(--surface))}
+.abtn.q{border-color:var(--hairline);color:var(--muted);font-weight:500}
+.staged-row{background:color-mix(in srgb, var(--accent) 5%, var(--surface))}
+.stagedtag{display:inline-flex;align-items:center;gap:6px;color:var(--accent);font-weight:650;font-size:12.5px}
+.applied .qmain h3{color:var(--muted);font-weight:500}
+.appliedtag{color:var(--good-text);font-weight:650;font-size:12.5px}
+.deferredtag{color:var(--muted);font-weight:600;font-size:12.5px}
+.qfooter{padding:10px 20px;color:var(--muted);font-size:12.5px;border-top:1px solid var(--hairline)}
+/* ============ files ============ */
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-block-end:14px}
+@media(max-width:900px){.tiles{grid-template-columns:repeat(2,1fr)}}
+.tile{border:1px solid var(--hairline);border-radius:8px;padding:10px 14px;background:var(--page)}
+.tile .tl{font-size:11.5px;color:var(--muted)}
+.tile .tv{font-size:22px;font-weight:650;margin-top:2px}
+.tile .td{font-size:11.5px;color:var(--ink2)}
+.tile .td .up{color:var(--good-text);font-weight:600}
+.filter{display:flex;gap:6px;flex-wrap:wrap;margin-block-end:12px;align-items:center}
+.filter button{padding:4px 12px;border-radius:99px;border:1px solid var(--hairline);font-size:12.5px;color:var(--ink2)}
+.filter button[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.filter input{margin-inline-start:auto;border:1px solid var(--hairline);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;background:var(--surface);color:var(--ink);width:220px}
+table.ft{width:100%;border-collapse:collapse;font-size:13px}
+.ft th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;text-align:start;padding:6px 8px;border-bottom:1px solid var(--baseline)}
+.ft td{padding:7px 8px;border-bottom:1px solid var(--hairline);vertical-align:top}
+.ft tr:last-child td{border-bottom:0}
+.ft .fn{font-family:ui-monospace,Consolas,monospace;font-size:12.5px}
+.ft .excl td{color:var(--muted)} .ft .excl .fn{text-decoration:line-through}
+.ft .sha{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;color:var(--muted)}
+.ft .pts{text-align:end}
+.tierb{display:inline-flex;align-items:center;gap:6px;font-size:12px;white-space:nowrap}
+.tierb i{width:8px;height:8px;border-radius:99px;flex:none;border:1px solid var(--border)}
+.issue{font-size:12px;color:var(--ink2)}
+.issue.bad{color:var(--crit);font-weight:550}
+.issue.warny{color:color-mix(in srgb, var(--serious) 72%, var(--ink))}
+.fixed-note{color:var(--good-text);font-size:12px;font-weight:550}
+/* ============ risks ============ */
+table.rk{width:100%;border-collapse:collapse;font-size:13px}
+.rk th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;text-align:start;padding:6px 8px;border-bottom:1px solid var(--baseline)}
+.rk td{padding:9px 8px;border-bottom:1px solid var(--hairline);vertical-align:top}
+.rk tr:last-child td{border-bottom:0}
+.rid{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--ink2)}
+.st{display:inline-flex;gap:6px;align-items:center;font-size:12px;font-weight:600;white-space:nowrap}
+.st i{width:9px;height:9px;border-radius:2px}
+.st.open i{background:var(--crit)} .st.open{color:var(--crit)}
+.st.partial i{background:var(--warn)} .st.partial{color:color-mix(in srgb, var(--warn) 50%, var(--ink))}
+.st.closed i{background:var(--good)} .st.closed{color:var(--good-text)}
+/* ============ export ============ */
+.exgrid{display:grid;grid-template-columns:1.5fr 1fr;gap:20px}
+@media(max-width:900px){.exgrid{grid-template-columns:1fr}}
+.arow{display:flex;align-items:center;gap:12px;padding:8px 4px;border-bottom:1px solid var(--hairline);font-size:13px}
+.arow:last-child{border-bottom:0}
+.arow .an{font-family:ui-monospace,Consolas,monospace;font-size:12.5px}
+.arow .ad{color:var(--muted);font-size:12px;flex:1}
+.arow button{color:var(--accent);font-size:12.5px;text-decoration:underline;text-underline-offset:2px}
+.excard{border:1px solid var(--hairline);border-radius:10px;padding:18px;background:var(--page);height:fit-content}
+.excard h3{font-size:14px;margin-block-end:6px}
+.excard p{font-size:12.5px;color:var(--ink2);margin-block-end:14px}
+.btn2{display:block;width:100%;text-align:center;border:1px solid var(--accent);color:var(--accent);font-weight:600;padding:10px;border-radius:8px;margin-top:8px}
+.btn2:hover{background:color-mix(in srgb, var(--accent) 8%, var(--surface))}
+.localnote{margin-top:12px;font-size:12px;color:var(--muted)}
+/* ============ overlays ============ */
+.overlay{position:fixed;inset:0;background:rgba(11,11,11,.45);z-index:50;display:none;align-items:center;justify-content:center;padding:24px}
+.overlay.open{display:flex}
+.sheet{background:var(--surface);border-radius:12px;box-shadow:var(--shadow);max-width:960px;width:100%;max-height:92vh;display:flex;flex-direction:column;overflow:hidden}
+.sheet .shead{display:flex;align-items:center;gap:10px;padding:12px 18px;border-bottom:1px solid var(--hairline)}
+.sheet .shead h2{font-size:14px;font-weight:650;flex:1}
+.sheet .shead button{padding:6px 12px;border:1px solid var(--hairline);border-radius:6px;color:var(--ink2);font-size:12.5px}
+.sheet .sbody{overflow:auto;flex:1}
+.sheet iframe{width:100%;height:74vh;border:0;display:block;background:#fff}
+.helplist{padding:20px 24px;font-size:13.5px;line-height:2.1;columns:2;column-gap:40px}
+.helplist div{break-inside:avoid}
+.helplist kbd{margin-inline-end:10px}
+/* projects / first-run */
+.firstrun{padding:36px 32px;max-width:560px}
+.firstrun h3{font-size:19px;margin-block-end:10px}
+.firstrun p{color:var(--ink2);font-size:14px;margin-block-end:18px;max-width:48ch}
+.firstrun .privacy{font-size:12.5px;color:var(--muted);border-top:1px solid var(--hairline);padding-top:14px;margin-top:22px}
+.projcard{display:flex;align-items:center;gap:14px;border:1px solid var(--hairline);border-radius:10px;padding:14px 16px;margin-top:22px;background:var(--page)}
+.projcard .pm{flex:1;font-size:13px;color:var(--ink2)} .projcard .pm b{color:var(--ink);display:block;font-size:14px}
+/* scan progress */
+#scanbar{position:fixed;inset-inline:0;top:0;height:3px;z-index:60;background:transparent;display:none}
+#scanbar.on{display:block}
+#scanbar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+.scanstate{position:fixed;bottom:20px;inset-inline-start:50%;transform:translateX(-50%);background:var(--ink);color:var(--surface);border-radius:99px;padding:9px 20px;font-size:13px;z-index:60;display:none;box-shadow:var(--shadow)}
+.scanstate.on{display:block}
+/* toast */
+.toast{position:fixed;bottom:20px;inset-inline-end:20px;background:var(--ink);color:var(--surface);padding:11px 18px;border-radius:8px;font-size:13px;z-index:70;box-shadow:var(--shadow);display:none;max-width:380px}
+.toast.on{display:block}
+footer.app{max-width:1180px;margin:0 auto;padding:0 24px 40px;color:var(--muted);font-size:12px}
+@media print{
+  header.app,.subnav,.coach,.cta,.qact,.qtools,.filter,.toast,footer.app{display:none!important}
+  body{background:#fff} section.panel,.band{box-shadow:none;break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to results</a>
+<div id="scanbar" aria-hidden="true"><i></i></div>
+
+<header class="app">
+  <div class="brand">ANTI-SILO <span class="tag">LOCAL · OFFLINE</span></div>
+  <div class="projmeta" id="projmeta"></div>
+  <div class="spacer"></div>
+  <button class="hbtn" id="btnProjects">Projects</button>
+  <button class="hbtn" id="btnHelp" aria-label="Keyboard shortcuts and help">Help <kbd>?</kbd></button>
+  <button class="hbtn" id="btnTheme" aria-label="Toggle color theme">Theme</button>
+</header>
+
+<main id="main">
+  <div class="coach" id="coach" hidden>
+    <span><b>First scan complete.</b> Read the verdict → stage fixes in the queue → re-scan to see the delta → export the pack for your client.</span>
+    <button class="x" id="coachX" aria-label="Dismiss orientation tip">×</button>
+  </div>
+
+  <div class="band" id="band" role="region" aria-label="Verdict and readiness score"><!-- rendered --></div>
+
+  <nav class="subnav" aria-label="Result sections">
+    <button data-go="sec-queue">Remediation queue<span class="cnt" id="cntQueue"></span></button>
+    <button data-go="sec-files">Files<span class="cnt" id="cntFiles"></span></button>
+    <button data-go="sec-risks">Risk register<span class="cnt" id="cntRisks"></span></button>
+    <button data-go="sec-export">Audit pack</button>
+    <span class="kbd">jump: <kbd>1</kbd>–<kbd>4</kbd></span>
+  </nav>
+
+  <section class="panel" id="sec-queue" aria-labelledby="hq">
+    <div class="phead">
+      <h2 id="hq">Remediation queue</h2>
+      <span class="sub">highest impact first — stage changes, then re-scan</span>
+      <div class="qtools">
+        <button class="gbtn" id="btnStageAll">Stage all recommended</button>
+      </div>
+    </div>
+    <div id="queue"><!-- rendered --></div>
+    <div class="qfooter" id="qfooter"></div>
+  </section>
+
+  <section class="panel" id="sec-files" aria-labelledby="hf">
+    <div class="phead"><h2 id="hf">Files &amp; diagnostics</h2><span class="sub">every file, its evidence tier, and what moved the score</span></div>
+    <div class="pbody">
+      <div class="tiles" id="tiles"></div>
+      <div class="filter" id="filters" role="group" aria-label="Filter file list"></div>
+      <div style="overflow-x:auto">
+      <table class="ft" aria-label="File diagnostics">
+        <thead><tr><th>File</th><th>Evidence tier</th><th class="pts">Pts</th><th>Finding</th><th>SHA-256</th></tr></thead>
+        <tbody id="ftbody"></tbody>
+      </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="sec-risks" aria-labelledby="hr">
+    <div class="phead"><h2 id="hr">Risk register</h2><span class="sub">what you will be asked about — with your answer ready</span></div>
+    <div class="pbody" style="overflow-x:auto">
+      <table class="rk" aria-label="Risk register">
+        <thead><tr><th>ID</th><th>Category</th><th>Severity</th><th>Status</th><th>Finding</th><th>Recommendation</th></tr></thead>
+        <tbody id="rkbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" id="sec-export" aria-labelledby="he">
+    <div class="phead"><h2 id="he">Audit pack</h2><span class="sub">one zip, nine artifacts — written next to the project, never uploaded</span></div>
+    <div class="pbody exgrid">
+      <div id="artifacts"></div>
+      <div class="excard">
+        <h3>Hand your client the proof</h3>
+        <p>The pack contains the boardroom-ready report, the SOW summary, and machine-readable manifests. Regenerating it after a re-scan updates every artifact from the same deterministic engine.</p>
+        <button class="cta" id="btnExport">Export Audit Pack (.zip)</button>
+        <button class="btn2" id="btnReport">Preview client report</button>
+        <button class="btn2" id="btnSow">Download SOW summary (.md)</button>
+        <p class="localnote" id="exportnote">Writes ANTI_SILO_PREFLIGHT_PACK.zip beside the project file. All processing stayed on this machine.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="app">
+  Anti-Silo 1.4 (prototype) · deterministic engine d41c · served from 127.0.0.1 · no network access ·
+  demo note: “repair” and “replace” simulate the corrected files arriving from the client.
+</footer>
+
+<!-- overlays -->
+<div class="overlay" id="ovReport" role="dialog" aria-modal="true" aria-label="Client report preview">
+  <div class="sheet">
+    <div class="shead">
+      <h2>Client report — ANTI_SILO_REPORT.html</h2>
+      <button id="repDownload">Download .html</button>
+      <button id="repClose" data-close>Close (Esc)</button>
+    </div>
+    <div class="sbody"><iframe id="repFrame" title="Rendered client audit report"></iframe></div>
+  </div>
+</div>
+
+<div class="overlay" id="ovHelp" role="dialog" aria-modal="true" aria-label="Help and keyboard shortcuts">
+  <div class="sheet" style="max-width:640px">
+    <div class="shead"><h2>Keyboard &amp; help</h2><button data-close>Close (Esc)</button></div>
+    <div class="sbody helplist">
+      <div><kbd>1</kbd>Remediation queue</div>
+      <div><kbd>2</kbd>Files &amp; diagnostics</div>
+      <div><kbd>3</kbd>Risk register</div>
+      <div><kbd>4</kbd>Audit pack</div>
+      <div><kbd>r</kbd>Re-scan staged changes</div>
+      <div><kbd>e</kbd>Export audit pack</div>
+      <div><kbd>t</kbd>Toggle theme</div>
+      <div><kbd>?</kbd>This panel</div>
+      <div><kbd>Esc</kbd>Close any panel</div>
+      <div style="column-span:all;color:var(--muted);font-size:12.5px;margin-top:10px">
+        Every score is deterministic and every point is traceable — open “How this number was computed” under the score. The verdict covers provenance and extraction integrity, not factual accuracy.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="ovProjects" role="dialog" aria-modal="true" aria-label="Projects">
+  <div class="sheet" style="max-width:620px">
+    <div class="shead"><h2>Projects</h2><button data-close>Close (Esc)</button></div>
+    <div class="sbody firstrun">
+      <h3>Audit the client’s folder before you build on it.</h3>
+      <p>Select the folder exactly as you received it. Anti-Silo reads it in place, on this machine only — nothing is uploaded, copied, or modified. About a minute later you have a defensible verdict, a scored cleanup list, and a client-ready audit pack.</p>
+      <button class="cta" style="max-width:280px" id="btnNewProject">New project — select client folder…</button>
+      <div class="projcard">
+        <div class="pm"><b>NORTHWIND-01 · RAG readiness pilot</b>2 scans · last verdict shown in console · demo data</div>
+        <button class="gbtn" data-close>Resume</button>
+      </div>
+      <p class="privacy">Project history stores metadata only (alias, engagement, scores, hashes). Source file contents are never copied into history.</p>
+    </div>
+  </div>
+</div>
+
+<div class="scanstate" id="scanstate" role="status"></div>
+<div class="toast" id="toast" role="status"></div>
+<div class="vh" aria-live="polite" id="live"></div>
+
+<script>
+"use strict";
+/* =================================================================
+   Anti-Silo prototype — deterministic scoring engine + console UI
+   All data below is fictional sample data (Northwind Freight Ltd).
+   ================================================================= */
+
+const TIERS = {
+  triangulated:       { v:100, label:"Triangulated",            dot:"#104281" },
+  source_backed:      { v:75,  label:"Source-backed",           dot:"#2a78d6" },
+  indexed_unverified: { v:40,  label:"Indexed, unverified",     dot:"#86b6ef" },
+  synthesis:          { v:30,  label:"Synthesis — no source spine", dot:"#cde2fb" },
+  blocked:            { v:0,   label:"Blocked / unreadable",    dot:"transparent" }
+};
+const GO_THRESHOLD = 85, STOP_CAP = 49, DUP_PT = 2, DUP_CAP = 15, BLOCKED_SHARE_STOP = 0.25;
+
+const PROJECT = { alias:"NORTHWIND-01", client:"Northwind Freight Ltd", engagement:"RAG readiness pilot", consultant:"D. Peretz · AI Delivery" };
+
+function F(id,name,size,tier,issue,extra){ return Object.assign({id,name,size,tier,issue:issue||"",excluded:false,fixedNote:""},extra||{}); }
+const FILES = [
+  F("f01","Company_Overview_2025.pdf","2.1 MB","triangulated","", {sha:"a3f1c9d2"}),
+  F("f02","SOP_Claims_Handling_v4.docx","840 KB","triangulated","", {sha:"7be04412"}),
+  F("f03","Fleet_Maintenance_Manual.pdf","6.4 MB","triangulated","", {sha:"c55a90ef"}),
+  F("f04","HR_Policy_2026.pdf","1.2 MB","triangulated","", {sha:"19d7ab03"}),
+  F("f05","Pricing_Master_2026.xlsx","310 KB","source_backed","", {sha:"e8123bc4"}),
+  F("f06","Pricing_2024_legacy.xlsx","288 KB","source_backed","Contradicts Pricing_Master_2026.xlsx — linehaul rates differ 18%", {sha:"0f9ac771", contra:"f05"}),
+  F("f07","Contract_Template_MSA.docx","96 KB","source_backed","", {sha:"5d20e1a8"}),
+  F("f08","Q1_Board_Update.pdf","3.8 MB","source_backed","", {sha:"b74410c2"}),
+  F("f09","Service_Catalog.pdf","2.9 MB","source_backed","", {sha:"2ca8f5d9"}),
+  F("f10","SLA_Definitions.docx","122 KB","source_backed","", {sha:"91e6027b"}),
+  F("f11","Meeting_Notes_Q1.txt","18 KB","indexed_unverified","No source anchors", {sha:"44a1d8e0"}),
+  F("f12","Ops_Handover_Notes.docx","64 KB","indexed_unverified","No source anchors", {sha:"d29c33f6"}),
+  F("f13","Sales_Call_Summary.txt","9 KB","indexed_unverified","No source anchors", {sha:"6eb7a924"}),
+  F("f14","Email_Export_March.txt","210 KB","indexed_unverified","No source anchors", {sha:"f30b6c15"}),
+  F("f15","AI_Strategy_Summary.docx","88 KB","synthesis","Synthesized claims — no underlying sources in corpus", {sha:"83d5f042"}),
+  F("f16","Market_Analysis_Compiled.docx","132 KB","synthesis","Synthesized claims — no underlying sources in corpus", {sha:"a90c47be"}),
+  F("f17","Competitor_Overview.docx","74 KB","synthesis","Synthesized claims — no underlying sources in corpus", {sha:"3f78d1c6"}),
+  F("f18","Scan_Contract_2019.pdf","5.1 MB","blocked","Failed extraction — image scan, no text layer", {sha:"be5502ad"}),
+  F("f19","Scan_Insurance_2018.pdf","4.4 MB","blocked","Failed extraction — image scan, no text layer", {sha:"07c1e9f3"}),
+  F("f20","Board_Deck_Q4.pdf","9.7 MB","blocked","Partial extraction — 12 of 48 pages recovered", {sha:"c8a37610"}),
+  F("f21","logo_final_v2.psd","24 MB","blocked","Unsupported format (.psd)", {sha:"5b09dd24"}),
+  F("f22","empty_template.docx","0 KB","blocked","Empty file", {sha:"e3b0c442"}),
+  F("f23","~$Pricing_Master.tmp","1 KB","blocked","Temp artifact", {sha:"12fa88c0"}),
+  F("f24","backup_full.zip","48 MB","blocked","Unsupported archive (.zip)", {sha:"9d64b31e"}),
+  F("f25","export_crm.dat","3.2 MB","blocked","Unsupported format (.dat)", {sha:"70ce4a5d"}),
+  F("f26","Untitled_document.docx","0 KB","blocked","Empty file", {sha:"e3b0c442"}),
+  F("f27","Company_Overview_2025 - Copy.pdf","2.1 MB","triangulated","Exact duplicate of Company_Overview_2025.pdf", {sha:"a3f1c9d2", dupOf:"f01"}),
+  F("f28","Pricing_Master_2026 (1).xlsx","310 KB","source_backed","Exact duplicate of Pricing_Master_2026.xlsx", {sha:"e8123bc4", dupOf:"f05"}),
+  F("f29","SLA_Definitions_FINAL.docx","122 KB","source_backed","Exact duplicate of SLA_Definitions.docx", {sha:"91e6027b", dupOf:"f10"})
+];
+
+/* op kinds: exclude | repair | replace | defer  (repair/replace lift tier to source_backed) */
+const QUEUE = [
+  { id:"Q1", sev:"critical", title:"Resolve the pricing contradiction", effort:"5-min client question",
+    desc:"Two pricing files state conflicting linehaul rates (18% apart). A RAG system will answer with whichever it retrieves. Confirm the authoritative file; the legacy sheet is staged for exclusion.",
+    ops:[{fid:"f06",kind:"exclude"}], verb:"Stage exclusion", alt:"Keep both (stays blocked)" },
+  { id:"Q2", sev:"high", title:"Recover 3 scanned files with no usable text", effort:"~20 min local OCR",
+    desc:"Two contracts are image-only scans and the Q4 board deck extracted 12 of 48 pages. Their content is currently invisible to retrieval. Re-OCR locally or request native originals.",
+    ops:[{fid:"f18",kind:"repair"},{fid:"f19",kind:"repair"},{fid:"f20",kind:"repair"}], verb:"Stage repair (re-OCR)", alt:"Exclude instead" },
+  { id:"Q3", sev:"high", title:"Exclude 6 unreadable or empty files", effort:"1 click",
+    desc:"Design assets, archives, temp artifacts and empty documents. They add zero evidence and drag the corpus average.",
+    ops:["f21","f22","f23","f24","f25","f26"].map(fid=>({fid,kind:"exclude"})), verb:"Stage exclusion", alt:"Skip" },
+  { id:"Q5", sev:"high", title:"Put a source spine under 3 synthesis documents", effort:"1 client request",
+    desc:"Three strategy/analysis docs assert claims with no underlying sources in the corpus. Client provides the source material for two; Competitor_Overview has none and is staged for exclusion.",
+    ops:[{fid:"f15",kind:"replace"},{fid:"f16",kind:"replace"},{fid:"f17",kind:"exclude"}], verb:"Stage replace + exclude", alt:"Skip" },
+  { id:"Q4", sev:"medium", title:"Exclude 3 exact duplicates", effort:"1 click",
+    desc:"SHA-256 identical to canonical files. Duplicates inflate retrieval noise and cost 2 points each.",
+    ops:["f27","f28","f29"].map(fid=>({fid,kind:"exclude"})), verb:"Stage exclusion", alt:"Skip" },
+  { id:"Q6", sev:"medium", title:"Anchor 3 note files to their sources", effort:"client exports, ~1 day",
+    desc:"Meeting notes and call summaries carry claims with no source anchors. Anchored exports (CRM / calendar links) lift them to source-backed.",
+    ops:[{fid:"f11",kind:"replace"},{fid:"f12",kind:"replace"},{fid:"f13",kind:"replace"}], verb:"Stage replacement", alt:"Skip" },
+  { id:"Q7", sev:"low", title:"Email_Export_March.txt — anchor later", effort:"scoped in SOW",
+    desc:"Large unanchored export; low retrieval value today. Recommended: defer anchoring to the statement of work and ingest flagged as unverified.",
+    ops:[{fid:"f14",kind:"defer"}], verb:"Defer to SOW", alt:"" }
+];
+
+const RISKS = [
+  { id:"R-01", cat:"Contradiction", sev:"critical",
+    finding:"Pricing_Master_2026.xlsx and Pricing_2024_legacy.xlsx state conflicting linehaul rates (18% apart).",
+    rec:"Confirm authoritative source with the finance owner; exclude or archive the legacy file.",
+    status: s => s.files.find(f=>f.id==="f06").excluded ? "closed" : "open" },
+  { id:"R-02", cat:"Extraction", sev:"high",
+    finding:"3 PDFs have no usable text layer; their content is invisible to retrieval.",
+    rec:"Re-OCR locally or request native originals before ingestion.",
+    status: s => ["f18","f19","f20"].every(id=>{const f=s.files.find(x=>x.id===id);return f.excluded||f.tier!=="blocked";}) ? "closed" : "open" },
+  { id:"R-03", cat:"Provenance", sev:"high",
+    finding:"3 documents synthesize claims with no underlying sources in the corpus.",
+    rec:"Request source material, or ingest as opinion-tier content only.",
+    status: s => ["f15","f16","f17"].every(id=>{const f=s.files.find(x=>x.id===id);return f.excluded||f.tier!=="synthesis";}) ? "closed" : "open" },
+  { id:"R-04", cat:"Redundancy", sev:"medium",
+    finding:"3 exact duplicates (SHA-256 match) inflate retrieval noise and skew ranking.",
+    rec:"Exclude copies; keep the canonical path in the manifest.",
+    status: s => ["f27","f28","f29"].every(id=>s.files.find(x=>x.id===id).excluded) ? "closed" : "open" },
+  { id:"R-05", cat:"Provenance", sev:"medium",
+    finding:"Note files carry claims with no source anchors (unverified tier).",
+    rec:"Anchor to CRM/email exports, or ingest flagged as unverified.",
+    status: s => { const open=["f11","f12","f13","f14"].filter(id=>{const f=s.files.find(x=>x.id===id);return !f.excluded && f.tier==="indexed_unverified" && !f.deferred;}).length;
+                   return open===0 ? "closed" : (open<4 ? "partial" : "open"); } }
+];
+
+/* ---------------- engine ---------------- */
+function computeScore(files){
+  const inScope = files.filter(f=>!f.excluded);
+  const n = inScope.length;
+  const tierRows = {}; let sum = 0;
+  for(const k of Object.keys(TIERS)) tierRows[k] = { count:0, each:TIERS[k].v, subtotal:0 };
+  for(const f of inScope){ tierRows[f.tier].count++; tierRows[f.tier].subtotal += TIERS[f.tier].v; sum += TIERS[f.tier].v; }
+  const dupCount = inScope.filter(f=>f.dupOf && inScope.some(x=>x.id===f.dupOf)).length;
+  const dupPenalty = Math.min(dupCount*DUP_PT, DUP_CAP);
+  const base = n ? Math.floor(sum/n) : 0;
+  let score = Math.max(0, base - dupPenalty);
+
+  const stops = [];
+  const contras = inScope.filter(f=>f.contra && inScope.some(x=>x.id===f.contra));
+  if(contras.length) stops.push("Contradiction hard-block: conflicting pricing rates in scope");
+  const blocked = tierRows.blocked.count;
+  const share = n ? blocked/n : 0;
+  if(share >= BLOCKED_SHARE_STOP) stops.push(`${blocked} unreadable files = ${Math.round(share*100)}% of scope (policy limit ${Math.round(BLOCKED_SHARE_STOP*100)}%)`);
+  const capApplied = stops.length>0 && score > STOP_CAP;
+  if(stops.length) score = Math.min(score, STOP_CAP);
+
+  const unverified = tierRows.indexed_unverified.count;
+  let verdict, reasons=[];
+  if(stops.length){ verdict="STOP"; reasons = stops; }
+  else if(score >= GO_THRESHOLD && blocked===0){ verdict="GO"; reasons=["All eligibility policies pass"]; }
+  else {
+    verdict="CONDITIONAL";
+    if(score < GO_THRESHOLD) reasons.push(`Readiness ${score} is below the GO threshold (${GO_THRESHOLD})`);
+    if(blocked>0) reasons.push(`${blocked} files still unreadable`);
+    if(unverified>0) reasons.push(`${unverified} file${unverified>1?"s":""} indexed but unverified`);
+  }
+  const hardBlocks = blocked + contras.length;
+  return { n, sum, base, dupCount, dupPenalty, stops, capApplied, score, verdict, reasons, tierRows, blocked, unverified, hardBlocks };
+}
+
+function applyOps(files, ops){
+  const copy = files.map(f=>Object.assign({},f));
+  for(const op of ops){
+    const f = copy.find(x=>x.id===op.fid); if(!f) continue;
+    if(op.kind==="exclude"){ f.excluded=true; f.fixedNote="Excluded"; }
+    else if(op.kind==="repair"){ f.tier="source_backed"; f.issue=""; f.fixedNote="Repaired (re-OCR) → source-backed"; }
+    else if(op.kind==="replace"){ f.tier="source_backed"; f.issue=""; f.fixedNote="Replaced with sourced version → source-backed"; }
+    else if(op.kind==="defer"){ f.deferred=true; }
+  }
+  return copy;
+}
+
+/* ---------------- state ---------------- */
+const S = {
+  files: FILES.map(f=>Object.assign({},f)),
+  staged: new Set(),          // queue item ids
+  itemStatus: {},             // id -> open|staged|applied|deferred
+  scans: [],                  // {no, ts, ...computeScore, counts}
+  filter: "all", search: ""
+};
+QUEUE.forEach(q=>S.itemStatus[q.id]="open");
+
+function currentScan(){ return S.scans[S.scans.length-1]; }
+function prevScan(){ return S.scans.length>1 ? S.scans[S.scans.length-2] : null; }
+
+function snapshot(){
+  const r = computeScore(S.files);
+  r.no = S.scans.length+1;
+  r.ts = new Date();
+  return r;
+}
+
+/* ---------------- helpers ---------------- */
+const $ = sel => document.querySelector(sel);
+const el = id => document.getElementById(id);
+function esc(s){ return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function fmtTime(d){ return d.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}); }
+function announce(msg){ el("live").textContent = msg; }
+let toastT;
+function toast(msg){ const t = el("toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(()=>t.classList.remove("on"), 4200); }
+function download(name, text, mime){
+  const url = URL.createObjectURL(new Blob([text], {type:mime||"text/plain"}));
+  const a = document.createElement("a"); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
+
+const ICONS = {
+  STOP: '<svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path fill="var(--crit)" d="M7.6 2h8.8L22 7.6v8.8L16.4 22H7.6L2 16.4V7.6L7.6 2z"/><rect x="7" y="11" width="10" height="2.4" rx="1.2" fill="#fff"/></svg>',
+  CONDITIONAL: '<svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path fill="var(--warn)" d="M12 2.5 22.5 21h-21L12 2.5z"/><rect x="11" y="9" width="2" height="6" rx="1" fill="#0b0b0b"/><circle cx="12" cy="17.4" r="1.3" fill="#0b0b0b"/></svg>',
+  GO: '<svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="var(--good)"/><path d="M7.2 12.4 10.6 16 17 8.6" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+};
+const VLABEL = { STOP:"STOP", CONDITIONAL:"CONDITIONAL GO", GO:"GO" };
+const VCOLOR = { STOP:"var(--crit)", CONDITIONAL:"var(--warn)", GO:"var(--good)" };
+
+/* projected score if everything still open/staged (except defers) were applied */
+function projectedScore(){
+  let ops = [];
+  for(const q of QUEUE){
+    if(S.itemStatus[q.id]==="applied") continue;
+    ops = ops.concat(q.ops.filter(o=>o.kind!=="defer"));
+  }
+  return computeScore(applyOps(S.files, ops)).score;
+}
+function itemImpact(q){
+  const cur = currentScan();
+  const after = computeScore(applyOps(S.files, q.ops));
+  return { delta: after.score - cur.score, stopsCleared: cur.stops.length - after.stops.length };
+}
+
+/* ---------------- renderers ---------------- */
+function verdictHeadline(r){
+  if(r.verdict==="STOP"){
+    return { head:"Not ready to ingest.",
+      sub:`${r.stops.length===2?"Two stop conditions are":"A stop condition is"} active: a pricing contradiction and ${r.blocked} unreadable files (${Math.round(r.blocked/r.n*100)}% of scope). Clearing the queue below projects readiness at ${projectedScore()}.` };
+  }
+  if(r.verdict==="CONDITIONAL"){
+    const clean = r.n - r.unverified - r.blocked;
+    return { head:`Build on ${clean} of ${r.n} files.`,
+      sub:`No hard blocks remain. ${r.unverified? r.unverified+" file"+(r.unverified>1?"s are":" is")+" still unverified — ingest flagged, or anchor first (scoped in the SOW)." : ""} ${r.score<GO_THRESHOLD? "Readiness "+r.score+" sits below the GO threshold of "+GO_THRESHOLD+".":""}` };
+  }
+  return { head:`All ${r.n} files in scope are eligible to ingest.`, sub:"Every eligibility policy passes. Export the pack and build." };
+}
+
+function renderBand(){
+  const r = currentScan(), p = prevScan();
+  const h = verdictHeadline(r);
+  const stagedCount = S.staged.size;
+  const pct = Math.max(0, Math.min(100, r.score));
+  const trustOpen = S.trustOpen;
+
+  /* primary CTA: exactly one */
+  let cta, ctaNote="", ctaAct;
+  if(stagedCount>0){ cta = `Re-scan — ${stagedCount} staged change${stagedCount>1?"s":""}`; ctaAct="rescan"; ctaNote=`projected readiness ≈ ${projectedScore()}`; }
+  else if(r.verdict==="STOP"){ cta = "Review the remediation queue"; ctaAct="queue"; ctaNote="stage fixes, then re-scan"; }
+  else { cta = "Export Audit Pack"; ctaAct="export"; ctaNote="report + SOW + manifests, one zip"; }
+
+  let deltaHTML;
+  if(p){
+    const d = r.score - p.score;
+    deltaHTML = `
+      <div class="dlab">Scan delta · #${p.no} → #${r.no}</div>
+      <div class="delta-big num"><span class="${d>=0?"up":""}">${d>=0?"▲":"▼"} ${d>=0?"+":""}${d}</span></div>
+      <div class="delta-sub num">Readiness ${p.score} → ${r.score}</div>
+      <div class="delta-detail num">Hard blocks <b>${p.hardBlocks} → ${r.hardBlocks}</b> · files in scope <b>${p.n} → ${r.n}</b><br>
+      repaired <b>${S.lastCounts.repaired}</b> · replaced <b>${S.lastCounts.replaced}</b> · excluded <b>${S.lastCounts.excluded}</b></div>`;
+  } else {
+    deltaHTML = `
+      <div class="dlab">Scan delta</div>
+      <div class="delta-sub" style="margin-top:8px">First scan — no baseline yet. Stage fixes below and re-scan to measure your cleanup.</div>`;
+  }
+
+  el("band").innerHTML = `
+    <div>
+      <span class="vchip ${r.verdict}"><span class="vword">${ICONS[r.verdict]}<span>${VLABEL[r.verdict]}</span></span></span>
+      <div class="vhead">${esc(h.head)}</div>
+      <div class="vsub">${esc(h.sub)}</div>
+      <div class="trust">
+        <span>Covers provenance &amp; extraction integrity — not factual accuracy.</span>
+        <button id="trustBtn" aria-expanded="${trustOpen?"true":"false"}">what this means</button>
+      </div>
+      ${trustOpen? `<div class="trustmore" id="trustmore">A GO means every file is <b>eligible to ingest</b>: it can be read completely, its origin is traceable, and it doesn’t collide with another source. Anti-Silo does not judge whether the content is true — that stays your client’s accountability, and this line appears verbatim in the client report.</div>`:""}
+    </div>
+    <div style="--vcol:${VCOLOR[r.verdict]}; --track:color-mix(in srgb, ${VCOLOR[r.verdict]} 16%, var(--surface))">
+      <div class="scorelab">Readiness score</div>
+      <div class="hero num" aria-label="Readiness score ${r.score} out of 100">${r.score}<small> / 100</small></div>
+      <div class="meter" role="img" aria-label="Score ${r.score} of 100. GO threshold ${GO_THRESHOLD}.${p? " Previous scan "+p.score+".":""}">
+        <div class="fill" style="width:${pct}%"></div>
+        <div class="tick" style="inset-inline-start:${GO_THRESHOLD}%"></div>
+        ${p? `<div class="ghost" style="inset-inline-start:${p.score}%"></div>`:""}
+      </div>
+      <div class="mlabels"><span style="inset-inline-start:${GO_THRESHOLD}%">GO ≥ ${GO_THRESHOLD}</span>${p? `<span style="inset-inline-start:${p.score}%; top:0">prev ${p.score}</span>`:""}</div>
+      <details class="ledger-toggle" ${S.ledgerOpen?"open":""} id="ledgerDet">
+        <summary>How this number was computed</summary>
+        <div class="ledger num">
+          <p class="det">Deterministic — the same corpus always produces the same score. No model, no judgment: each file earns its evidence tier, averaged across every file in scope; exact duplicates cost ${DUP_PT} points each (max −${DUP_CAP}); any stop finding caps the total at ${STOP_CAP}.</p>
+          <table>
+            <tr><th>Evidence tier</th><th>Files</th><th>Pts each</th><th>Subtotal</th></tr>
+            ${Object.keys(TIERS).map(k=>{const t=r.tierRows[k];return `<tr class="${t.count===0?"zero":""}"><td>${TIERS[k].label}</td><td>${t.count}</td><td>${t.each}</td><td>${t.subtotal}</td></tr>`;}).join("")}
+            <tr><td>÷ ${r.n} files in scope (floor)</td><td colspan="2"></td><td>${r.base}</td></tr>
+            <tr><td>− duplicate penalty (${r.dupCount} × ${DUP_PT})</td><td colspan="2"></td><td>−${r.dupPenalty}</td></tr>
+            <tr><td>Stop-finding cap at ${STOP_CAP}</td><td colspan="2"></td><td>${r.stops.length? (r.capApplied? "applied":"present, not binding") : "—"}</td></tr>
+            <tr class="total"><td>Readiness</td><td colspan="2"></td><td>${r.score}</td></tr>
+          </table>
+        </div>
+      </details>
+    </div>
+    <div>
+      ${deltaHTML}
+      <button class="cta" id="ctaBtn" data-act="${ctaAct}">${esc(cta)}</button>
+      <div class="cta-note">${esc(ctaNote)}</div>
+    </div>`;
+
+  el("trustBtn").addEventListener("click", ()=>{ S.trustOpen=!S.trustOpen; renderBand(); if(S.trustOpen) el("trustmore").scrollIntoView({block:"nearest"}); });
+  el("ledgerDet").addEventListener("toggle", e=>{ S.ledgerOpen = e.target.open; });
+  el("ctaBtn").addEventListener("click", ()=>{
+    const act = el("ctaBtn").dataset.act;
+    if(act==="rescan") rescan();
+    else if(act==="queue") el("sec-queue").scrollIntoView();
+    else el("sec-export").scrollIntoView();
+  });
+}
+
+function orderQueue(){
+  const open = QUEUE.filter(q=>S.itemStatus[q.id]==="open"||S.itemStatus[q.id]==="staged");
+  const done = QUEUE.filter(q=>S.itemStatus[q.id]==="applied"||S.itemStatus[q.id]==="deferred");
+  open.sort((a,b)=>{
+    const ia=itemImpact(a), ib=itemImpact(b);
+    if(ib.stopsCleared!==ia.stopsCleared) return ib.stopsCleared-ia.stopsCleared;
+    return ib.delta-ia.delta;
+  });
+  return {open, done};
+}
+
+function renderQueue(){
+  const {open, done} = orderQueue();
+  const rows = [];
+  open.forEach(q=>{
+    const imp = itemImpact(q);
+    const staged = S.itemStatus[q.id]==="staged";
+    const impactStr = [
+      imp.stopsCleared>0 ? `<span class="clr">clears ${imp.stopsCleared===currentScan().stops.length&&currentScan().stops.length>0?"stop condition":"a stop condition"}</span>` : "",
+      q.ops.every(o=>o.kind==="defer") ? `<span style="color:var(--muted);font-weight:500">no score change</span>` :
+        `<span class="num">${imp.delta>=0?"+":""}${imp.delta} pts</span>`
+    ].filter(Boolean).join(" · ");
+    rows.push(`
+      <div class="qitem ${staged?"staged-row":""}">
+        <span class="sev ${q.sev}"><i aria-hidden="true"></i>${q.sev.toUpperCase()}</span>
+        <div class="qmain">
+          <h3>${esc(q.title)}</h3>
+          <div class="qd">${esc(q.desc)}</div>
+          <div class="qfiles">${q.ops.map(o=>{const f=S.files.find(x=>x.id===o.fid);return `<span class="fchip">${esc(f.name)}</span>`;}).join("")}</div>
+        </div>
+        <div class="qside">
+          <div class="impact">${impactStr}</div>
+          <div class="effort">${esc(q.effort)}</div>
+          <div class="qact">
+            ${staged
+              ? `<span class="stagedtag">✓ staged for re-scan</span><button class="abtn q" data-unstage="${q.id}">Undo</button>`
+              : `<button class="abtn" data-stage="${q.id}">${esc(q.verb)}</button>${q.alt?`<button class="abtn q" data-skip="${q.id}">${esc(q.alt)}</button>`:""}`}
+          </div>
+        </div>
+      </div>`);
+  });
+  done.forEach(q=>{
+    const st = S.itemStatus[q.id];
+    rows.push(`
+      <div class="qitem applied">
+        <span class="sev ${q.sev}" style="opacity:.5"><i aria-hidden="true"></i>${q.sev.toUpperCase()}</span>
+        <div class="qmain"><h3>${esc(q.title)}</h3></div>
+        <div class="qside">${st==="applied"?`<span class="appliedtag">✓ applied in scan #${currentScan().no}</span>`:`<span class="deferredtag">→ deferred to SOW</span>`}</div>
+      </div>`);
+  });
+  el("queue").innerHTML = rows.join("") || `<div class="qitem"><div></div><div class="qmain"><h3>Queue clear.</h3><div class="qd">Nothing left to remediate. Export the pack.</div></div><div></div></div>`;
+  el("qfooter").textContent = open.length
+    ? "Impact previews are computed by the same engine as the score — staging an item shows exactly what the re-scan will do."
+    : "All remediation applied or deferred. Deferred items are itemized in SOW_READY.md.";
+
+  el("queue").querySelectorAll("[data-stage]").forEach(b=>b.addEventListener("click",()=>{ stageItem(b.dataset.stage); }));
+  el("queue").querySelectorAll("[data-unstage]").forEach(b=>b.addEventListener("click",()=>{ S.staged.delete(b.dataset.unstage); S.itemStatus[b.dataset.unstage]="open"; renderAll(); }));
+  el("queue").querySelectorAll("[data-skip]").forEach(b=>b.addEventListener("click",()=>{ toast("Skipped for now — it stays in the queue and in the risk register."); }));
+}
+
+function stageItem(id){
+  const q = QUEUE.find(x=>x.id===id);
+  if(q.ops.every(o=>o.kind==="defer")){
+    applyOpsInPlace(q.ops); S.itemStatus[id]="deferred";
+    toast("Deferred to SOW — itemized in SOW_READY.md, no score change.");
+    announce("Item deferred to statement of work.");
+  } else {
+    S.staged.add(id); S.itemStatus[id]="staged";
+    announce(`${q.title} staged. ${S.staged.size} changes staged. Press R to re-scan.`);
+  }
+  renderAll();
+}
+function applyOpsInPlace(ops){
+  for(const op of ops){
+    const f = S.files.find(x=>x.id===op.fid); if(!f) continue;
+    if(op.kind==="exclude"){ f.excluded=true; f.fixedNote="Excluded"; }
+    else if(op.kind==="repair"){ f.tier="source_backed"; f.issue=""; f.fixedNote="Repaired (re-OCR) → source-backed"; }
+    else if(op.kind==="replace"){ f.tier="source_backed"; f.issue=""; f.fixedNote="Replaced with sourced version → source-backed"; }
+    else if(op.kind==="defer"){ f.deferred=true; }
+  }
+}
+
+const FILTERS = [
+  {k:"all", label:"All"},
+  {k:"blocked", label:"Blocked", test:f=>f.tier==="blocked"&&!f.excluded},
+  {k:"dup", label:"Duplicates", test:f=>!!f.dupOf},
+  {k:"unverified", label:"Unverified", test:f=>f.tier==="indexed_unverified"&&!f.excluded},
+  {k:"synthesis", label:"Synthesis", test:f=>f.tier==="synthesis"&&!f.excluded},
+  {k:"excluded", label:"Excluded", test:f=>f.excluded},
+];
+function renderFiles(){
+  const r = currentScan(), p = prevScan();
+  const dtile = (cur,prev)=> p&&prev!==undefined&&prev!==cur ? `<span class="td num">${prev} → <span class="up">${cur}</span></span>` : `<span class="td">&nbsp;</span>`;
+  el("tiles").innerHTML = `
+    <div class="tile"><div class="tl">Files in scope</div><div class="tv num">${r.n}</div>${dtile(r.n,p&&p.n)}</div>
+    <div class="tile"><div class="tl">Hard blocks</div><div class="tv num">${r.hardBlocks}</div>${dtile(r.hardBlocks,p&&p.hardBlocks)}</div>
+    <div class="tile"><div class="tl">Exact duplicates</div><div class="tv num">${r.dupCount}</div>${dtile(r.dupCount,p&&p.dupCount)}</div>
+    <div class="tile"><div class="tl">Unverified</div><div class="tv num">${r.unverified}</div>${dtile(r.unverified,p&&p.unverified)}</div>`;
+
+  el("filters").innerHTML = FILTERS.map(f=>{
+    const cnt = f.test ? S.files.filter(f.test).length : S.files.length;
+    return `<button aria-pressed="${S.filter===f.k}" data-f="${f.k}">${f.label} <span class="num">${cnt}</span></button>`;
+  }).join("") + `<input type="search" placeholder="Search files…" aria-label="Search files" id="fsearch" value="${esc(S.search)}">`;
+  el("filters").querySelectorAll("[data-f]").forEach(b=>b.addEventListener("click",()=>{ S.filter=b.dataset.f; renderFiles(); }));
+  const si = el("fsearch");
+  si.addEventListener("input", ()=>{ S.search=si.value; renderFileRows(); });
+
+  renderFileRows();
+}
+function renderFileRows(){
+  const flt = FILTERS.find(f=>f.k===S.filter);
+  let list = S.files.filter(f=> !flt.test || flt.test(f));
+  if(S.search) list = list.filter(f=>f.name.toLowerCase().includes(S.search.toLowerCase()));
+  el("ftbody").innerHTML = list.map(f=>{
+    const t = TIERS[f.tier];
+    const pts = f.excluded ? "—" : t.v;
+    const findCls = f.tier==="blocked"||f.contra ? "bad" : (f.tier==="synthesis"||f.dupOf ? "warny" : "");
+    const finding = f.excluded ? `<span class="issue">${esc(f.fixedNote||"Excluded from scope")}</span>`
+      : f.fixedNote ? `<span class="fixed-note">${esc(f.fixedNote)}</span>`
+      : f.issue ? `<span class="issue ${findCls}">${esc(f.issue)}</span>`
+      : f.deferred ? `<span class="issue">Unanchored — deferred to SOW, ingests flagged</span>`
+      : `<span class="issue" style="color:var(--muted)">—</span>`;
+    return `<tr class="${f.excluded?"excl":""}">
+      <td class="fn">${esc(f.name)}<span class="sha" style="display:block">${esc(f.size)}</span></td>
+      <td><span class="tierb"><i style="background:${t.dot};${f.tier==="blocked"?"border-color:var(--crit)":""}" aria-hidden="true"></i>${f.excluded?"Out of scope":t.label}</span></td>
+      <td class="pts num">${pts}</td>
+      <td>${finding}</td>
+      <td class="sha">${esc(f.sha)}${f.dupOf?` = ${esc(S.files.find(x=>x.id===f.dupOf).sha)}`:""}</td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="5" style="color:var(--muted);padding:16px">No files match.</td></tr>`;
+}
+
+function renderRisks(){
+  const sevIcon = s=>({critical:"Critical",high:"High",medium:"Medium",low:"Low"}[s]);
+  el("rkbody").innerHTML = RISKS.map(rk=>{
+    const st = rk.status(S);
+    return `<tr>
+      <td class="rid">${rk.id}</td>
+      <td>${rk.cat}</td>
+      <td><span class="sev ${rk.sev}" style="width:auto"><i aria-hidden="true"></i>${sevIcon(rk.sev)}</span></td>
+      <td><span class="st ${st}"><i aria-hidden="true"></i>${st==="partial"?"Mitigated":st[0].toUpperCase()+st.slice(1)}</span></td>
+      <td style="max-width:34ch">${esc(rk.finding)}</td>
+      <td style="max-width:30ch;color:var(--ink2)">${esc(rk.rec)}</td>
+    </tr>`;
+  }).join("");
+}
+
+const ARTIFACTS = [
+  ["ANTI_SILO_REPORT.html","boardroom-ready audit report","view"],
+  ["PREFLIGHT_SUMMARY.json","verdict, score, ledger, policies","dl-json"],
+  ["REMEDIATION_QUEUE.csv","prioritized actions with impact","dl-queue"],
+  ["RISK_REGISTER.csv","risk ID, severity, recommendation","dl-risk"],
+  ["SCAN_DELTA.json","previous vs current scan","dl-delta"],
+  ["SOW_READY.md","cleanup scope for the statement of work","dl-sow"],
+  ["CLIENT_SOURCE_MANIFEST.json","every file, hash, tier, disposition","dl-manifest"],
+  ["eligible_sources.csv","the ingest allowlist","dl-eligible"],
+];
+function renderExport(){
+  el("artifacts").innerHTML = ARTIFACTS.map(a=>`
+    <div class="arow"><span class="an">${a[0]}</span><span class="ad">${a[1]}</span><button data-art="${a[2]}">${a[2]==="view"?"preview":"download"}</button></div>`).join("")
+    + `<div class="arow"><span class="an"><b>ANTI_SILO_PREFLIGHT_PACK.zip</b></span><span class="ad">all of the above, one file for the client</span><button data-art="zip">export</button></div>`;
+  el("artifacts").querySelectorAll("[data-art]").forEach(b=>b.addEventListener("click",()=>exportArtifact(b.dataset.art)));
+}
+
+function renderMeta(){
+  const r = currentScan();
+  el("projmeta").innerHTML = `<b>${PROJECT.alias}</b><span class="sep">·</span>${esc(PROJECT.engagement)}<span class="sep">·</span><span class="num">scan #${r.no} · ${fmtTime(r.ts)} · ${r.n} files in scope</span>`;
+  el("cntQueue").textContent = " " + QUEUE.filter(q=>S.itemStatus[q.id]==="open"||S.itemStatus[q.id]==="staged").length + " open";
+  el("cntFiles").textContent = " " + r.n + " in scope";
+  el("cntRisks").textContent = " " + RISKS.filter(rk=>rk.status(S)!=="closed").length + " open";
+}
+
+function renderAll(){ renderBand(); renderQueue(); renderFiles(); renderRisks(); renderExport(); renderMeta(); }
+
+/* ---------------- scan simulation ---------------- */
+let scanning = false;
+function rescan(){
+  if(scanning || S.staged.size===0) return;
+  scanning = true;
+  const phases = [
+    ["Hashing files (SHA-256)…",25],
+    ["Extracting text…",55],
+    ["Checking source anchors & contradictions…",80],
+    ["Scoring…",96]
+  ];
+  const bar = el("scanbar"), fill = bar.querySelector("i"), st = el("scanstate");
+  bar.classList.add("on"); st.classList.add("on");
+  announce("Re-scan started.");
+  let i = 0;
+  const step = ()=>{
+    if(i < phases.length){
+      st.textContent = phases[i][0]; fill.style.width = phases[i][1]+"%";
+      announce(phases[i][0]); i++; setTimeout(step, 380);
+    } else {
+      /* apply staged ops, count dispositions */
+      const counts = {repaired:0, replaced:0, excluded:0};
+      for(const id of S.staged){
+        const q = QUEUE.find(x=>x.id===id);
+        for(const op of q.ops){
+          if(op.kind==="repair") counts.repaired++;
+          else if(op.kind==="replace") counts.replaced++;
+          else if(op.kind==="exclude") counts.excluded++;
+        }
+        applyOpsInPlace(q.ops);
+        S.itemStatus[id]="applied";
+      }
+      S.lastCounts = counts;
+      S.staged.clear();
+      S.scans.push(snapshot());
+      fill.style.width="100%";
+      setTimeout(()=>{ bar.classList.remove("on"); st.classList.remove("on"); fill.style.width="0"; }, 400);
+      scanning = false;
+      renderAll();
+      const r = currentScan(), p = prevScan();
+      const msg = `Re-scan complete. Readiness ${r.score}, up from ${p.score}. Verdict: ${VLABEL[r.verdict]}.`;
+      announce(msg); toast(msg);
+      window.scrollTo({top:0});
+    }
+  };
+  step();
+}
+
+/* ---------------- exports ---------------- */
+function summaryJSON(){
+  const r = currentScan();
+  return JSON.stringify({
+    tool:"anti-silo/1.4", project:PROJECT.alias, engagement:PROJECT.engagement,
+    scan:r.no, timestamp:r.ts.toISOString(),
+    verdict:VLABEL[r.verdict], readiness:r.score,
+    ledger:{ tiers:r.tierRows, files_in_scope:r.n, base:r.base, duplicate_penalty:r.dupPenalty, stop_cap_applied:r.capApplied },
+    policies:{ go_threshold:GO_THRESHOLD, stop_cap:STOP_CAP, duplicate_point:DUP_PT, duplicate_cap:DUP_CAP, blocked_share_stop:BLOCKED_SHARE_STOP },
+    stop_conditions:r.stops, verdict_reasons:r.reasons,
+    trust_boundary:"Verifies provenance and extraction integrity; does not verify factual accuracy."
+  }, null, 2);
+}
+function csv(rows){ return rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\r\n"); }
+function queueCSV(){
+  const rows = [["id","severity","status","title","action","files","score_impact","effort"]];
+  for(const q of QUEUE){
+    const imp = S.itemStatus[q.id]==="applied" ? "" : itemImpact(q).delta;
+    rows.push([q.id,q.sev,S.itemStatus[q.id],q.title,q.ops.map(o=>o.kind).join("+"),q.ops.map(o=>S.files.find(f=>f.id===o.fid).name).join("; "),imp,q.effort]);
+  }
+  return csv(rows);
+}
+function riskCSV(){
+  const rows=[["risk_id","category","severity","status","finding","recommendation"]];
+  RISKS.forEach(rk=>rows.push([rk.id,rk.cat,rk.sev,rk.status(S),rk.finding,rk.rec]));
+  return csv(rows);
+}
+function deltaJSON(){
+  const r=currentScan(), p=prevScan();
+  return JSON.stringify({
+    previous: p? {scan:p.no, readiness:p.score, verdict:VLABEL[p.verdict], files_in_scope:p.n, hard_blocks:p.hardBlocks}:null,
+    current: {scan:r.no, readiness:r.score, verdict:VLABEL[r.verdict], files_in_scope:r.n, hard_blocks:r.hardBlocks},
+    dispositions: S.lastCounts||null
+  },null,2);
+}
+function manifestJSON(){
+  return JSON.stringify(S.files.map(f=>({file:f.name, size:f.size, sha256_prefix:f.sha, tier:f.excluded?null:f.tier, disposition:f.excluded?"excluded":(f.fixedNote||"in scope"), duplicate_of:f.dupOf? S.files.find(x=>x.id===f.dupOf).name:null})),null,2);
+}
+function eligibleCSV(){
+  const rows=[["file","tier","points","sha256_prefix","flag"]];
+  S.files.filter(f=>!f.excluded && f.tier!=="blocked").forEach(f=>rows.push([f.name,f.tier,TIERS[f.tier].v,f.sha,f.tier==="indexed_unverified"?"unverified":""]));
+  return csv(rows);
+}
+function sowMD(){
+  const r=currentScan();
+  const remaining = QUEUE.filter(q=>S.itemStatus[q.id]==="open"||S.itemStatus[q.id]==="staged");
+  const deferred = QUEUE.filter(q=>S.itemStatus[q.id]==="deferred");
+  return `# Cleanup scope — ${PROJECT.client} (${PROJECT.engagement})
+
+Prepared by ${PROJECT.consultant} · scan #${r.no} · readiness ${r.score}/100 (${VLABEL[r.verdict]})
+
+## Remaining remediation
+${remaining.length? remaining.map(q=>`- **${q.title}** — ${q.effort}. ${q.desc}`).join("\n") : "- None. Corpus is at its post-remediation state."}
+
+## Deferred (scoped into engagement)
+${deferred.length? deferred.map(q=>`- **${q.title}** — ${q.desc}`).join("\n") : "- None."}
+
+## Boundary
+This audit verifies provenance and extraction integrity. Factual accuracy of document content remains the client's accountability.
+`;
+}
+function exportArtifact(kind){
+  switch(kind){
+    case "view": openReport(); break;
+    case "dl-json": download("PREFLIGHT_SUMMARY.json", summaryJSON(), "application/json"); break;
+    case "dl-queue": download("REMEDIATION_QUEUE.csv", queueCSV(), "text/csv"); break;
+    case "dl-risk": download("RISK_REGISTER.csv", riskCSV(), "text/csv"); break;
+    case "dl-delta": download("SCAN_DELTA.json", deltaJSON(), "application/json"); break;
+    case "dl-sow": download("SOW_READY.md", sowMD(), "text/markdown"); break;
+    case "dl-manifest": download("CLIENT_SOURCE_MANIFEST.json", manifestJSON(), "application/json"); break;
+    case "dl-eligible": download("eligible_sources.csv", eligibleCSV(), "text/csv"); break;
+    case "zip": toast("In the shipped app this writes ANTI_SILO_PREFLIGHT_PACK.zip beside the project. In the prototype, download artifacts individually."); break;
+  }
+}
+
+/* ---------------- client report (surface 2) ---------------- */
+function reportDocHTML(){
+  const r = currentScan(), p = prevScan();
+  const dateStr = r.ts.toLocaleDateString("en-GB", {day:"numeric", month:"long", year:"numeric"});
+  const vcol = {STOP:"#d03b3b", CONDITIONAL:"#b07800", GO:"#0a7a0a"}[r.verdict];
+  const openRisks = RISKS.map(rk=>({rk, st:rk.status(S)}));
+  const ledgerRows = Object.keys(TIERS).map(k=>{const t=r.tierRows[k];return t.count? `<tr><td>${TIERS[k].label}</td><td>${t.count}</td><td>${t.each}</td><td>${t.subtotal}</td></tr>`:"";}).join("");
+  const deltaBlock = p? `
+    <div class="kpis">
+      <div><span>Readiness before</span><b>${p.score}</b></div>
+      <div><span>Readiness now</span><b style="color:${vcol}">${r.score}</b></div>
+      <div><span>Hard blocks</span><b>${p.hardBlocks} → ${r.hardBlocks}</b></div>
+      <div><span>Files in scope</span><b>${p.n} → ${r.n}</b></div>
+    </div>
+    <p class="fine">Remediation between scans: ${S.lastCounts.repaired} files repaired, ${S.lastCounts.replaced} replaced with sourced versions, ${S.lastCounts.excluded} excluded from scope. Exclusions are listed file-by-file in the source manifest — nothing is silently dropped.</p>` : "";
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Preflight Audit — ${esc(PROJECT.client)}</title><style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font:15px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif;color:#1a1a19;background:#fff;padding:56px 8%}
+    .rule{height:3px;background:#0b0b0b;margin:18px 0 26px}
+    .brand{font-size:12px;letter-spacing:.22em;color:#52514e}
+    h1{font-size:30px;margin-top:10px;letter-spacing:-.01em}
+    .meta{color:#52514e;font-size:13.5px;margin-top:6px}
+    .verdictbox{display:flex;align-items:center;gap:26px;border:1px solid #e1e0d9;border-inline-start:5px solid ${vcol};border-radius:10px;padding:22px 28px;margin:30px 0}
+    .vscore{font-size:52px;font-weight:650;line-height:1}
+    .vscore small{font-size:18px;color:#898781;font-weight:500}
+    .vv{font-size:21px;font-weight:750;color:${vcol}}
+    .vvsub{color:#52514e;font-size:14px;margin-top:4px;max-width:52ch}
+    h2{font-size:16px;margin:34px 0 10px;letter-spacing:.02em}
+    p{max-width:72ch}
+    .he{direction:rtl;text-align:right;color:#333;border-inline-start:3px solid #e1e0d9;padding-inline-start:0;padding-inline-end:16px;margin-top:12px}
+    table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:8px}
+    th{text-align:left;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:#898781;border-bottom:2px solid #0b0b0b;padding:6px 8px}
+    td{border-bottom:1px solid #e1e0d9;padding:8px;vertical-align:top}
+    td:nth-child(n+2),th:nth-child(n+2){font-variant-numeric:tabular-nums}
+    .kpis{display:flex;gap:14px;margin:14px 0}
+    .kpis div{flex:1;border:1px solid #e1e0d9;border-radius:8px;padding:12px 16px}
+    .kpis span{display:block;font-size:11.5px;color:#898781}
+    .kpis b{font-size:22px}
+    .fine{font-size:12.5px;color:#52514e}
+    .boundary{border:1px solid #e1e0d9;background:#f9f9f7;border-radius:8px;padding:14px 18px;font-size:13.5px;margin-top:30px}
+    .sev{font-weight:600} .sev.critical{color:#d03b3b}.sev.high{color:#b04a1f}.sev.medium{color:#8a6400}
+    .stС{}
+    footer{margin-top:44px;border-top:1px solid #e1e0d9;padding-top:12px;font-size:12px;color:#898781;display:flex;justify-content:space-between;gap:16px}
+    @media print{body{padding:24px}}
+  </style></head><body>
+    <div class="brand">ANTI-SILO · PREFLIGHT AUDIT</div>
+    <div class="rule"></div>
+    <h1>Document readiness audit</h1>
+    <div class="meta">Prepared for <b>${esc(PROJECT.client)}</b> · ${esc(PROJECT.engagement)} · ${dateStr} · by ${esc(PROJECT.consultant)}</div>
+
+    <div class="verdictbox">
+      <div><div class="vscore">${r.score}<small> / 100</small></div></div>
+      <div><div class="vv">${VLABEL[r.verdict]}</div><div class="vvsub">${esc(verdictHeadline(r).head)} ${esc(verdictHeadline(r).sub)}</div></div>
+    </div>
+
+    <h2>Executive summary</h2>
+    <p>${esc(PROJECT.client)}’s document corpus is ${r.verdict==="GO"?"ready":"conditionally ready"} for AI ingestion. ${p? `Readiness improved from ${p.score} to ${r.score} out of 100 after remediation: the pricing contradiction was resolved, three scanned documents were recovered by OCR, and ${S.lastCounts.excluded} redundant or unreadable files were removed from scope.` : `Readiness stands at ${r.score} of 100.`} ${r.unverified? "One remaining item — unverified meeting notes — is scoped in the statement of work.":""} This audit verifies provenance and extraction integrity; it does not verify factual accuracy of the documents themselves.</p>
+    <p class="he" lang="he">מאגר המסמכים ${r.verdict==="GO"?"מוכן":"מוכן־בתנאי"} לקליטה למערכת ה־AI. ${p? `מדד המוכנות עלה מ־${p.score} ל־${r.score} מתוך 100 לאחר טיוב: סתירת התמחור נפתרה, שלושה מסמכים סרוקים שוחזרו ב־OCR, וקבצים כפולים או בלתי־קריאים הוצאו מהתחולה.`:""} ביקורת זו מאמתת מקור ושלמות חילוץ; היא אינה מאמתת נכונות עובדתית של תוכן המסמכים.</p>
+
+    ${deltaBlock}
+
+    <h2>How the score is computed</h2>
+    <p class="fine">The score is deterministic — the same corpus always produces the same number. Each file earns its evidence tier; tiers are averaged across every file in scope; exact duplicates subtract ${DUP_PT} points each (capped at ${DUP_CAP}); any stop finding caps the total at ${STOP_CAP}.</p>
+    <table>
+      <tr><th>Evidence tier</th><th>Files</th><th>Pts each</th><th>Subtotal</th></tr>
+      ${ledgerRows}
+      <tr><td><b>÷ ${r.n} files in scope</b></td><td></td><td></td><td><b>${r.base}</b></td></tr>
+      <tr><td>Duplicate penalty</td><td></td><td></td><td>−${r.dupPenalty}</td></tr>
+      <tr><td><b>Readiness</b></td><td></td><td></td><td><b>${r.score}</b></td></tr>
+    </table>
+
+    <h2>Risk register</h2>
+    <table>
+      <tr><th>ID</th><th>Category</th><th>Severity</th><th>Status</th><th>Finding</th><th>Recommendation</th></tr>
+      ${openRisks.map(({rk,st})=>`<tr><td>${rk.id}</td><td>${rk.cat}</td><td class="sev ${rk.sev}">${rk.sev[0].toUpperCase()+rk.sev.slice(1)}</td><td>${st==="partial"?"Mitigated":st[0].toUpperCase()+st.slice(1)}</td><td>${esc(rk.finding)}</td><td>${esc(rk.rec)}</td></tr>`).join("")}
+    </table>
+
+    <div class="boundary"><b>Trust boundary.</b> A GO verdict means every file in scope is <i>eligible to ingest</i>: readable in full, traceable to its origin, and free of hard conflicts with other sources. It is not a statement that the content is factually correct — that accountability remains with the document owners.</div>
+
+    <footer>
+      <span>Generated locally by Anti-Silo · no files left the machine · SHA-256 manifest enclosed</span>
+      <span>scan #${r.no} · engine d41c (deterministic)</span>
+    </footer>
+  </body></html>`;
+}
+function openReport(){
+  el("repFrame").srcdoc = reportDocHTML();
+  openOverlay("ovReport");
+}
+el("repDownload").addEventListener("click", ()=>download("ANTI_SILO_REPORT.html", reportDocHTML(), "text/html"));
+
+/* ---------------- overlays ---------------- */
+let lastFocus = null;
+function openOverlay(id){
+  lastFocus = document.activeElement;
+  const ov = el(id); ov.classList.add("open");
+  const btn = ov.querySelector("button"); if(btn) btn.focus();
+}
+function closeOverlays(){
+  document.querySelectorAll(".overlay.open").forEach(o=>o.classList.remove("open"));
+  if(lastFocus) lastFocus.focus();
+}
+document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click", closeOverlays));
+document.querySelectorAll(".overlay").forEach(o=>o.addEventListener("click", e=>{ if(e.target===o) closeOverlays(); }));
+
+/* ---------------- header + shortcuts ---------------- */
+el("btnTheme").addEventListener("click", ()=>{
+  const root = document.documentElement;
+  const dark = root.getAttribute("data-theme")==="dark" || (!root.getAttribute("data-theme") && matchMedia("(prefers-color-scheme: dark)").matches);
+  root.setAttribute("data-theme", dark? "light":"dark");
+});
+el("btnHelp").addEventListener("click", ()=>openOverlay("ovHelp"));
+el("btnProjects").addEventListener("click", ()=>openOverlay("ovProjects"));
+el("btnNewProject").addEventListener("click", ()=>toast("Prototype: folder selection is stubbed — the demo project stands in for a real scan."));
+el("btnStageAll").addEventListener("click", ()=>{
+  QUEUE.forEach(q=>{ if(S.itemStatus[q.id]==="open" && !q.ops.every(o=>o.kind==="defer")){ S.staged.add(q.id); S.itemStatus[q.id]="staged"; } });
+  renderAll();
+  announce(`${S.staged.size} changes staged. Press R or use the primary button to re-scan.`);
+});
+el("btnExport").addEventListener("click", ()=>exportArtifact("zip"));
+el("btnReport").addEventListener("click", openReport);
+el("btnSow").addEventListener("click", ()=>exportArtifact("dl-sow"));
+document.querySelectorAll(".subnav [data-go]").forEach(b=>b.addEventListener("click", ()=>el(b.dataset.go).scrollIntoView()));
+
+document.addEventListener("keydown", e=>{
+  if(e.target.matches("input,textarea") || e.ctrlKey || e.metaKey || e.altKey) return;
+  if(e.key==="Escape"){ closeOverlays(); return; }
+  const map = {"1":"sec-queue","2":"sec-files","3":"sec-risks","4":"sec-export"};
+  if(map[e.key]) el(map[e.key]).scrollIntoView();
+  else if(e.key==="r") rescan();
+  else if(e.key==="e") exportArtifact("zip");
+  else if(e.key==="t") el("btnTheme").click();
+  else if(e.key==="?") openOverlay("ovHelp");
+});
+
+/* coach ribbon */
+try{
+  if(!localStorage.getItem("as-coach-dismissed")) el("coach").hidden = false;
+}catch(_){ el("coach").hidden = false; }
+el("coachX").addEventListener("click", ()=>{ el("coach").hidden=true; try{localStorage.setItem("as-coach-dismissed","1");}catch(_){} });
+
+/* ---------------- boot ---------------- */
+S.scans.push(snapshot());
+S.lastCounts = {repaired:0, replaced:0, excluded:0};
+renderAll();
+announce(`Scan complete. Verdict ${VLABEL[currentScan().verdict]}. Readiness ${currentScan().score} out of 100.`);
+</script>
+</body>
+</html>
