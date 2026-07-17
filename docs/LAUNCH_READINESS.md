@@ -23,12 +23,14 @@ demand.
 | Hosted consent | Explicit cloud-processing checkbox required for real scans | Pass |
 | Hosted abuse boundary | Size limits, origin check, honeypot, per-instance rate limit | Pass for beta |
 | Hosted legal copy | Privacy notice and beta terms served with the app | Pass |
-| Hosted production URL | Vercel project and public smoke test | Pending owner authorization |
+| Hosted production URL | [`anti-silo.vercel.app`](https://anti-silo.vercel.app/) and public smoke test | Pass |
 | Distribution | Windows installer workflow and source install instructions | Pass |
 | Paid demand | Paid pilot using a real client folder and client-facing artifact | Unproven |
 | Repeat demand | Second client engagement by the same consultant | Unproven |
 
 ## Production Smoke Test
+
+Last completed against `https://anti-silo.vercel.app/` on 2026-07-17.
 
 Run these checks after every hosted deployment:
 
@@ -71,8 +73,8 @@ value.
 
 ## Launch Sequence
 
-1. Authorize and deploy the GitHub repository to Vercel.
-2. Run the production smoke test above and record the public URL.
+1. **Complete:** GitHub repository connected and deployed to Vercel.
+2. **Complete:** production smoke test passed at `https://anti-silo.vercel.app/`.
 3. Record a 60-90 second walkthrough using the demo corpus.
 4. Contact 30 qualified AI consultants or small RAG agencies.
 5. Run three real folders locally to preserve the strongest privacy boundary.

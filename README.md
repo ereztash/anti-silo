@@ -167,6 +167,9 @@ The browser version is designed for small consultant pre-flight checks when a
 local installation is inconvenient. It supports up to 150 selected files,
 1.5 MB per file, and 2.8 MB of source content per scan.
 
+[Open the hosted Web Beta](https://anti-silo.vercel.app/) ·
+[Run the no-upload demo](https://anti-silo.vercel.app/?demo=1)
+
 [Deploy Anti-Silo to Vercel](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fereztash%2Fanti-silo)
 
 The Web Beta:
