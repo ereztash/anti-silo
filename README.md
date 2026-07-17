@@ -172,6 +172,8 @@ local installation is inconvenient. It supports up to 150 selected files,
 The Web Beta:
 
 - accepts `.md`, `.txt`, `.csv`, `.json`, `.html`, `.htm`, `.docx`, `.xlsx`, and `.pdf`
+- offers a built-in demo corpus so the workflow can be evaluated without uploading files
+- requires explicit cloud-processing consent before any user-selected file is sent
 - runs the existing deterministic Preflight engine in a temporary Python Function
 - returns the verdict, Readiness Score, remediation queue, and Risk Register
 - lets the consultant download the result as JSON and the Risk Register as CSV
@@ -298,6 +300,7 @@ pyinstaller packaging/anti_silo_gui.spec
 Additional documentation:
 
 - [Consultant pilot plan](docs/CONSULTANT_PILOT.md)
+- [Launch readiness gates](docs/LAUNCH_READINESS.md)
 - [Distribution and signing](docs/DISTRIBUTION.md)
 - [Desktop packaging](packaging/README.md)
 - [UI/UX design spec](docs/design/UI_DESIGN.md) and the

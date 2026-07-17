@@ -4,9 +4,13 @@ import base64
 import binascii
 import json
 import tempfile
+import time
+from collections import defaultdict, deque
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path, PurePosixPath
+from threading import Lock
 from typing import Any
+from urllib.parse import urlparse
 
 from anti_silo.config import load_config
 from anti_silo.gui.report import build_human_report
@@ -18,6 +22,8 @@ MAX_FILE_BYTES = 1_500_000
 MAX_TOTAL_BYTES = 2_800_000
 MAX_FILES = 150
 MAX_TEXT_LENGTH = 120
+RATE_LIMIT_REQUESTS = 6
+RATE_LIMIT_WINDOW_SECONDS = 600
 CONTENT_EXTENSIONS = {
     ".csv",
     ".docx",
@@ -29,12 +35,93 @@ CONTENT_EXTENSIONS = {
     ".txt",
     ".xlsx",
 }
+_REQUESTS_BY_CLIENT: dict[str, deque[float]] = defaultdict(deque)
+_REQUESTS_LOCK = Lock()
+
+DEMO_FILES = (
+    (
+        "claims/pricing.md",
+        """# Pricing Claim
+
+claim: a paid pilot validates willingness to pay.
+status: active
+source_hash: 633d46b681a1abe245cac00dd25206ca869f6ee5344f19f9021282bbedaffc8e
+
+corroborated: field_validated
+value_realized: true
+""",
+    ),
+    (
+        "claims/onboarding.md",
+        """# Onboarding Claim
+
+claim: better onboarding reduces activation delay.
+status: candidate
+
+This is a graph assertion that needs evidence.
+""",
+    ),
+    (
+        "claims/research-synthesis.md",
+        """# Research Synthesis Claim
+
+claim: this integrated model is empirically validated and operationally deployable.
+status: draft
+
+This document presents an integrated model, a research gap, and an evidence synthesis.
+It intentionally has no source_spine or source_hash yet.
+""",
+    ),
+    (
+        "sources/pricing-source.md",
+        """# Pricing Source
+
+source_of_truth: true
+paid_engagement: true
+
+This file anchors the pricing claim.
+""",
+    ),
+    (
+        "sources/pricing-source-copy.md",
+        """# Pricing Source
+
+source_of_truth: true
+paid_engagement: true
+
+This file anchors the pricing claim.
+""",
+    ),
+    (
+        "ledger/corroboration-ledger.md",
+        """# Corroboration Ledger
+
+corroboration ledger
+
+claim: onboarding delay appeared in two review sessions.
+ledger: true
+""",
+    ),
+)
 
 
 class ScanRequestError(ValueError):
     def __init__(self, message: str, status: int = 400) -> None:
         super().__init__(message)
         self.status = status
+
+
+def _log_scan_event(report: dict[str, Any], duration_ms: int) -> None:
+    score = int(report.get("readiness_score", {}).get("score", 0))
+    event = {
+        "event": "web_scan_completed",
+        "demo": report.get("demo") is True,
+        "duration_ms": duration_ms,
+        "files": int(report.get("files", 0)),
+        "verdict": str(report.get("verdict", {}).get("status", "unknown")),
+        "score_band": min(100, max(0, score)) // 10 * 10,
+    }
+    print(json.dumps(event, separators=(",", ":")), flush=True)
 
 
 def _safe_relative_path(value: object) -> Path:
@@ -63,6 +150,42 @@ def _project_payload(value: object) -> dict[str, str]:
         "project_name": _clean_text(project.get("project_name"), "RAG Preflight"),
         "consultant_name": _clean_text(project.get("consultant_name"), "Anti-Silo"),
     }
+
+
+def _demo_rows() -> list[dict[str, str]]:
+    rows = [
+        {
+            "path": path,
+            "content_base64": base64.b64encode(content.encode("utf-8")).decode("ascii"),
+        }
+        for path, content in DEMO_FILES
+    ]
+    rows.append({"path": "unsupported/client-export.pptx", "content_base64": ""})
+    return rows
+
+
+def _origin_is_allowed(origin: str | None, host: str | None) -> bool:
+    if not origin:
+        return True
+    if not host:
+        return False
+    parsed = urlparse(origin)
+    if parsed.netloc.casefold() != host.casefold():
+        return False
+    return parsed.scheme == "https" or parsed.hostname in {"127.0.0.1", "localhost"}
+
+
+def _rate_limited(client: str, now: float | None = None) -> bool:
+    timestamp = time.monotonic() if now is None else now
+    cutoff = timestamp - RATE_LIMIT_WINDOW_SECONDS
+    with _REQUESTS_LOCK:
+        requests = _REQUESTS_BY_CLIENT[client]
+        while requests and requests[0] <= cutoff:
+            requests.popleft()
+        if len(requests) >= RATE_LIMIT_REQUESTS:
+            return True
+        requests.append(timestamp)
+        return False
 
 
 def _decode_content(row: dict[str, Any], extension: str) -> bytes:
@@ -96,7 +219,12 @@ def _public_report(report: dict[str, Any]) -> dict[str, Any]:
 def build_web_report(payload: object) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ScanRequestError("The request body must be a JSON object.")
-    rows = payload.get("files")
+    if payload.get("website"):
+        raise ScanRequestError("The request could not be accepted.")
+    demo = payload.get("demo") is True
+    if not demo and payload.get("consent") is not True:
+        raise ScanRequestError("Cloud processing consent is required before scanning.")
+    rows = _demo_rows() if demo else payload.get("files")
     if not isinstance(rows, list) or not rows:
         raise ScanRequestError("Select at least one file before running the preflight.")
     if len(rows) > MAX_FILES:
@@ -129,10 +257,22 @@ def build_web_report(payload: object) -> dict[str, Any]:
         report = build_human_report(
             source_root,
             load_config(),
-            project=_project_payload(payload.get("project")),
+            project=_project_payload(
+                payload.get("project")
+                or (
+                    {
+                        "client_name": "Demo Client",
+                        "project_name": "Consultant Preflight Demo",
+                        "consultant_name": "Anti-Silo",
+                    }
+                    if demo
+                    else {}
+                )
+            ),
         )
         quick_scan_path = str(report.get("staged_vault", ""))
         result = _public_report(report)
+        result["demo"] = demo
 
     if quick_scan_path:
         discard_quick_scan(quick_scan_path)
@@ -142,13 +282,20 @@ def build_web_report(payload: object) -> dict[str, Any]:
 class handler(BaseHTTPRequestHandler):
     server_version = "AntiSiloWeb/0.1"
 
-    def _send_json(self, status: int, payload: dict[str, Any]) -> None:
+    def _send_json(
+        self,
+        status: int,
+        payload: dict[str, Any],
+        extra_headers: dict[str, str] | None = None,
+    ) -> None:
         body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
+        for key, value in (extra_headers or {}).items():
+            self.send_header(key, value)
         self.end_headers()
         self.wfile.write(body)
 
@@ -167,14 +314,28 @@ class handler(BaseHTTPRequestHandler):
         )
 
     def do_POST(self) -> None:  # noqa: N802
+        started = time.monotonic()
         try:
+            if not _origin_is_allowed(self.headers.get("Origin"), self.headers.get("Host")):
+                raise ScanRequestError("Cross-origin scan requests are not allowed.", 403)
+            forwarded = self.headers.get("X-Forwarded-For", "")
+            client = forwarded.split(",", 1)[0].strip() or self.client_address[0]
+            if _rate_limited(client):
+                self._send_json(
+                    429,
+                    {"error": "Too many scans. Please wait ten minutes and try again."},
+                    {"Retry-After": str(RATE_LIMIT_WINDOW_SECONDS)},
+                )
+                return
             content_length = int(self.headers.get("Content-Length", "0"))
             if content_length <= 0:
                 raise ScanRequestError("The request body is empty.")
             if content_length > MAX_BODY_BYTES:
                 raise ScanRequestError("The upload exceeds Vercel's request limit.", 413)
             payload = json.loads(self.rfile.read(content_length).decode("utf-8"))
-            self._send_json(200, build_web_report(payload))
+            report = build_web_report(payload)
+            _log_scan_event(report, int((time.monotonic() - started) * 1000))
+            self._send_json(200, report)
         except ScanRequestError as exc:
             self._send_json(exc.status, {"error": str(exc)})
         except (UnicodeDecodeError, json.JSONDecodeError):

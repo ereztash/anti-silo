@@ -79,12 +79,21 @@
 
       <div class="privacy-note">
         <b>מצב Web זמני</b>
-        <span>הקבצים שנבחרו מועברים לעיבוד זמני ב־Vercel ואינם נשמרים על ידי Anti-Silo. לחומר רגיש או גדול השתמשו בגרסת Desktop המקומית.</span>
+        <span>הקבצים שנבחרו מועברים לעיבוד זמני ב־Vercel ואינם נשמרים על ידי Anti-Silo. לחומר רגיש או גדול השתמשו בגרסת Desktop המקומית. <a href="/privacy.html">פרטי פרטיות</a></span>
       </div>
 
+      <label class="consent-row">
+        <input id="cloud-consent" type="checkbox">
+        <span>אני מבין/ה שהקבצים שבחרתי יועברו לעיבוד זמני בענן ומאשר/ת את <a href="/terms.html">תנאי השימוש</a> ואת <a href="/privacy.html">מדיניות הפרטיות</a>.</span>
+      </label>
+      <label class="bot-field" aria-hidden="true">
+        <span>Website</span>
+        <input id="website" tabindex="-1" autocomplete="off">
+      </label>
       <div id="error-message" class="message error" role="alert" tabindex="-1" hidden></div>
       <div class="primary-actions">
         <button id="run-scan" class="primary-button" type="button" disabled>הרץ Preflight</button>
+        <button id="run-demo" class="secondary-button" type="button">הרץ דמו ללא העלאת קבצים</button>
         <span id="ready-hint">בחרו תיקייה כדי להתחיל</span>
       </div>
     </section>
@@ -156,7 +165,7 @@
 
   <footer>
     <span>Anti-Silo Consultant Preflight</span>
-    <span>בודק עקיבות מקורות ומוכנות corpus, לא נכונות עובדתית.</span>
+    <span>בודק עקיבות מקורות ומוכנות corpus, לא נכונות עובדתית. <a href="/privacy.html">פרטיות</a> · <a href="/terms.html">תנאים</a></span>
   </footer>
 </body>
 </html>

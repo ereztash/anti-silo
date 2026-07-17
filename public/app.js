@@ -19,6 +19,9 @@
   const selectionDetail = document.getElementById("selection-detail");
   const clearButton = document.getElementById("clear-selection");
   const runButton = document.getElementById("run-scan");
+  const demoButton = document.getElementById("run-demo");
+  const consentCheckbox = document.getElementById("cloud-consent");
+  const websiteInput = document.getElementById("website");
   const readyHint = document.getElementById("ready-hint");
   const errorMessage = document.getElementById("error-message");
   const setup = document.getElementById("setup");
@@ -58,6 +61,17 @@
   function clearError() {
     errorMessage.hidden = true;
     errorMessage.textContent = "";
+  }
+
+  function updateRunAvailability() {
+    runButton.disabled = !selectedFiles.length || !consentCheckbox.checked;
+    if (!selectedFiles.length) {
+      readyHint.textContent = "בחרו תיקייה כדי להתחיל";
+    } else if (!consentCheckbox.checked) {
+      readyHint.textContent = "אשרו עיבוד זמני בענן כדי לסרוק";
+    } else {
+      readyHint.textContent = "הבחירה מוכנה לסריקה";
+    }
   }
 
   function updateSelection(fileList) {
@@ -102,16 +116,14 @@
     selection.hidden = false;
     selectionTitle.textContent = files.length + " קבצים נבחרו";
     selectionDetail.textContent = supported.length + " ייסרקו, " + (files.length - supported.length) + " יסומנו כפורמט לא נתמך, " + formatBytes(totalBytes);
-    runButton.disabled = false;
-    readyHint.textContent = "הבחירה מוכנה לסריקה";
+    updateRunAvailability();
   }
 
   function clearSelection() {
     selectedFiles = [];
     folderInput.value = "";
     selection.hidden = true;
-    runButton.disabled = true;
-    readyHint.textContent = "בחרו תיקייה כדי להתחיל";
+    updateRunAvailability();
   }
 
   function arrayBufferToBase64(buffer) {
@@ -201,10 +213,10 @@
     }).join("") || "<tr><td colspan=\"5\">לא נמצאו סיכונים לרישום.</td></tr>";
   }
 
-  async function runScan() {
-    if (!selectedFiles.length || runButton.disabled) return;
+  async function requestScan(payload) {
     clearError();
     runButton.disabled = true;
+    demoButton.disabled = true;
     setup.hidden = true;
     processing.hidden = false;
     results.hidden = true;
@@ -213,7 +225,7 @@
       const response = await fetch("/api/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ files: await serializeFiles(), project: projectPayload() })
+        body: JSON.stringify(payload)
       });
       const data = await response.json().catch(function () { return {}; });
       if (!response.ok) throw new Error(data.error || "הסריקה נכשלה.");
@@ -225,9 +237,27 @@
     } catch (error) {
       processing.hidden = true;
       setup.hidden = false;
-      runButton.disabled = false;
+      demoButton.disabled = false;
+      updateRunAvailability();
       showError(error.message || "לא ניתן היה להשלים את הסריקה.");
     }
+  }
+
+  async function runScan() {
+    if (!selectedFiles.length || !consentCheckbox.checked) return;
+    await requestScan({
+      files: await serializeFiles(),
+      project: projectPayload(),
+      consent: true,
+      website: websiteInput.value
+    });
+  }
+
+  async function runDemo() {
+    await requestScan({
+      demo: true,
+      website: websiteInput.value
+    });
   }
 
   function csvCell(value) {
@@ -262,6 +292,8 @@
     lastReport = null;
     results.hidden = true;
     setup.hidden = false;
+    demoButton.disabled = false;
+    consentCheckbox.checked = false;
     clearSelection();
     clearError();
     setup.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -274,7 +306,9 @@
   dropzone.addEventListener("click", function () { folderInput.click(); });
   folderInput.addEventListener("change", function () { updateSelection(folderInput.files); });
   clearButton.addEventListener("click", clearSelection);
+  consentCheckbox.addEventListener("change", updateRunAvailability);
   runButton.addEventListener("click", runScan);
+  demoButton.addEventListener("click", runDemo);
   document.getElementById("download-report").addEventListener("click", downloadReport);
   document.getElementById("download-risks").addEventListener("click", downloadRisks);
   document.getElementById("new-scan").addEventListener("click", resetScan);
