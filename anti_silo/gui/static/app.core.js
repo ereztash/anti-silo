@@ -2,9 +2,10 @@
       ready: 'מוכן לשימוש', backed: 'מגובה, דורש אימות נוסף', indexed: 'נסרק, טרם אומת',
       synthesis: 'סיכום שצריך השלמת מקורות', unsupported: 'חסר אסמכתא', contradiction: 'סתירה או חסם אמון'
     };
+    const TIER_POINTS = {ready: 100, backed: 75, indexed: 40, synthesis: 30, unsupported: 0, contradiction: 0};
     const downloadNames = {
       html_report: 'שמור דוח HTML', allowed_sources: 'רשימת מקורות מותרים', source_todo: 'תבנית להשלמת מקורות',
-      pulse_markdown: 'דוח טכני', manifest: 'מניפסט מקור', audit_pack: 'הורד Audit Pack',
+      pulse_markdown: 'דוח טכני', manifest: 'מניפסט מקור', audit_pack: 'Audit Pack מלא (ZIP)',
       preflight_summary: 'סיכום Preflight JSON', remediation_queue: 'תור תיקונים CSV', client_manifest: 'מניפסט לקוח',
       risk_register: 'מרשם סיכונים CSV', scan_delta: 'השוואת סריקות JSON', sow_ready: 'מסמך SOW מוכן'
     };
@@ -30,4 +31,23 @@
 
     function metric(key, value) {
       return `<div class="metric ${key}"><b>${value || 0}</b><span>${labels[key]}</span></div>`;
+    }
+
+    function downloadHref(path) {
+      return `/download?path=${encodeURIComponent(path)}`;
+    }
+
+    function initTheme() {
+      let saved = '';
+      try { saved = localStorage.getItem('anti-silo-theme') || ''; } catch (_) {}
+      if (saved === 'dark' || saved === 'light') document.documentElement.setAttribute('data-theme', saved);
+    }
+
+    function toggleTheme() {
+      const root = document.documentElement;
+      const dark = root.getAttribute('data-theme') === 'dark' ||
+        (!root.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      const next = dark ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('anti-silo-theme', next); } catch (_) {}
     }

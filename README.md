@@ -51,6 +51,38 @@ Anti-Silo is useful when you need to:
 Project metadata and summary-only scan history are stored locally. Source file
 contents are not copied into project history.
 
+## The Console
+
+The working screen is built around one rule: **the consultant must be able to
+answer "can I build on this?" in under three seconds, and defend every point of
+the score in front of a skeptical client.**
+
+- **Verdict band, above the fold.** One verdict chip (`GO` / `CONDITIONAL GO` /
+  `STOP`, always icon + word, never color alone), the Readiness Score with a
+  threshold meter (`GO ≥ 85`), and a single primary action for the current
+  state. Everything else is progressive disclosure.
+- **The score is a ledger, not a gauge.** "How was this computed" folds out
+  under the score into plain arithmetic — files per evidence tier × points,
+  averaged over the scope, minus the duplicate penalty, capped by STOP
+  findings. The numbers come from the same engine components that the exported
+  report prints, so the console and the client artifact always agree.
+- **Scan delta.** After a re-scan, the band shows the readiness movement against
+  the previous scan (score before → after, ready/review/blocked deltas) and a
+  ghost marker for the previous score on the meter — the repair loop is
+  measured, not narrated.
+- **Trust boundary at the moment of misreading.** A single quiet line under the
+  verdict ("checks source chain and extraction integrity — not factual
+  correctness"), expandable, and repeated verbatim in the client report.
+- **Triage tiles and tables.** Three tiles (passed / needs sources / do not
+  rely) filter the file table; the remediation queue leads with the
+  highest-impact actions; the risk register and effort range are SOW-ready.
+- **Light + dark themes, RTL Hebrew UI, keyboard and screen-reader friendly**
+  (visible focus states, `aria-live` scan status), served as a single
+  self-contained document from `127.0.0.1` with no CDN and no network calls.
+
+The design rationale, information architecture, and a standalone interactive
+prototype of this screen live in [`docs/design/`](docs/design/UI_DESIGN.md).
+
 ## Preflight Verdicts
 
 | Verdict | Meaning |
@@ -268,6 +300,9 @@ Additional documentation:
 - [Consultant pilot plan](docs/CONSULTANT_PILOT.md)
 - [Distribution and signing](docs/DISTRIBUTION.md)
 - [Desktop packaging](packaging/README.md)
+- [UI/UX design spec](docs/design/UI_DESIGN.md) and the
+  [interactive design prototype](docs/design/prototype.html) (open locally in a
+  browser; runs on realistic sample data with a live scoring engine)
 
 ## Current Product Status
 
