@@ -264,6 +264,14 @@ def test_gui_html_exposes_shelf_product_controls() -> None:
     assert "__CSRF_TOKEN__" in HTML
     assert "attachSource" in HTML
     assert "exitApp" in HTML
+    assert "verdictMeta" in HTML
+    assert "תיקונים ראשונים" in HTML
+    assert "aria-live" in HTML
+    assert "toggleExpertMode" in HTML
+    assert "Anti-Silo Preflight" in HTML
+    assert "client-name" in HTML
+    assert "audit_pack" in HTML
+    assert "/api/projects" in HTML
     assert "escapeHtml(row.file)" in HTML
     assert "גבול אמון" in HTML
 

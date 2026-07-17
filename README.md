@@ -1,8 +1,9 @@
 # Anti-Silo
 
-Anti-Silo is a local provenance gate that answers a practical question before
-files enter AI or RAG: which files have enough source support to rely on, and
-which still need evidence repair?
+Anti-Silo Preflight is a local source-audit workbench for consultants and
+agencies that build RAG systems for clients. Before a folder reaches the index,
+it shows what passed the configured source policy, what needs repair, and what
+must remain out of ingestion.
 
 ## Start Here: Windows App
 
@@ -13,8 +14,9 @@ Most people should **not** run Anti-Silo from the repository or install Python.
 3. Double-click it and follow the short installation steps.
 4. Open **Anti-Silo** from the Desktop shortcut or Start menu.
 
-The app opens in the browser automatically and starts with a choice to scan the
-Desktop, choose another folder, or open the Brain. Nothing is uploaded.
+The app opens in the browser automatically. Create a local client project,
+choose the source folder, run Preflight, and export the client Audit Pack.
+Nothing is uploaded.
 
 `Anti-Silo-Windows.zip` remains available for portable use. If Windows shows a
 protection prompt, verify the download came from the official `ereztash/anti-silo`
@@ -64,6 +66,9 @@ In short: **grounding eligible is not the same as used, useful, adopted, or comm
 - Preserves provenance metadata when scanning an existing structured vault.
 - Stages ordinary document folders into an Anti-Silo review vault without treating a file as its own source.
 - Lets a user attach an independent local source to an unverified file and rerun the trust check.
+- Detects unsupported formats, extraction failures, partial extraction, empty files, and exact duplicates.
+- Keeps summary-only scan history per local client project and shows the change between scans.
+- Exports a client-ready HTML report, remediation queue, sanitized manifest, and zipped Audit Pack.
 - Runs fully locally.
 
 ## What It Does Not Do
@@ -73,6 +78,23 @@ In short: **grounding eligible is not the same as used, useful, adopted, or comm
 - Does not use NLP, embeddings, or semantic similarity as the core trust decision.
 - Does not promote claims because they are internally coherent.
 - Does not turn review candidates into production grounding sources.
+- Does not certify complete RAG quality, legal compliance, or semantic agreement between a claim and its source.
+
+## Consultant Preflight Workflow
+
+The initial customer is an AI consultant or small agency receiving a real
+client folder before scoping or building a RAG system.
+
+1. Create a local project with the client alias, engagement name, and consultant name.
+2. Scan the folder and receive a `GO`, `CONDITIONAL GO`, or `STOP` decision under the configured source policy.
+3. Review corpus diagnostics and the prioritized remediation queue.
+4. Attach missing independent sources or clean the folder, then scan again.
+5. Use the scan delta to show what changed.
+6. Export `ANTI_SILO_PREFLIGHT_PACK.zip` for the client call, SOW, or ingestion handoff.
+
+The primary value event is not a scan. It is an Audit Pack that changes an
+ingestion, remediation, exclusion, or project-scope decision. See the
+[consultant pilot plan](docs/CONSULTANT_PILOT.md).
 
 ## Customer Journey
 
@@ -105,11 +127,14 @@ Anti-Silo is designed for teams that already have valuable knowledge spread acro
 
 ## Who Pays and Who Uses It
 
-Anti-Silo separates the economic buyer from the daily user.
+The first buyer and daily user are deliberately the same person: the consultant
+or agency delivery lead who owns the client engagement. Enterprise role
+separation remains a later route.
 
 | Role | Who It Usually Is | What They Need |
 |---|---|---|
-| Economic buyer | CTO, CISO, Head of AI, Compliance lead, Knowledge Ops lead | Reduce risk from unsupported AI outputs, audit failures, and uncontrolled knowledge sprawl |
+| Initial buyer | AI consultant, RAG delivery lead, automation-agency founder | Scope client data cleanup, prevent avoidable ingestion risk, and produce a client-ready artifact |
+| Enterprise buyer | CTO, CISO, Head of AI, Compliance lead, Knowledge Ops lead | Reduce risk from unsupported AI outputs, audit failures, and uncontrolled knowledge sprawl |
 | Technical buyer | AI platform engineer, data/ML lead, enterprise architect | Local deterministic gates before RAG ingestion, release, or source promotion |
 | Daily user | Knowledge manager, research ops, analyst, documentation owner | See what is trusted, what is blocked, and what evidence is missing |
 | Auditor / reviewer | Internal audit, compliance, legal, external reviewer | Trace every trust decision to files, rules, hashes, and generated reports |
@@ -119,8 +144,9 @@ The buyer pays for control, auditability, and risk reduction. The user works wit
 
 ## Market Fit
 
-- **Audit teams** use Anti-Silo as a deterministic evidence chain for local folders.
+- **AI consultants and agencies** use Anti-Silo as a paid preflight deliverable before they scope or build client RAG systems.
 - **RAG and AI teams** use it as a grounding gate before sources enter retrieval or model context.
+- **Audit teams** use Anti-Silo as a deterministic evidence chain for local folders.
 - **Regulated organizations** use it to keep trust decisions local, traceable, and reviewable without external API calls.
 
 ## Developer Quick Start

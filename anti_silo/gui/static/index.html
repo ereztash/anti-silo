@@ -3,41 +3,50 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Anti-Silo Local</title>
+  <title>Anti-Silo Preflight</title>
   <style>
 __ANTI_SILO_CSS__
   </style>
 </head>
 <body>
   <header>
-    <h1>Anti-Silo Local</h1>
-    <p>בדיקת מקורות מקומית לפני שמכניסים קבצים ל-AI, למחקר או לתהליך עבודה.</p>
+    <div class="header-row">
+      <div><h1>Anti-Silo Preflight</h1><p>בדיקת מוכנות מקורות לפני בניית RAG ללקוח.</p></div>
+      <div class="header-actions">
+        <button class="secondary" type="button" onclick="exitApp()">סגור את Anti-Silo</button>
+        <button id="expert-toggle" class="secondary mode-toggle" type="button" aria-pressed="false" onclick="toggleExpertMode()">פרטים למתקדמים</button>
+      </div>
+    </div>
     <div class="boundary">גבול אמון: Anti-Silo בודק שרשרת מקורות ושלמות חילוץ. הוא לא מאמת שהטקסט נכון מבחינה מקצועית או עובדתית.</div>
-    <div class="actions"><button class="secondary" type="button" onclick="exitApp()">סגור את Anti-Silo</button></div>
   </header>
   <main>
     <section id="onboarding" class="panel welcome">
-      <h2>אילו קבצים אפשר להכניס ל-AI?</h2>
-      <p>נבדוק אילו קבצים עברו את מדיניות המקורות ומה צריך לתקן. הקבצים נשארים במחשב שלך.</p>
-      <div class="actions">
-        <button type="button" onclick="scanDesktop()">בדוק את שולחן העבודה שלי</button>
+      <h2>פתח בדיקת Preflight לפרויקט לקוח</h2>
+      <p>בחר תיקיית מקור, תעד את מצב ה-corpus וייצא דוח שאפשר להשתמש בו בשיחת היקף או ב-SOW.</p>
+      <div class="actions"><button type="button" onclick="chooseFolder()">בחר תיקיית לקוח</button></div>
+      <div class="actions"><button class="secondary" type="button" onclick="scanDesktop()">השתמש בשולחן העבודה</button><button class="secondary" type="button" onclick="openBrain()">פתח את המוח השני</button></div>
+    </section>
+    <section id="project-panel" class="panel">
+      <h2 class="section-title">פרויקט לקוח</h2>
+      <div class="form-grid">
+        <div><label for="client-name">לקוח</label><input class="text-input" id="client-name" placeholder="שם או כינוי הלקוח" required></div>
+        <div><label for="project-name">פרויקט</label><input class="text-input" id="project-name" placeholder="לדוגמה: פורטל ידע פנימי" required></div>
+        <div><label for="consultant-name">הוכן על ידי</label><input class="text-input" id="consultant-name" placeholder="שם היועץ או הסוכנות"></div>
       </div>
-      <div class="actions"><button class="secondary" type="button" onclick="chooseFolder()">בחר תיקייה אחרת</button><button class="secondary" type="button" onclick="openBrain()">פתח את המוח השני</button></div>
+      <div class="hint">הפרטים נשמרים מקומית ומשמשים לכותרת הדוח ולהשוואה בין סריקות.</div>
+      <div class="toolbar"><label class="sr-only" for="recent-projects">פרויקטים אחרונים</label><select id="recent-projects" onchange="selectRecentProject(this.value)"><option value="">פרויקטים אחרונים</option></select></div>
     </section>
     <section id="scan-panel" class="panel">
       <label for="path">תיקייה לסריקה</label>
-      <div class="row">
-        <input id="path" placeholder="C:\Users\me\Desktop\project-docs">
-        <button id="scan">סרוק ואמת</button>
-      </div>
+      <div class="row"><input id="path" placeholder="C:\Users\me\Desktop\project-docs"><button id="scan">הרץ Preflight</button></div>
       <div id="dropzone" class="dropzone">גרור תיקייה לכאן, או הדבק נתיב מקומי בשדה למעלה.</div>
       <div class="hint">הכל רץ על המחשב שלך דרך 127.0.0.1. לא מתבצעת קריאת רשת ולא נשלחים קבצים לענן.</div>
     </section>
-
-    <section id="status" class="panel empty">ממתין לתיקייה.</section>
+    <section id="status" class="panel empty" role="status" aria-live="polite">ממתין לתיקייה.</section>
     <section id="summary" class="summary" hidden></section>
     <section id="simple-summary" class="simple-summary" hidden></section>
     <section id="downloads" class="panel downloads" hidden></section>
+    <section id="corpus" class="panel" hidden></section>
     <section id="wizard" class="panel" hidden></section>
     <section id="results" hidden></section>
     <section id="brain" class="panel" hidden></section>
