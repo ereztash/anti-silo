@@ -9,10 +9,12 @@ _STATIC_DIR = Path(__file__).resolve().parent / "static"
 # state and helpers are declared before the wiring block runs.
 _SCRIPT_PARTS = (
     "app.core.js",     # constants, DOM refs, mutable state, metric() helper
+    "app.preflight.js", # consultant verdict + corpus rendering
     "app.render.js",   # report table + summary rendering
     "app.scan.js",     # scan / repair / watch actions
     "app.net.js",      # api(), recordEvent(), escapeHtml() helpers
     "app.brain.js",    # second-brain view
+    "app.projects.js", # local consultant project history
     "app.init.js",     # event wiring + bootstrap (must stay last)
 )
 

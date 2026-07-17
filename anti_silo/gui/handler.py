@@ -65,6 +65,9 @@ class AntiSiloGuiHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/watch":
             self._send_json(self.server.watch_store.dashboard())
             return
+        if parsed.path == "/api/projects":
+            self._send_json({"projects": self.server.project_store.list_projects()})
+            return
         self.send_error(HTTPStatus.NOT_FOUND)
 
     def do_POST(self) -> None:  # noqa: N802
@@ -176,8 +179,17 @@ class AntiSiloGuiHandler(BaseHTTPRequestHandler):
             source_root = Path(str(payload.get("path", ""))).expanduser().resolve()
             if not source_root.exists():
                 raise ValueError("התיקייה לא קיימת")
+            project = self.server.project_store.upsert(dict(payload.get("project", {})), source_root)
+            previous_scan = self.server.project_store.latest_scan(str(project["id"]))
             previous_report = getattr(self.server, "last_report", None)
-            report = build_human_report(source_root, self.server.config, repair_store=self.server.repair_store)
+            report = build_human_report(
+                source_root,
+                self.server.config,
+                repair_store=self.server.repair_store,
+                project=project,
+                previous_scan=previous_scan,
+            )
+            self.server.project_store.record_scan(str(project["id"]), report)
             self.server.allowed_roots = [Path(report["staged_vault"]).resolve(), Path(report["output_dir"]).resolve()]
             self.server.last_report = report
             if not self.server.telemetry.has_event("first_scan_completed"):

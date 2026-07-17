@@ -1,16 +1,20 @@
 from __future__ import annotations
 
 import json
-from html import escape
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from ..config import output_dir
 from ..ingest import write_ingest
+from ..preflight import build_corpus_diagnostics, build_remediation, build_verdict
+from ..preflight_artifacts import client_manifest, write_preflight_artifacts
+from ..projects import compare_scans
 from ..pulse import write_pulse
 from ..quick_scan import discard_quick_scan, run_quick_scan
 from ..repair import RepairStore
 from ..report_labels import action_label
+from .client_report import render_report_html
 from .labels import CATEGORY_LABELS, HUMAN_TIERS
 
 
@@ -58,57 +62,13 @@ def _human_row(row: dict[str, Any], sources: dict[str, str], penalties: dict[str
     }
 
 
-def render_report_html(report: dict[str, Any]) -> str:
-    rows = "\n".join(
-        "<tr>"
-        f"<td><span class=\"pill {escape(str(row['category']))}\">{escape(str(row['status']))}</span></td>"
-        f"<td>{escape(str(row['file']))}</td>"
-        f"<td>{escape(str(row.get('action') or '-'))}</td>"
-        "</tr>"
-        for row in report.get("rows", [])
-    )
-    metrics = "\n".join(
-        f"<div class=\"metric {key}\"><b>{int(report.get('counts', {}).get(key, 0))}</b><span>{escape(CATEGORY_LABELS[key])}</span></div>"
-        for key in ["ready", "backed", "indexed", "synthesis", "unsupported", "contradiction"]
-    )
-    return f"""<!doctype html>
-<html lang="he" dir="rtl">
-<head>
-  <meta charset="utf-8">
-  <title>Anti-Silo Report</title>
-  <style>
-    body {{ font-family: Arial, sans-serif; color:#17212b; margin:32px; }}
-    h1 {{ margin-bottom: 6px; }}
-    .meta {{ color:#5f6b76; margin-bottom:22px; }}
-    .summary {{ display:grid; grid-template-columns:repeat(6,1fr); gap:10px; margin:18px 0; }}
-    .metric {{ border:1px solid #d9e1e8; border-radius:8px; padding:12px; }}
-    .metric b {{ display:block; font-size:24px; }}
-    table {{ width:100%; border-collapse:collapse; margin-top:18px; }}
-    th, td {{ border-bottom:1px solid #d9e1e8; padding:10px; text-align:right; vertical-align:top; }}
-    th {{ background:#eef3f8; }}
-    .pill {{ display:inline-block; border-radius:999px; padding:4px 8px; font-weight:700; }}
-    .ready {{ color:#1f7a4d; }} .backed,.synthesis {{ color:#9a6500; }} .unsupported,.contradiction {{ color:#b3261e; }}
-    @media print {{ body {{ margin: 18mm; }} }}
-  </style>
-</head>
-<body>
-  <h1>Anti-Silo Report</h1>
-  <div class="meta">תיקייה: {escape(str(report.get("source_root", "")))}<br>החלטת מערכת: {escape(str(report.get("decision", "")))}<br>קבצים שנסרקו: {int(report.get("files", 0))}<br>גבול אמון: {escape(str(report.get("trust_boundary", "")))}</div>
-  <section class="summary">{metrics}</section>
-  <table>
-    <thead><tr><th>מצב</th><th>קובץ</th><th>מה לעשות</th></tr></thead>
-    <tbody>{rows}</tbody>
-  </table>
-</body>
-</html>
-"""
-
-
 def build_human_report(
     source_root: Path,
     config: dict[str, Any],
     output_vault: Path | None = None,
     repair_store: RepairStore | None = None,
+    project: dict[str, Any] | None = None,
+    previous_scan: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     quick_payload: dict[str, Any] | None = None
     if output_vault is None:
@@ -131,7 +91,22 @@ def build_human_report(
     for row in rows:
         counts[row["category"]] = counts.get(row["category"], 0) + 1
 
+    diagnostics = build_corpus_diagnostics(source_root, ingest_payload, config)
+    verdict = build_verdict(counts, diagnostics)
+    remediation = build_remediation(rows, diagnostics)
+    review_count = sum(int(counts.get(key, 0)) for key in ("backed", "indexed", "synthesis"))
+    review_count += int(diagnostics.get("counts", {}).get("unsupported_files", 0))
+    review_count += int(diagnostics.get("counts", {}).get("duplicate_groups", 0))
+    blocked_count = int(counts.get("unsupported", 0)) + int(counts.get("contradiction", 0))
+    current_summary = {
+        "scanned_at": datetime.now(timezone.utc).isoformat(),
+        "counts": counts,
+        "diagnostic_counts": diagnostics.get("counts", {}),
+    }
+
     report: dict[str, Any] = {
+        "generated_at": current_summary["scanned_at"],
+        "project": dict(project or {}),
         "source_root": str(Path(source_root).resolve()),
         "staged_vault": str(staged_vault),
         "output_dir": str(out),
@@ -140,25 +115,35 @@ def build_human_report(
         "files": ingest_payload["files"],
         "counts": counts,
         "rows": rows,
+        "verdict": verdict,
+        "scope_impact": {
+            "total": int(diagnostics.get("total_files", ingest_payload["files"])),
+            "ready": int(counts.get("ready", 0)),
+            "review": review_count,
+            "blocked": blocked_count,
+        },
+        "diagnostics": diagnostics,
+        "remediation": remediation,
+        "delta": compare_scans(previous_scan, current_summary),
+        "client_manifest": client_manifest(ingest_payload),
         "temporary": quick_payload is not None,
         "input_mode": quick_payload.get("input_mode", "structured_vault") if quick_payload else "structured_vault",
     }
     report_path = out / "ANTI_SILO_REPORT.html"
     report_path.write_text(render_report_html(report), encoding="utf-8")
-
     downloads = {
         "html_report": report_path,
         "allowed_sources": out / "eligible_sources.csv",
         "source_todo": out / "source_spine_todo.csv",
         "pulse_markdown": out / "PULSE.md",
         "manifest": staged_vault / "SOURCE_MANIFEST.json",
+        **write_preflight_artifacts(report, out),
     }
     if quick_payload:
         for key, value in quick_payload.get("localized_outputs", {}).items():
             downloads[key] = Path(value)
     report["downloads"] = {name: str(path) for name, path in downloads.items() if path.exists()}
-    source_todo = _read_json(out / "source_spine_todo.json")
-    report["repair_todo_count"] = int(source_todo.get("selected", 0))
+    report["repair_todo_count"] = int(_read_json(out / "source_spine_todo.json").get("selected", 0))
     return report
 
 

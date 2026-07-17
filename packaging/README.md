@@ -49,7 +49,8 @@ After building the EXE, register an optional current-user Explorer action:
 ```
 
 Right-clicking a folder then offers **Scan with Anti-Silo**. It opens the local
-GUI and immediately scans the selected folder. No administrator permissions are
+GUI with the folder prefilled so the consultant can add client and project
+details before running Preflight. No administrator permissions are
 required because the script writes only under `HKCU`.
 
 Remove it later with:
