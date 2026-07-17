@@ -1,3 +1,4 @@
+    initTheme();
     button.addEventListener('click', scan);
     document.getElementById('path').addEventListener('keydown', event => { if (event.key === 'Enter') scan(); });
     dropzone.addEventListener('dragover', event => { event.preventDefault(); dropzone.classList.add('active'); });

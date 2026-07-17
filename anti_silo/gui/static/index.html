@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <title>Anti-Silo Preflight</title>
   <style>
 __ANTI_SILO_CSS__
@@ -11,20 +12,24 @@ __ANTI_SILO_CSS__
 <body>
   <header>
     <div class="header-row">
-      <div><h1>Anti-Silo Preflight</h1><p>בדיקת מוכנות מקורות לפני בניית RAG ללקוח.</p></div>
+      <div>
+        <div class="brand"><h1>ANTI-SILO</h1><span class="brand-tag">מקומי · לא־מקוון</span></div>
+        <p class="header-sub">בדיקת מוכנות מקורות לפני בניית RAG ללקוח. הכל רץ על המחשב שלך בלבד.</p>
+      </div>
       <div class="header-actions">
-        <button class="secondary" type="button" onclick="exitApp()">סגור את Anti-Silo</button>
+        <button id="theme-toggle" class="secondary" type="button" onclick="toggleTheme()" aria-label="החלף ערכת צבעים">ערכה כהה/בהירה</button>
         <button id="expert-toggle" class="secondary mode-toggle" type="button" aria-pressed="false" onclick="toggleExpertMode()">פרטים למתקדמים</button>
+        <button class="secondary" type="button" onclick="exitApp()">סגור את Anti-Silo</button>
       </div>
     </div>
-    <div class="boundary">גבול אמון: Anti-Silo בודק שרשרת מקורות ושלמות חילוץ. הוא לא מאמת שהטקסט נכון מבחינה מקצועית או עובדתית.</div>
   </header>
   <main>
     <section id="onboarding" class="panel welcome">
-      <h2>פתח בדיקת Preflight לפרויקט לקוח</h2>
-      <p>בחר תיקיית מקור, תעד את מצב ה-corpus וייצא דוח שאפשר להשתמש בו בשיחת היקף או ב-SOW.</p>
+      <h2>בדוק את תיקיית הלקוח לפני שאתה בונה עליה</h2>
+      <p>בחר את התיקייה בדיוק כפי שקיבלת אותה. Anti-Silo קורא אותה במקומה, על המחשב הזה בלבד — שום קובץ לא מועלה, לא מועתק ולא משתנה. כעבור דקה בערך יש לך פסק־דין שאפשר להגן עליו, רשימת תיקונים מתועדפת, ו-Audit Pack מוכן ללקוח.</p>
       <div class="actions"><button type="button" onclick="chooseFolder()">בחר תיקיית לקוח</button></div>
       <div class="actions"><button class="secondary" type="button" onclick="scanDesktop()">השתמש בשולחן העבודה</button><button class="secondary" type="button" onclick="openBrain()">פתח את המוח השני</button></div>
+      <p class="privacy-line">היסטוריית הפרויקטים שומרת מטא־דאטה בלבד (כינוי, ציונים, גיבובים). תוכן קובצי המקור לעולם אינו מועתק להיסטוריה.</p>
     </section>
     <section id="project-panel" class="panel">
       <h2 class="section-title">פרויקט לקוח</h2>
@@ -43,13 +48,13 @@ __ANTI_SILO_CSS__
       <div class="hint">הכל רץ על המחשב שלך דרך 127.0.0.1. לא מתבצעת קריאת רשת ולא נשלחים קבצים לענן.</div>
     </section>
     <section id="status" class="panel empty" role="status" aria-live="polite">ממתין לתיקייה.</section>
-    <section id="summary" class="summary" hidden></section>
     <section id="simple-summary" class="simple-summary" hidden></section>
-    <section id="downloads" class="panel downloads" hidden></section>
-    <section id="corpus" class="panel" hidden></section>
-    <section id="risk-register" class="panel" hidden></section>
+    <section id="summary" class="panel summary" hidden></section>
     <section id="wizard" class="panel" hidden></section>
     <section id="results" hidden></section>
+    <section id="corpus" class="panel" hidden></section>
+    <section id="risk-register" class="panel" hidden></section>
+    <section id="downloads" class="panel downloads" hidden></section>
     <section id="brain" class="panel" hidden></section>
   </main>
   <script>
