@@ -8,7 +8,9 @@ and sources that should not enter grounding under the configured policy. The
 result is a deterministic `GO`, `CONDITIONAL GO`, or `STOP` decision, an
 explainable Readiness Score, and a client-ready Audit Pack.
 
-All processing stays on the local machine. No source documents are uploaded.
+The Desktop app keeps all processing on the local machine. The optional hosted
+Web Beta processes only the files selected by the user in a temporary Vercel
+Function and does not retain them in Anti-Silo storage.
 
 ## Why Anti-Silo
 
@@ -127,6 +129,27 @@ validated.**
 
 ## Install and Run
 
+### Hosted Web Beta
+
+The browser version is designed for small consultant pre-flight checks when a
+local installation is inconvenient. It supports up to 150 selected files,
+1.5 MB per file, and 2.8 MB of source content per scan.
+
+[Deploy Anti-Silo to Vercel](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fereztash%2Fanti-silo)
+
+The Web Beta:
+
+- accepts `.md`, `.txt`, `.csv`, `.json`, `.html`, `.htm`, `.docx`, `.xlsx`, and `.pdf`
+- runs the existing deterministic Preflight engine in a temporary Python Function
+- returns the verdict, Readiness Score, remediation queue, and Risk Register
+- lets the consultant download the result as JSON and the Risk Register as CSV
+- does not provide scan history, watch mode, source repair, or the complete Audit Pack yet
+
+Vercel Functions limit request and response payloads to 4.5 MB. Anti-Silo uses
+a lower 2.8 MB content limit to leave room for JSON and Base64 encoding. Use the
+Desktop app for sensitive corpora, larger folders, repeat scans, and full client
+exports.
+
 ### Windows App
 
 For the packaged desktop build:
@@ -160,12 +183,14 @@ python -m anti_silo.cli gui --open-path path/to/client-folder
 
 ## Privacy and Local Storage
 
-- The server binds to `127.0.0.1` by default.
-- Source documents are not sent to cloud APIs.
+- The Desktop server binds to `127.0.0.1` by default.
+- Desktop source documents are not sent to cloud APIs.
 - State-changing GUI requests require a per-session local token.
 - Client project summaries are stored under `%LOCALAPPDATA%\AntiSilo\projects.json` on Windows.
 - Quick Scan uses temporary local staging that can be discarded from the UI.
 - Client-facing exports omit the local source-root path.
+- The hosted Web Beta sends selected files to a temporary Vercel Function,
+  returns the report in the same request, and does not add persistence.
 
 ## Supported Intake Formats
 
@@ -251,6 +276,8 @@ adds the Readiness Score, Risk Register, bilingual executive summary, cleanup
 planning range, expanded Scan Delta, and SOW-ready export. Market demand is
 still a field hypothesis. The next promotion gate is repeated use on real
 client folders, client-facing use of the Audit Pack, and paid pilot evidence.
+The repository also includes a hosted Web Beta for small, temporary pre-flight
+checks; it does not replace the local privacy boundary or full Desktop workflow.
 
 This repository contains the portable product layer only. Do not commit private
 client folders, CRM exports, credentials, or sensitive source material.

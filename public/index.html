@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Anti-Silo Consultant Preflight for RAG source folders">
+  <title>Anti-Silo Preflight</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">דלג לאזור העבודה</a>
+  <header class="topbar">
+    <div class="brand" aria-label="Anti-Silo">
+      <span class="brand-mark" aria-hidden="true">AS</span>
+      <span>
+        <b>Anti-Silo</b>
+        <small>Consultant Preflight</small>
+      </span>
+    </div>
+    <span class="environment-badge">Web Beta</span>
+  </header>
+
+  <main id="workspace">
+    <section class="intro-band" aria-labelledby="page-title">
+      <div>
+        <p class="eyebrow">RAG SOURCE AUDIT</p>
+        <h1 id="page-title">בדיקת מוכנות לפני שמתחילים לבנות</h1>
+        <p class="intro-copy">בחרו את תיקיית הידע של הלקוח וקבלו פסק דין, ציון מוכנות ומרשם סיכונים שאפשר לקחת לשיחת ההיקף.</p>
+      </div>
+      <ol class="steps" aria-label="שלבי הבדיקה">
+        <li class="active"><b>1</b><span>בחירת חומר</span></li>
+        <li><b>2</b><span>סריקה</span></li>
+        <li><b>3</b><span>החלטה</span></li>
+      </ol>
+    </section>
+
+    <section id="setup" class="tool-panel" aria-labelledby="setup-title">
+      <div class="panel-heading">
+        <div>
+          <p class="section-kicker">PRE-FLIGHT SETUP</p>
+          <h2 id="setup-title">פרטי הבדיקה</h2>
+        </div>
+        <span class="limit-note">עד 150 קבצים, 2.8 MB בסך הכול</span>
+      </div>
+
+      <div class="project-fields">
+        <label>
+          <span>שם הלקוח</span>
+          <input id="client-name" autocomplete="organization" placeholder="לדוגמה: Acme">
+        </label>
+        <label>
+          <span>שם הפרויקט</span>
+          <input id="project-name" value="RAG Preflight" placeholder="שם העוזר או בסיס הידע">
+        </label>
+        <label>
+          <span>שם היועץ או הסוכנות</span>
+          <input id="consultant-name" autocomplete="organization-title" placeholder="השם שיופיע בדוח">
+        </label>
+      </div>
+
+      <div id="dropzone" class="dropzone" aria-describedby="drop-help">
+        <input id="folder-input" type="file" webkitdirectory multiple hidden>
+        <div class="drop-icon" aria-hidden="true">+</div>
+        <div>
+          <h3>בחרו תיקיית מסמכים</h3>
+          <p id="drop-help">Markdown, TXT, CSV, JSON, HTML, DOCX, XLSX ו־PDF. אפשר גם לגרור קבצים לכאן.</p>
+        </div>
+        <button id="choose-folder" type="button">בחירת תיקייה</button>
+      </div>
+
+      <div id="selection" class="selection-summary" hidden>
+        <div>
+          <b id="selection-title">לא נבחרו קבצים</b>
+          <span id="selection-detail"></span>
+        </div>
+        <button id="clear-selection" class="text-button" type="button">נקה בחירה</button>
+      </div>
+
+      <div class="privacy-note">
+        <b>מצב Web זמני</b>
+        <span>הקבצים שנבחרו מועברים לעיבוד זמני ב־Vercel ואינם נשמרים על ידי Anti-Silo. לחומר רגיש או גדול השתמשו בגרסת Desktop המקומית.</span>
+      </div>
+
+      <div id="error-message" class="message error" role="alert" tabindex="-1" hidden></div>
+      <div class="primary-actions">
+        <button id="run-scan" class="primary-button" type="button" disabled>הרץ Preflight</button>
+        <span id="ready-hint">בחרו תיקייה כדי להתחיל</span>
+      </div>
+    </section>
+
+    <section id="processing" class="processing-band" aria-live="polite" hidden>
+      <div class="spinner" aria-hidden="true"></div>
+      <div>
+        <h2>ממפים מקורות, כפילויות וחסמי אמון</h2>
+        <p>הסריקה מתבצעת עכשיו. אין צורך לרענן את הדף.</p>
+      </div>
+    </section>
+
+    <section id="results" class="results" aria-live="polite" hidden>
+      <div id="verdict" class="verdict-band">
+        <div class="verdict-copy">
+          <p id="verdict-label" class="verdict-label"></p>
+          <h2 id="verdict-title"></h2>
+          <p id="verdict-summary"></p>
+        </div>
+        <div class="score" aria-label="ציון מוכנות">
+          <b id="score-value">0</b>
+          <span>מתוך 100</span>
+          <small id="score-label"></small>
+        </div>
+      </div>
+
+      <div class="metrics-band" aria-label="סיכום ממצאים">
+        <div><b id="metric-total">0</b><span>קבצים שנבדקו</span></div>
+        <div class="metric-ready"><b id="metric-ready">0</b><span>מוכנים</span></div>
+        <div class="metric-review"><b id="metric-review">0</b><span>דורשים בדיקה</span></div>
+        <div class="metric-blocked"><b id="metric-blocked">0</b><span>חסומים</span></div>
+      </div>
+
+      <section class="result-section" aria-labelledby="actions-title">
+        <div class="result-heading">
+          <div>
+            <p class="section-kicker">NEXT ACTIONS</p>
+            <h2 id="actions-title">מה צריך לעשות עכשיו</h2>
+          </div>
+          <span id="effort-estimate" class="effort"></span>
+        </div>
+        <ol id="action-list" class="action-list"></ol>
+      </section>
+
+      <section class="result-section" aria-labelledby="risk-title">
+        <div class="result-heading">
+          <div>
+            <p class="section-kicker">RISK REGISTER</p>
+            <h2 id="risk-title">מרשם סיכונים</h2>
+          </div>
+          <button id="download-risks" class="secondary-button" type="button">הורד CSV</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>מזהה</th><th>חומרה</th><th>קובץ</th><th>ממצא</th><th>המלצה</th></tr>
+            </thead>
+            <tbody id="risk-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="report-actions">
+        <button id="download-report" class="primary-button" type="button">הורד דוח JSON</button>
+        <button id="new-scan" class="secondary-button" type="button">בדיקה חדשה</button>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>Anti-Silo Consultant Preflight</span>
+    <span>בודק עקיבות מקורות ומוכנות corpus, לא נכונות עובדתית.</span>
+  </footer>
+</body>
+</html>
