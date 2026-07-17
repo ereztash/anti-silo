@@ -25,3 +25,6 @@ packages = ["anti_silo", "anti_silo.gui"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.vercel]
+entrypoint = "api.scan:handler"

@@ -8,3 +8,5 @@ build/
 *.egg-info/
 anti_silo_out/
 .DS_Store
+
+.vercel
