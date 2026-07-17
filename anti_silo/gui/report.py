@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from ..consultant import build_consultant_analysis
 from ..config import output_dir
 from ..ingest import write_ingest
 from ..preflight import build_corpus_diagnostics, build_remediation, build_verdict
@@ -62,6 +63,34 @@ def _human_row(row: dict[str, Any], sources: dict[str, str], penalties: dict[str
     }
 
 
+def _scope_impact(rows: list[dict[str, Any]], diagnostics: dict[str, Any]) -> dict[str, int]:
+    ready = {str(row.get("file", "")) for row in rows if row.get("category") == "ready"}
+    review = {
+        str(row.get("file", ""))
+        for row in rows
+        if row.get("category") in {"backed", "indexed", "synthesis"}
+    }
+    blocked = {
+        str(row.get("file", ""))
+        for row in rows
+        if row.get("category") in {"unsupported", "contradiction"}
+    }
+    for issue in diagnostics.get("issues", []):
+        affected = {str(issue.get("file", "")), *(str(path) for path in issue.get("related_files", []))}
+        if issue.get("severity") == "block":
+            blocked.update(affected)
+        else:
+            review.update(affected)
+    review -= blocked
+    ready -= blocked | review
+    return {
+        "total": int(diagnostics.get("total_files", len(rows))),
+        "ready": len(ready),
+        "review": len(review),
+        "blocked": len(blocked),
+    }
+
+
 def build_human_report(
     source_root: Path,
     config: dict[str, Any],
@@ -94,14 +123,14 @@ def build_human_report(
     diagnostics = build_corpus_diagnostics(source_root, ingest_payload, config)
     verdict = build_verdict(counts, diagnostics)
     remediation = build_remediation(rows, diagnostics)
-    review_count = sum(int(counts.get(key, 0)) for key in ("backed", "indexed", "synthesis"))
-    review_count += int(diagnostics.get("counts", {}).get("unsupported_files", 0))
-    review_count += int(diagnostics.get("counts", {}).get("duplicate_groups", 0))
-    blocked_count = int(counts.get("unsupported", 0)) + int(counts.get("contradiction", 0))
+    scope = _scope_impact(rows, diagnostics)
+    analysis = build_consultant_analysis(counts, diagnostics, remediation, verdict, scope)
     current_summary = {
         "scanned_at": datetime.now(timezone.utc).isoformat(),
         "counts": counts,
         "diagnostic_counts": diagnostics.get("counts", {}),
+        "readiness_score": int(analysis["readiness_score"]["score"]),
+        "scope_impact": scope,
     }
 
     report: dict[str, Any] = {
@@ -116,14 +145,10 @@ def build_human_report(
         "counts": counts,
         "rows": rows,
         "verdict": verdict,
-        "scope_impact": {
-            "total": int(diagnostics.get("total_files", ingest_payload["files"])),
-            "ready": int(counts.get("ready", 0)),
-            "review": review_count,
-            "blocked": blocked_count,
-        },
+        "scope_impact": scope,
         "diagnostics": diagnostics,
         "remediation": remediation,
+        **analysis,
         "delta": compare_scans(previous_scan, current_summary),
         "client_manifest": client_manifest(ingest_payload),
         "temporary": quick_payload is not None,

@@ -33,6 +33,11 @@ def scan_summary(report: dict[str, Any]) -> dict[str, Any]:
         "files": int(report.get("files", 0)),
         "counts": counts,
         "diagnostic_counts": diagnostic_counts,
+        "readiness_score": report.get("readiness_score", {}).get("score"),
+        "scope_impact": {
+            key: int(value)
+            for key, value in dict(report.get("scope_impact", {})).items()
+        },
     }
 
 
@@ -54,6 +59,13 @@ def compare_scans(previous: dict[str, Any] | None, current: dict[str, Any]) -> d
     current_review = sum(int(current_counts.get(key, 0)) for key in ("backed", "indexed", "synthesis"))
     previous_corpus_issues = sum(int(value) for value in previous_diagnostics.values())
     current_corpus_issues = sum(int(value) for value in current_diagnostics.values())
+    previous_score = previous.get("readiness_score")
+    current_score = current.get("readiness_score")
+    score_change = (
+        int(current_score) - int(previous_score)
+        if previous_score is not None and current_score is not None
+        else None
+    )
     return {
         "has_previous": True,
         "previous_scanned_at": str(previous.get("scanned_at", "")),
@@ -61,6 +73,21 @@ def compare_scans(previous: dict[str, Any] | None, current: dict[str, Any]) -> d
         "review": current_review - previous_review,
         "blocked": current_blocked - previous_blocked,
         "corpus_issues": current_corpus_issues - previous_corpus_issues,
+        "readiness_score": score_change,
+        "previous": {
+            "readiness_score": previous_score,
+            "ready": int(previous_counts.get("ready", 0)),
+            "review": previous_review,
+            "blocked": previous_blocked,
+            "corpus_issues": previous_corpus_issues,
+        },
+        "current": {
+            "readiness_score": current_score,
+            "ready": int(current_counts.get("ready", 0)),
+            "review": current_review,
+            "blocked": current_blocked,
+            "corpus_issues": current_corpus_issues,
+        },
     }
 
 
@@ -73,7 +100,7 @@ class ProjectStore:
     def _load(self) -> dict[str, Any]:
         if not self.path.exists():
             return {"schema_version": 1, "projects": []}
-        return json.loads(self.path.read_text(encoding="utf-8"))
+        return json.loads(self.path.read_text(encoding="utf-8-sig"))
 
     def _save(self, data: dict[str, Any]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)

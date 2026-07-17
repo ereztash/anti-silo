@@ -5,8 +5,8 @@
 Anti-Silo inspects a client source folder before ingestion. It identifies
 provenance gaps, extraction failures, unsupported formats, duplicate content,
 and sources that should not enter grounding under the configured policy. The
-result is a deterministic `GO`, `CONDITIONAL GO`, or `STOP` decision plus a
-client-ready Audit Pack.
+result is a deterministic `GO`, `CONDITIONAL GO`, or `STOP` decision, an
+explainable Readiness Score, and a client-ready Audit Pack.
 
 All processing stays on the local machine. No source documents are uploaded.
 
@@ -60,6 +60,22 @@ contents are not copied into project history.
 The verdict is deterministic and policy-based. It is not a probabilistic
 confidence score.
 
+### Readiness Score Method
+
+The `0-100` score is intentionally explainable:
+
+- `triangulated` files contribute 100 points
+- `source_backed` files contribute 75 points
+- `indexed_unverified` files contribute 40 points
+- synthesis files without a source spine contribute 30 points
+- blocked or unsupported files contribute 0 points
+- exact duplicates deduct 2 points each, up to 15 points
+- any `STOP` finding caps the final score at 49
+
+The weighted total is divided by all files in scope, including unsupported
+files. The report exposes the components and methodology used for every score.
+This is a corpus-readiness indicator, not a factual-quality score.
+
 ## What the Audit Pack Contains
 
 Each completed Preflight can export:
@@ -69,6 +85,9 @@ Each completed Preflight can export:
 | `ANTI_SILO_REPORT.html` | Client-readable verdict, scope impact, diagnostics, and remediation plan. |
 | `PREFLIGHT_SUMMARY.json` | Machine-readable verdict and audit summary. |
 | `REMEDIATION_QUEUE.csv` | Prioritized actions for blocked, review, and cleanup items. |
+| `RISK_REGISTER.csv` | Formal risk IDs, categories, severity, and recommendations. |
+| `SCAN_DELTA.json` | Previous-versus-current readiness and issue metrics. |
+| `SOW_READY.md` | Copy-ready scope input with executive summary, material risks, and a planning range. |
 | `CLIENT_SOURCE_MANIFEST.json` | Sanitized source inventory without the local source-root path. |
 | `eligible_sources.csv` | Sources allowed into grounding under the active policy, when available. |
 | `ANTI_SILO_PREFLIGHT_PACK.zip` | Portable bundle containing the client-facing artifacts. |
@@ -84,6 +103,7 @@ Each completed Preflight can export:
 - graph-only or weakly supported claims
 - contradiction hard blocks
 - changes in ready, review, blocked, and corpus-issue counts between scans
+- readiness-score movement between scans
 
 Anti-Silo can also generate strict grounding allowlists and source-spine repair
 templates for structured knowledge vaults.
@@ -226,10 +246,11 @@ Additional documentation:
 
 ## Current Product Status
 
-Version `0.4.0` is engineering-verified as a local Consultant Preflight
-workflow. Market demand is still a field hypothesis. The next promotion gate is
-repeated use on real client folders, client-facing use of the Audit Pack, and
-paid pilot evidence.
+Version `0.5.0` is engineering-verified as a local Consultant Decision Pack. It
+adds the Readiness Score, Risk Register, bilingual executive summary, cleanup
+planning range, expanded Scan Delta, and SOW-ready export. Market demand is
+still a field hypothesis. The next promotion gate is repeated use on real
+client folders, client-facing use of the Audit Pack, and paid pilot evidence.
 
 This repository contains the portable product layer only. Do not commit private
 client folders, CRM exports, credentials, or sensitive source material.

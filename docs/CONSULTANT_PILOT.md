@@ -24,7 +24,8 @@ for post-production RAG evaluation during this pilot.
 
 **Founding Consultant Pilot:** run one real client source folder through
 Anti-Silo, repair or exclude the highest-priority findings, and deliver the
-client Audit Pack.
+client Audit Pack with its Readiness Score, Risk Register, and SOW-ready scope
+input.
 
 Test a paid price of USD 99-149 for the first engagement. This is a pricing
 hypothesis, not a permanent plan. Decide between per-audit and subscription
@@ -35,7 +36,7 @@ value.
 
 > Audit a client's RAG source folder before it reaches the index. Anti-Silo runs
 > locally, identifies provenance and ingestion risks, creates a remediation
-> queue, and exports a client-ready Preflight report.
+> queue, and exports a client-ready Preflight report and SOW input.
 
 Never promise truth verification, zero hallucinations, legal compliance, or a
 complete RAG quality score.
@@ -44,8 +45,9 @@ complete RAG quality score.
 
 ### Days 1-2: Demo asset
 
-- Record a 60-90 second walkthrough: create project, scan, repair one item,
-  rescan, and export the Audit Pack.
+- Record a 60-90 second walkthrough: create project, scan, explain the
+  Readiness Score and one formal risk, repair one item, rescan, and export the
+  Audit Pack and SOW-ready scope input.
 - Use a mixed corpus containing a supported source, an unverified synthesis, an
   unsupported format, an extraction failure, and a duplicate.
 - CTA: `Run one real client folder with us`.

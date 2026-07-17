@@ -169,6 +169,7 @@ def build_remediation(rows: list[dict[str, Any]], diagnostics: dict[str, Any]) -
         item = {
             "priority": priority.get(str(issue.get("severity")), 3),
             "severity": str(issue.get("severity", "review")),
+            "category": str(issue.get("kind", "corpus_issue")),
             "file": str(issue.get("file", "")),
             "finding": str(issue.get("finding", "")),
             "action": str(issue.get("action", "")),
@@ -193,6 +194,7 @@ def build_remediation(rows: list[dict[str, Any]], diagnostics: dict[str, Any]) -
             {
                 "priority": priority[severity],
                 "severity": severity,
+                "category": category,
                 "file": file_name,
                 "finding": str(row.get("explanation", "")),
                 "action": str(row.get("action", "")),

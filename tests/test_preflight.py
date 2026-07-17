@@ -51,7 +51,18 @@ def test_preflight_report_builds_client_pack_without_local_root_in_client_html(t
         assert report["verdict"]["status"] == "conditional_go"
         assert report["diagnostics"]["counts"]["unsupported_files"] == 1
         assert report["remediation"]
-        for key in ("audit_pack", "preflight_summary", "remediation_queue", "client_manifest"):
+        assert 0 <= report["readiness_score"]["score"] <= 100
+        assert report["risk_register"]
+        assert report["executive_summary"]["en"]
+        for key in (
+            "audit_pack",
+            "preflight_summary",
+            "remediation_queue",
+            "risk_register",
+            "scan_delta",
+            "sow_ready",
+            "client_manifest",
+        ):
             assert key in report["downloads"]
             assert Path(report["downloads"][key]).exists()
 
@@ -59,12 +70,18 @@ def test_preflight_report_builds_client_pack_without_local_root_in_client_html(t
         assert "Demo Client" in client_html
         assert "Knowledge Assistant" in client_html
         assert str(source.resolve()) not in client_html
+        sow_ready = Path(report["downloads"]["sow_ready"]).read_text(encoding="utf-8")
+        assert "Readiness Score" in sow_ready
+        assert str(source.resolve()) not in sow_ready
 
         with zipfile.ZipFile(report["downloads"]["audit_pack"]) as archive:
             assert set(archive.namelist()) >= {
                 "ANTI_SILO_REPORT.html",
                 "PREFLIGHT_SUMMARY.json",
                 "REMEDIATION_QUEUE.csv",
+                "RISK_REGISTER.csv",
+                "SCAN_DELTA.json",
+                "SOW_READY.md",
                 "CLIENT_SOURCE_MANIFEST.json",
             }
     finally:
@@ -85,6 +102,8 @@ def test_project_store_records_summary_and_produces_scan_delta(tmp_path) -> None
         "files": 3,
         "counts": {"ready": 1, "indexed": 2, "unsupported": 0, "contradiction": 0},
         "diagnostics": {"counts": {"duplicate_files": 1}},
+        "readiness_score": {"score": 41},
+        "scope_impact": {"total": 3, "ready": 1, "review": 2, "blocked": 0},
     }
     store.record_scan(project["id"], first_report)
     previous = store.latest_scan(project["id"])
@@ -94,6 +113,8 @@ def test_project_store_records_summary_and_produces_scan_delta(tmp_path) -> None
         "files": 3,
         "counts": {"ready": 3, "indexed": 0, "unsupported": 0, "contradiction": 0},
         "diagnostics": {"counts": {"duplicate_files": 0}},
+        "readiness_score": {"score": 78},
+        "scope_impact": {"total": 3, "ready": 3, "review": 0, "blocked": 0},
     }
     delta = compare_scans(previous, scan_summary(current_report))
 
@@ -104,7 +125,29 @@ def test_project_store_records_summary_and_produces_scan_delta(tmp_path) -> None
         "review": -2,
         "blocked": 0,
         "corpus_issues": -1,
+        "readiness_score": 37,
+        "previous": {
+            "readiness_score": 41,
+            "ready": 1,
+            "review": 2,
+            "blocked": 0,
+            "corpus_issues": 1,
+        },
+        "current": {
+            "readiness_score": 78,
+            "ready": 3,
+            "review": 0,
+            "blocked": 0,
+            "corpus_issues": 0,
+        },
     }
     assert store.list_projects()[0]["scan_count"] == 1
     saved = json.loads((tmp_path / "projects.json").read_text(encoding="utf-8"))
     assert saved["projects"][0]["source_root"] == str(source.resolve())
+
+
+def test_project_store_accepts_windows_utf8_bom(tmp_path) -> None:
+    path = tmp_path / "projects.json"
+    path.write_text('{"schema_version": 1, "projects": []}\n', encoding="utf-8-sig")
+
+    assert ProjectStore(path).list_projects() == []

@@ -24,9 +24,12 @@
       const fixesHtml = fixes.length ? `<ul class="next-fixes">${fixes.map(row => `<li><b>${escapeHtml(row.file)}</b><span>${escapeHtml(row.action || row.finding)}</span>${row.category === 'indexed' ? `<div class="actions"><button class="secondary" type="button" data-file="${escapeHtml(row.file)}" onclick="attachSource(this.dataset.file)">בחר מקור עצמאי</button></div>` : ''}</li>`).join('')}</ul>` : '<p class="hint">לא נמצאו פעולות תיקון מיידיות.</p>';
       const project = data.project || {};
       const delta = data.delta || {};
-      const deltaHtml = delta.has_previous ? `<div class="delta"><span><b>${Number(delta.ready || 0) >= 0 ? '+' : ''}${delta.ready || 0}</b> מוכנים</span><span><b>${Number(delta.review || 0) >= 0 ? '+' : ''}${delta.review || 0}</b> לבדיקה</span><span><b>${Number(delta.blocked || 0) >= 0 ? '+' : ''}${delta.blocked || 0}</b> חסמים</span></div>` : '';
+      const readiness = data.readiness_score || {};
+      const executive = data.executive_summary || {};
+      const scoreDelta = delta.readiness_score == null ? '' : `<span><b>${Number(delta.readiness_score) >= 0 ? '+' : ''}${delta.readiness_score}</b> בציון</span>`;
+      const deltaHtml = delta.has_previous ? `<div class="delta">${scoreDelta}<span><b>${Number(delta.ready || 0) >= 0 ? '+' : ''}${delta.ready || 0}</b> מוכנים</span><span><b>${Number(delta.review || 0) >= 0 ? '+' : ''}${delta.review || 0}</b> לבדיקה</span><span><b>${Number(delta.blocked || 0) >= 0 ? '+' : ''}${delta.blocked || 0}</b> חסמים</span></div>` : '';
       statusEl.className = `panel verdict ${meta.tone}`;
-      statusEl.innerHTML = `<div class="verdict-grid"><div><div class="project-line">${escapeHtml(project.client_name || 'לקוח')} · ${escapeHtml(project.project_name || 'RAG Preflight')}</div><div class="verdict-kicker">${escapeHtml(meta.kicker)}</div><h2>${escapeHtml(meta.title || '')}</h2><p>${escapeHtml(meta.body || '')}</p>${deltaHtml}<div class="actions"><button type="button" onclick="simpleGroup('${meta.group}')">${escapeHtml(meta.action)}</button><button class="secondary" type="button" onclick="filterNeedsRepair()">הצג רשימת תיקון</button></div><div class="trust-boundary-small">גבול אמון: Anti-Silo בודק שרשרת מקורות ושלמות חילוץ. הוא לא מוכיח שהטקסט נכון עובדתית או מקצועית.</div></div><div><b>תיקונים ראשונים</b>${fixesHtml}</div></div>`;
+      statusEl.innerHTML = `<div class="verdict-grid"><div><div class="project-line">${escapeHtml(project.client_name || 'לקוח')} · ${escapeHtml(project.project_name || 'RAG Preflight')}</div><div class="verdict-kicker">${escapeHtml(meta.kicker)}</div><h2>${escapeHtml(meta.title || '')}</h2><p>${escapeHtml(meta.body || '')}</p><p class="executive-summary">${escapeHtml(executive.he || '')}</p>${deltaHtml}<div class="actions"><button type="button" onclick="simpleGroup('${meta.group}')">${escapeHtml(meta.action)}</button><button class="secondary" type="button" onclick="filterNeedsRepair()">הצג רשימת תיקון</button></div><div class="trust-boundary-small">גבול אמון: Anti-Silo בודק שרשרת מקורות ושלמות חילוץ. הוא לא מוכיח שהטקסט נכון עובדתית או מקצועית.</div></div><div><div class="readiness-score"><b>${Number(readiness.score || 0)}</b><span>מתוך 100</span><small>${escapeHtml(readiness.label_he || '')}</small></div><b>תיקונים ראשונים</b>${fixesHtml}</div></div>`;
     }
 
     function renderCorpus(data) {
@@ -34,4 +37,12 @@
       const counts = diagnostics.counts || {};
       corpusEl.hidden = false;
       corpusEl.innerHTML = `<h2 class="section-title">אבחון corpus</h2><p>${diagnostics.total_files || 0} קבצים נמצאו בתיקייה, ${diagnostics.ingested_files || 0} מהם נכללו בסריקה.</p><div class="corpus-grid"><div class="metric"><b>${counts.unsupported_files || 0}</b><span>פורמטים לא נתמכים</span></div><div class="metric"><b>${counts.duplicate_files || 0}</b><span>עותקים כפולים</span></div><div class="metric"><b>${counts.extraction_failed || 0}</b><span>כשלי חילוץ</span></div><div class="metric"><b>${counts.extraction_truncated || 0}</b><span>חילוץ חלקי</span></div></div>`;
+    }
+
+    function renderRiskRegister(data) {
+      const risks = data.risk_register || [];
+      const effort = data.effort_estimate || {};
+      const rows = risks.slice(0, 8).map(risk => `<tr><td>${escapeHtml(risk.risk_id)}</td><td>${escapeHtml(risk.category)}</td><td>${escapeHtml(risk.file)}</td><td><span class="risk-severity ${escapeHtml(String(risk.severity).toLowerCase())}">${escapeHtml(risk.severity)}</span></td><td>${escapeHtml(risk.recommendation)}</td></tr>`).join('');
+      riskEl.hidden = false;
+      riskEl.innerHTML = `<div class="risk-header"><div><h2 class="section-title">מרשם סיכונים</h2><p>סיכונים פורמליים שאפשר לצרף לשיחת היקף או ל-SOW.</p></div><div class="effort-range"><b>${Number(effort.minimum_hours || 0)}-${Number(effort.maximum_hours || 0)}</b><span>שעות לתכנון</span></div></div><div class="table-scroll"><table><thead><tr><th>מזהה</th><th>קטגוריה</th><th>קובץ</th><th>חומרה</th><th>המלצה</th></tr></thead><tbody>${rows || '<tr><td colspan="5">לא נמצאו סיכונים לרישום.</td></tr>'}</tbody></table></div><p class="hint">הערכת השעות מבוססת על מספר הממצאים וחומרתם. יש לאמת מורכבות לפני הצעת מחיר.</p>`;
     }
