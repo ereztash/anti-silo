@@ -477,7 +477,7 @@ footer a {
 
 .verdict-band {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(230px, 300px);
   align-items: center;
   gap: 40px;
   padding: 34px;
@@ -519,31 +519,130 @@ footer a {
   color: var(--muted);
 }
 
-.score {
-  width: 142px;
-  height: 142px;
-  display: grid;
-  place-content: center;
-  text-align: center;
-  border: 8px solid #d7e3de;
-  border-radius: 50%;
+.trust-disclosure {
+  max-width: 680px;
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 13px;
 }
 
-.score b,
-.score span,
-.score small {
-  display: block;
+.trust-disclosure summary,
+.score-ledger summary {
+  width: fit-content;
+  cursor: pointer;
+  color: #34463e;
+  font-weight: 750;
+}
+
+.trust-disclosure p {
+  margin: 10px 0 0;
+}
+
+.score-panel {
+  min-width: 0;
+}
+
+.score {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  text-align: right;
 }
 
 .score b {
-  font-size: 44px;
+  font-size: 64px;
   line-height: 1;
 }
 
-.score span,
+.score span {
+  color: #52625b;
+  font-size: 17px;
+  font-weight: 750;
+}
+
 .score small {
+  margin-inline-start: auto;
   color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.score-meter {
+  margin-top: 14px;
+}
+
+.score-track {
+  position: relative;
+  height: 10px;
+  overflow: visible;
+  border-radius: 5px;
+  background: #dce5e1;
+}
+
+.score-track span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--review);
+  transition: width 300ms ease;
+}
+
+.verdict-band.go .score-track span { background: var(--ready); }
+.verdict-band.stop .score-track span { background: var(--blocked); }
+
+.score-track i {
+  position: absolute;
+  inset-block: -5px;
+  inset-inline-start: 85%;
+  width: 2px;
+  background: #26372f;
+}
+
+.score-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.score-scale b {
+  color: #34463e;
+}
+
+.score-ledger {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
   font-size: 12px;
+}
+
+.score-ledger dl {
+  margin: 12px 0 8px;
+}
+
+.score-ledger dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 5px 0;
+  border-bottom: 1px solid #e7ece9;
+}
+
+.score-ledger dt {
+  color: var(--muted);
+}
+
+.score-ledger dd {
+  margin: 0;
+  font-weight: 800;
+}
+
+.score-ledger p {
+  margin: 10px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
 }
 
 .metrics-band {
@@ -819,9 +918,8 @@ footer {
     padding: 24px;
   }
 
-  .score {
-    width: 120px;
-    height: 120px;
+  .score-panel {
+    width: 100%;
   }
 
   .metrics-band {

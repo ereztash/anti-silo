@@ -176,8 +176,18 @@ The Web Beta:
 - requires explicit cloud-processing consent before any user-selected file is sent
 - runs the existing deterministic Preflight engine in a temporary Python Function
 - returns the verdict, Readiness Score, remediation queue, and Risk Register
-- lets the consultant download the result as JSON and the Risk Register as CSV
+- lets the consultant download a client-ready HTML report, raw JSON, and the Risk Register as CSV
 - does not provide scan history, watch mode, source repair, or the complete Audit Pack yet
+
+Run the complete hosted flow locally for development or UI review:
+
+```bash
+python scripts/serve_web_beta.py
+```
+
+The preview binds only to `127.0.0.1`, opens at `http://127.0.0.1:8766/`,
+and serves both the browser assets and the real `/api/scan` implementation.
+Open `http://127.0.0.1:8766/?demo=1` to run the no-upload demo immediately.
 
 Vercel Functions limit request and response payloads to 4.5 MB. Anti-Silo uses
 a lower 2.8 MB content limit to leave room for JSON and Base64 encoding. Use the

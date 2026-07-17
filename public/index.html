@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Anti-Silo Consultant Preflight for RAG source folders">
   <title>Anti-Silo Preflight</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css">
   <script src="/app.js" defer></script>
 </head>
@@ -112,11 +113,34 @@
           <p id="verdict-label" class="verdict-label"></p>
           <h2 id="verdict-title"></h2>
           <p id="verdict-summary"></p>
+          <details class="trust-disclosure">
+            <summary>מה הבדיקה כן ולא קובעת</summary>
+            <p id="trust-boundary"></p>
+          </details>
         </div>
-        <div class="score" aria-label="ציון מוכנות">
-          <b id="score-value">0</b>
-          <span>מתוך 100</span>
-          <small id="score-label"></small>
+        <div class="score-panel">
+          <div class="score" aria-label="ציון מוכנות">
+            <b id="score-value">0</b>
+            <span>/ 100</span>
+            <small id="score-label"></small>
+          </div>
+          <div id="score-meter" class="score-meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="ציון מוכנות מול סף GO">
+            <div class="score-track">
+              <span id="score-fill"></span>
+              <i aria-hidden="true"></i>
+            </div>
+            <div class="score-scale"><span>0</span><b>סף GO: 85</b><span>100</span></div>
+          </div>
+          <details class="score-ledger">
+            <summary>איך חושב הציון?</summary>
+            <dl>
+              <div><dt>בסיס משוקלל</dt><dd id="score-weighted-base">0</dd></div>
+              <div><dt>קנס כפילויות</dt><dd id="score-duplicate-penalty">0</dd></div>
+              <div><dt>ממצאי STOP</dt><dd id="score-stop-findings">0</dd></div>
+              <div><dt>תקרת STOP הופעלה</dt><dd id="score-stop-cap">לא</dd></div>
+            </dl>
+            <p id="score-methodology"></p>
+          </details>
         </div>
       </div>
 
@@ -157,7 +181,8 @@
       </section>
 
       <div class="report-actions">
-        <button id="download-report" class="primary-button" type="button">הורד דוח JSON</button>
+        <button id="download-client-report" class="primary-button" type="button">הורד דוח לקוח HTML</button>
+        <button id="download-report" class="secondary-button" type="button">הורד נתוני JSON</button>
         <button id="new-scan" class="secondary-button" type="button">בדיקה חדשה</button>
       </div>
     </section>
