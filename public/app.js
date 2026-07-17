@@ -27,6 +27,7 @@
   const setup = document.getElementById("setup");
   const processing = document.getElementById("processing");
   const results = document.getElementById("results");
+  const autoDemo = new URLSearchParams(window.location.search).get("demo") === "1";
   let selectedFiles = [];
   let lastReport = null;
 
@@ -244,7 +245,7 @@
       renderReport(data);
       processing.hidden = true;
       results.hidden = false;
-      results.scrollIntoView({ behavior: "smooth", block: "start" });
+      results.scrollIntoView({ behavior: autoDemo ? "auto" : "smooth", block: "start" });
     } catch (error) {
       processing.hidden = true;
       setup.hidden = false;
@@ -426,7 +427,7 @@
     }
   });
 
-  if (new URLSearchParams(window.location.search).get("demo") === "1") {
+  if (autoDemo) {
     void runDemo();
   }
 })();

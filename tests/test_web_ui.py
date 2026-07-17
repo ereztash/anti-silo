@@ -31,7 +31,8 @@ def test_hosted_results_expose_auditable_score_and_client_artifact() -> None:
     assert 'addEventListener("click", downloadClientReport)' in script
     assert "score.methodology" in script
     assert "report.trust_boundary" in script
-    assert 'new URLSearchParams(window.location.search).get("demo") === "1"' in script
+    assert 'const autoDemo = new URLSearchParams(window.location.search).get("demo") === "1"' in script
+    assert 'behavior: autoDemo ? "auto" : "smooth"' in script
 
 
 def test_web_preview_script_can_be_invoked_directly() -> None:
