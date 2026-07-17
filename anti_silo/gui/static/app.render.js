@@ -26,8 +26,9 @@
       summaryEl.hidden = true;
       renderSimpleSummary(data);
       renderCorpus(data);
+      renderRiskRegister(data);
 
-      const preferredOrder = ['audit_pack','html_report','remediation_queue','preflight_summary','client_manifest','allowed_sources','source_todo','pulse_markdown','manifest'];
+      const preferredOrder = ['audit_pack','sow_ready','html_report','risk_register','remediation_queue','scan_delta','preflight_summary','client_manifest','allowed_sources','source_todo','pulse_markdown','manifest'];
       const links = Object.entries(data.downloads || {}).sort(([a],[b]) => preferredOrder.indexOf(a) - preferredOrder.indexOf(b)).map(([name,path]) => `<a href="/download?path=${encodeURIComponent(path)}">${downloadNames[name] || name}</a>`).join('');
       downloadsEl.hidden = false;
       downloadsEl.innerHTML = `<b>חבילת מסירה ללקוח</b><br>${links || 'אין קבצי ייצוא זמינים.'}<div class="hint">Audit Pack כולל תקציר, תור תיקונים, מניפסט ודוח HTML שניתן לשמור כ-PDF.</div><div class="actions"><button class="secondary" type="button" onclick="showTechnicalSummary()">הצג פרטים למתקדמים</button><button class="secondary" type="button" onclick="rescan()">בדיקה חוזרת</button><button class="secondary" type="button" onclick="discardResults()">מחק תוצאות זמניות</button><button class="secondary" type="button" onclick="watchLastFolder()">עקוב אחרי התיקייה הזו</button></div>`;

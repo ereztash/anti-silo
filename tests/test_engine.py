@@ -271,6 +271,9 @@ def test_gui_html_exposes_shelf_product_controls() -> None:
     assert "Anti-Silo Preflight" in HTML
     assert "client-name" in HTML
     assert "audit_pack" in HTML
+    assert "readiness-score" in HTML
+    assert "risk-register" in HTML
+    assert "sow_ready" in HTML
     assert "/api/projects" in HTML
     assert "escapeHtml(row.file)" in HTML
     assert "גבול אמון" in HTML

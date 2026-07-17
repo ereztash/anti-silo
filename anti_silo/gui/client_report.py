@@ -28,10 +28,27 @@ def _source_rows(report: dict[str, Any]) -> str:
     )
 
 
+def _risk_rows(report: dict[str, Any]) -> str:
+    rows = "\n".join(
+        "<tr>"
+        f"<td>{escape(str(risk.get('risk_id', '')))}</td>"
+        f"<td>{escape(str(risk.get('category', '')))}</td>"
+        f"<td>{escape(str(risk.get('file', '')))}</td>"
+        f"<td>{escape(str(risk.get('severity', '')))}</td>"
+        f"<td>{escape(str(risk.get('recommendation', '')))}</td>"
+        "</tr>"
+        for risk in report.get("risk_register", [])
+    )
+    return rows or '<tr><td colspan="5">לא נמצאו סיכונים לרישום.</td></tr>'
+
+
 def _delta_section(delta: dict[str, Any]) -> str:
     if not delta.get("has_previous"):
         return ""
-    return f"""<section><h2>שינוי מהבדיקה הקודמת</h2><div class="metrics">
+    score = delta.get("readiness_score")
+    score_metric = f'<div class="metric"><b>{int(score):+d}</b><span>שינוי בציון</span></div>' if score is not None else ""
+    return f"""<section><h2>שינוי מהבדיקה הקודמת</h2><div class="metrics delta-metrics">
+      {score_metric}
       <div class="metric"><b>{int(delta.get('ready', 0)):+d}</b><span>שינוי במוכנים</span></div>
       <div class="metric"><b>{int(delta.get('review', 0)):+d}</b><span>שינוי לבדיקה</span></div>
       <div class="metric"><b>{int(delta.get('blocked', 0)):+d}</b><span>שינוי בחסמים</span></div>
@@ -44,6 +61,9 @@ def render_report_html(report: dict[str, Any]) -> str:
     verdict = dict(report.get("verdict", {}))
     scope = dict(report.get("scope_impact", {}))
     diagnostic_counts = dict(report.get("diagnostics", {}).get("counts", {}))
+    readiness = dict(report.get("readiness_score", {}))
+    executive = dict(report.get("executive_summary", {}))
+    effort = dict(report.get("effort_estimate", {}))
     verdict_class = escape(str(verdict.get("status", "conditional_go")))
     return f"""<!doctype html>
 <html lang="he" dir="rtl">
@@ -63,7 +83,11 @@ def render_report_html(report: dict[str, Any]) -> str:
     .verdict {{ border-right:6px solid var(--warn); padding:18px; background:#fbfcfd; }}
     .verdict.go {{ border-right-color:var(--ok); }} .verdict.stop {{ border-right-color:var(--bad); }}
     .verdict strong {{ display:block; font-size:25px; margin:4px 0; }}
+    .decision-grid {{ display:grid; grid-template-columns:180px 1fr; gap:16px; align-items:stretch; }}
+    .score {{ border:1px solid var(--line); padding:18px; text-align:center; display:grid; place-content:center; }}
+    .score b {{ display:block; font-size:48px; line-height:1; }} .score span {{ color:var(--muted); }}
     .metrics {{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }}
+    .delta-metrics {{ grid-template-columns:repeat(5,minmax(0,1fr)); }}
     .metric {{ border:1px solid var(--line); border-radius:8px; padding:14px; }}
     .metric b {{ display:block; font-size:24px; }}
     table {{ width:100%; border-collapse:collapse; }}
@@ -73,7 +97,7 @@ def render_report_html(report: dict[str, Any]) -> str:
     .ready {{ color:var(--ok); }} .backed,.synthesis,.indexed {{ color:var(--warn); }} .unsupported,.contradiction {{ color:var(--bad); }}
     .boundary {{ padding:14px; background:#fff8e8; border:1px solid #f0d99a; }}
     footer {{ color:var(--muted); font-size:13px; }}
-    @media (max-width:700px) {{ header,main,footer {{ padding:20px; }} .metrics {{ grid-template-columns:1fr 1fr; }} table {{ font-size:13px; }} }}
+    @media (max-width:700px) {{ header,main,footer {{ padding:20px; }} .metrics,.delta-metrics,.decision-grid {{ grid-template-columns:1fr 1fr; }} .decision-grid {{ grid-template-columns:1fr; }} table {{ font-size:13px; }} }}
     @media print {{ header,main,footer {{ max-width:none; padding:12mm 0; }} section {{ break-inside:avoid; }} }}
   </style>
 </head>
@@ -85,7 +109,8 @@ def render_report_html(report: dict[str, Any]) -> str:
     <div class="meta">הוכן על ידי {escape(str(project.get('consultant_name') or 'יועץ ה-AI'))} · {escape(str(report.get('generated_at', ''))[:10])}</div>
   </header>
   <main>
-    <section><div class="verdict {verdict_class}"><span>{escape(str(verdict.get('label', 'CONDITIONAL GO')))}</span><strong>{escape(str(verdict.get('title', '')))}</strong><div>{escape(str(verdict.get('summary', '')))}</div></div></section>
+    <section><div class="decision-grid"><div class="score"><b>{int(readiness.get('score', 0))}</b><span>מתוך 100 · {escape(str(readiness.get('label_he', '')))}</span></div><div class="verdict {verdict_class}"><span>{escape(str(verdict.get('label', 'CONDITIONAL GO')))}</span><strong>{escape(str(verdict.get('title', '')))}</strong><div>{escape(str(verdict.get('summary', '')))}</div></div></div></section>
+    <section><h2>תקציר מנהלים</h2><p>{escape(str(executive.get('he', '')))}</p><p class="meta">טווח תכנון לתיקון: {int(effort.get('minimum_hours', 0))}-{int(effort.get('maximum_hours', 0))} שעות. זו אינה הצעת מחיר מחייבת.</p></section>
     <section><h2>השפעת היקף</h2><div class="metrics">
       <div class="metric"><b>{int(scope.get('total', 0))}</b><span>קבצים בתיקייה</span></div>
       <div class="metric"><b>{int(scope.get('ready', 0))}</b><span>עברו מדיניות</span></div>
@@ -93,6 +118,7 @@ def render_report_html(report: dict[str, Any]) -> str:
       <div class="metric"><b>{int(scope.get('blocked', 0))}</b><span>חסמים</span></div>
     </div></section>
     {_delta_section(dict(report.get('delta', {})))}
+    <section><h2>מרשם סיכונים</h2><table><thead><tr><th>מזהה</th><th>קטגוריה</th><th>קובץ</th><th>חומרה</th><th>המלצה</th></tr></thead><tbody>{_risk_rows(report)}</tbody></table></section>
     <section><h2>תוכנית תיקון</h2><table><thead><tr><th>עדיפות</th><th>קובץ</th><th>ממצא</th><th>פעולה</th></tr></thead><tbody>{_remediation_rows(report)}</tbody></table></section>
     <section><h2>אבחון corpus</h2><div class="metrics">
       <div class="metric"><b>{int(diagnostic_counts.get('unsupported_files', 0))}</b><span>פורמטים לא נתמכים</span></div>

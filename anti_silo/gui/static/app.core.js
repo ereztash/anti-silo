@@ -5,7 +5,8 @@
     const downloadNames = {
       html_report: 'שמור דוח HTML', allowed_sources: 'רשימת מקורות מותרים', source_todo: 'תבנית להשלמת מקורות',
       pulse_markdown: 'דוח טכני', manifest: 'מניפסט מקור', audit_pack: 'הורד Audit Pack',
-      preflight_summary: 'סיכום Preflight JSON', remediation_queue: 'תור תיקונים CSV', client_manifest: 'מניפסט לקוח'
+      preflight_summary: 'סיכום Preflight JSON', remediation_queue: 'תור תיקונים CSV', client_manifest: 'מניפסט לקוח',
+      risk_register: 'מרשם סיכונים CSV', scan_delta: 'השוואת סריקות JSON', sow_ready: 'מסמך SOW מוכן'
     };
     const statusEl = document.getElementById('status');
     const summaryEl = document.getElementById('summary');
@@ -13,6 +14,7 @@
     const resultsEl = document.getElementById('results');
     const downloadsEl = document.getElementById('downloads');
     const corpusEl = document.getElementById('corpus');
+    const riskEl = document.getElementById('risk-register');
     const wizardEl = document.getElementById('wizard');
     const brainEl = document.getElementById('brain');
     const dropzone = document.getElementById('dropzone');
