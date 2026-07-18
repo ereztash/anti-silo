@@ -17,6 +17,7 @@
     const corpusEl = document.getElementById('corpus');
     const riskEl = document.getElementById('risk-register');
     const wizardEl = document.getElementById('wizard');
+    const whatifEl = document.getElementById('whatif');
     const brainEl = document.getElementById('brain');
     const dropzone = document.getElementById('dropzone');
     const button = document.getElementById('scan');

@@ -135,3 +135,59 @@
       riskEl.hidden = false;
       riskEl.innerHTML = `<div class="risk-header"><div><h2 class="section-title">מרשם סיכונים</h2><p>השאלות שהלקוח ישאל — עם התשובות שלך מוכנות מראש. ניתן לצרף לשיחת היקף או ל-SOW.</p></div><div class="effort-range"><b class="num">${Number(effort.minimum_hours || 0)}-${Number(effort.maximum_hours || 0)}</b><span>שעות לתכנון</span></div></div><div class="table-scroll"><table><thead><tr><th>מזהה</th><th>קטגוריה</th><th>קובץ</th><th>חומרה</th><th>המלצה</th></tr></thead><tbody>${rows || '<tr><td colspan="5">לא נמצאו סיכונים לרישום.</td></tr>'}</tbody></table></div><p class="hint">הערכת השעות מבוססת על מספר הממצאים וחומרתם. יש לאמת מורכבות לפני הצעת מחיר.</p>`;
     }
+
+    // What-If: available actions per remediation category. First option is the
+    // realistic default; labels mirror the server-side SIM_MODEL effect ids.
+    const WHATIF_ACTIONS = {
+      unsupported: [['add_source', 'הוסף מקור ← מגובה'], ['verify', 'אימות מלא ← מוכן'], ['exclude', 'החרג מהיקף']],
+      indexed: [['add_source', 'הוסף מקור ← מגובה'], ['verify', 'אימות מלא ← מוכן'], ['exclude', 'החרג מהיקף']],
+      synthesis: [['add_spine', 'הוסף רשימת מקורות ← מגובה'], ['verify', 'אימות מלא ← מוכן'], ['exclude', 'החרג מהיקף']],
+      backed: [['corroborate', 'הוסף חיזוק ← מוכן'], ['exclude', 'החרג מהיקף']],
+      contradiction: [['resolve', 'תקן את הסתירה ← מוכן'], ['exclude', 'החרג מהיקף']],
+      exact_duplicate: [['dedupe', 'הסר עותקים כפולים']],
+      extraction_failed: [['replace', 'החלף בגרסה טקסטואלית'], ['exclude', 'החרג מהיקף']],
+      extraction_truncated: [['replace', 'החלף בגרסה מלאה'], ['exclude', 'החרג מהיקף']],
+      empty_file: [['replace', 'החלף את הקובץ'], ['exclude', 'החרג מהיקף']],
+      unsupported_format: [['convert', 'המר לפורמט נתמך'], ['exclude', 'החרג מהיקף']]
+    };
+
+    function renderWhatIf(data) {
+      const items = (data.remediation || []).filter(row => WHATIF_ACTIONS[row.category]);
+      if (!items.length) { whatifEl.hidden = true; whatifEl.innerHTML = ''; return; }
+      const baseScore = Number((data.readiness_score || {}).score || 0);
+      const rows = items.map((row, i) => {
+        const options = WHATIF_ACTIONS[row.category].map(opt => `<option value="${opt[0]}">${escapeHtml(opt[1])}</option>`).join('');
+        return `<li class="whatif-row">
+          <label class="whatif-check"><input type="checkbox" data-i="${i}" data-cat="${escapeHtml(row.category)}" onchange="runWhatIf()"> <b class="file-cell">${escapeHtml(row.file)}</b></label>
+          <select data-i="${i}" onchange="runWhatIf()" aria-label="פעולה עבור ${escapeHtml(row.file)}">${options}</select>
+        </li>`;
+      }).join('');
+      whatifEl.hidden = false;
+      whatifEl.innerHTML = `<h2 class="section-title">What-If — מה יקרה אם אתקן?</h2>
+        <p class="hint" style="margin-top:0">סמן קבצים ובחר פעולה כדי לראות את הציון וה-Verdict הצפויים — בלי סריקה חוזרת. ההערכה שמרנית: "הוסף מקור" מעביר ל<b>מגובה</b>, לא ל<b>מוכן</b>.</p>
+        <div class="whatif-readout"><b class="num" id="whatif-score">${baseScore}</b><span> / 100 · <span id="whatif-verdict">—</span></span><span class="whatif-base">כרגע: ${baseScore}</span></div>
+        <ul class="whatif-list">${rows}</ul>`;
+      runWhatIf();
+    }
+
+    async function runWhatIf() {
+      if (!lastReport) return;
+      const scoreEl = document.getElementById('whatif-score');
+      const verdictEl = document.getElementById('whatif-verdict');
+      if (!scoreEl) return;
+      const checks = Array.from(whatifEl.querySelectorAll('.whatif-list input[type=checkbox]'));
+      const resolutions = checks.filter(box => box.checked).map(box => {
+        const select = whatifEl.querySelector(`select[data-i="${box.dataset.i}"]`);
+        return { category: box.dataset.cat, action: select ? select.value : undefined };
+      });
+      try {
+        const sim = await api('/api/simulate', 'POST', { resolutions });
+        const projected = Number((sim.readiness_score || {}).score || 0);
+        const status = (sim.verdict || {}).status || '';
+        scoreEl.textContent = projected;
+        scoreEl.className = 'num ' + (status === 'go' ? 'up' : status === 'stop' ? 'down' : '');
+        verdictEl.textContent = (sim.verdict || {}).label || status || '—';
+      } catch (err) {
+        verdictEl.textContent = 'שגיאה בחישוב';
+      }
+    }

@@ -85,6 +85,11 @@ the score in front of a skeptical client.**
   Every remediation and risk item carries a plain-language RAG-impact line —
   *why it matters* (retrieval bias, hallucination risk, data loss) — sourced
   once on the server so the Web and Desktop surfaces always show the same text.
+- **What-If projection (Desktop).** Mark problem files as fixed and pick an
+  action per file; the projected Readiness Score and verdict update live via a
+  deterministic `/api/simulate` (no re-scan), recomputed by the same engine. The
+  projection is realistic, not optimistic — "add a source" moves a file to
+  *source-backed*, not straight to *ready* — so a projected GO stays honest.
 - **Light + dark themes, RTL Hebrew UI, keyboard and screen-reader friendly**
   (visible focus states, `aria-live` scan status), served as a single
   self-contained document from `127.0.0.1` with no CDN and no network calls.

@@ -10,6 +10,7 @@ from typing import Any
 from urllib.parse import quote, unquote, urlparse
 
 from ..quick_scan import discard_quick_scan
+from ..simulate import simulate_readiness
 from .assets import HTML
 from .pickers import _choose_file, _choose_folder, _default_desktop_dir
 from .report import build_human_report
@@ -167,6 +168,20 @@ class AntiSiloGuiHandler(BaseHTTPRequestHandler):
                 self._send_json({"entry": entry})
                 if entry.get("kind") == "decision":
                     self.server.telemetry.record("brain_decision_saved", has_sources=bool(entry.get("source_ids")))
+            except Exception as exc:
+                self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+        if path == "/api/simulate":
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                payload = json.loads(self.rfile.read(length).decode("utf-8"))
+                report = getattr(self.server, "last_report", None)
+                if not report:
+                    raise ValueError("יש לבצע סריקה לפני הרצת What-If")
+                resolutions = payload.get("resolutions", [])
+                if not isinstance(resolutions, list):
+                    raise ValueError("resolutions must be a list")
+                self._send_json(simulate_readiness(report, resolutions))
             except Exception as exc:
                 self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
             return

@@ -45,6 +45,15 @@
     .hint { margin-top:8px; font-size:12.5px; color:var(--muted); }
     .impact-note { display:block; margin-top:5px; font-style:normal; font-size:12px; line-height:1.5; color:var(--ink2); }
     .impact-note span { font-weight:600; color:var(--warn-text); }
+    .whatif-readout { display:flex; align-items:baseline; gap:12px; margin:10px 0 14px; }
+    .whatif-readout .num { font-size:34px; font-weight:750; line-height:1; }
+    .whatif-readout .num.up { color:var(--ok-text); } .whatif-readout .num.down { color:var(--bad); }
+    .whatif-base { margin-inline-start:auto; color:var(--muted); font-size:12.5px; }
+    .whatif-list { list-style:none; margin:0; padding:0; }
+    .whatif-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--hairline); }
+    .whatif-check { display:flex; align-items:center; gap:8px; min-width:0; }
+    .whatif-check b { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .whatif-row select { flex-shrink:0; max-width:52%; }
     .dropzone { margin-top:13px; border:2px dashed var(--baseline); border-radius:8px; padding:20px; text-align:center; background:var(--page); color:var(--muted); }
     .dropzone.active { border-color:var(--accent); color:var(--ink); }
     /* ===== metric tiles (expert summary + brain) ===== */

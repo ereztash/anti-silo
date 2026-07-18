@@ -45,6 +45,7 @@
       resultsEl.innerHTML = table(data.rows);
       renderCorpus(data);
       renderRiskRegister(data);
+      renderWhatIf(data);
       renderDownloads(data);
       loadBrain();
       loadProjects();
