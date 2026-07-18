@@ -1,6 +1,6 @@
     function remediationTable(rows) {
       const severityLabels = {block: 'חסם', review: 'בדיקה', cleanup: 'ניקוי'};
-      const htmlRows = rows.map(row => `<tr><td><span class="pill ${escapeHtml(row.severity)}">${escapeHtml(severityLabels[row.severity] || row.severity)}</span></td><td class="file-cell">${escapeHtml(row.file)}</td><td>${escapeHtml(row.finding)}</td><td>${escapeHtml(row.action)}</td></tr>`).join('');
+      const htmlRows = rows.map(row => `<tr><td><span class="pill ${escapeHtml(row.severity)}">${escapeHtml(severityLabels[row.severity] || row.severity)}</span></td><td class="file-cell">${escapeHtml(row.file)}</td><td>${escapeHtml(row.finding)}${row.impact ? `<em class="impact-note"><span>למה זה משנה:</span> ${escapeHtml(row.impact)}</em>` : ''}</td><td>${escapeHtml(row.action)}</td></tr>`).join('');
       return `<div class="panel table-scroll"><table><thead><tr><th>עדיפות</th><th>קובץ</th><th>ממצא</th><th>פעולה</th></tr></thead><tbody>${htmlRows || '<tr><td colspan="4">אין פעולות בתור התיקונים.</td></tr>'}</tbody></table></div>`;
     }
 
@@ -87,7 +87,7 @@
       const score = Number(readiness.score || 0);
       const delta = data.delta || {};
       const previous = delta.has_previous ? score - Number(delta.readiness_score || 0) : null;
-      const fixesHtml = fixes.length ? `<b style="font-size:12.5px">תיקונים ראשונים</b><ul class="next-fixes">${fixes.map(row => `<li><b>${escapeHtml(row.file)}</b><span>${escapeHtml(row.action || row.finding)}</span>${row.category === 'indexed' ? `<div class="actions"><button class="secondary" type="button" data-file="${escapeHtml(row.file)}" onclick="attachSource(this.dataset.file)">בחר מקור עצמאי</button></div>` : ''}</li>`).join('')}</ul>` : '';
+      const fixesHtml = fixes.length ? `<b style="font-size:12.5px">תיקונים ראשונים</b><ul class="next-fixes">${fixes.map(row => `<li><b>${escapeHtml(row.file)}</b><span>${escapeHtml(row.action || row.finding)}</span>${row.impact ? `<em class="impact-note"><span>למה זה משנה:</span> ${escapeHtml(row.impact)}</em>` : ''}${row.category === 'indexed' ? `<div class="actions"><button class="secondary" type="button" data-file="${escapeHtml(row.file)}" onclick="attachSource(this.dataset.file)">בחר מקור עצמאי</button></div>` : ''}</li>`).join('')}</ul>` : '';
       statusEl.className = `panel verdict ${meta.tone}`;
       statusEl.innerHTML = `<div class="verdict-grid">
         <div>

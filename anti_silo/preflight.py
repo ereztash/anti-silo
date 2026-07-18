@@ -5,6 +5,25 @@ from pathlib import Path
 from typing import Any
 
 
+# Why each issue matters for a RAG build, in a consultant's words. Keyed by the
+# corpus-diagnostic `kind` and by the triangulation `category`, so both the Web
+# and Desktop surfaces render the same explanation from this one source.
+RAG_IMPACT = {
+    # corpus diagnostics
+    "unsupported_format": "הקובץ לא ייכנס ל-RAG כלל — הידע שבו יהיה שקוף למנוע האחזור.",
+    "empty_file": "קובץ ריק תורם רעש בלי ידע ועלול לדלל את תוצאות האחזור.",
+    "extraction_failed": "התוכן חסר — הקובץ יהיה שקוף ל-RAG, אובדן מידע שהלקוח מצפה שיהיה זמין.",
+    "extraction_truncated": "רק חלק מהתוכן נכלל — המנוע יאחזר ידע חלקי ועלול לענות על סמך קטע חסר.",
+    "exact_duplicate": "אותו תוכן נספר כמה פעמים — מטה את ה-retrieval, העותק הכפול מקבל משקל-יתר בתוצאות.",
+    # triangulation categories
+    "contradiction": "חסם-אמון — הסתמכות עליו עלולה להזין את ה-RAG במידע שנמצא סותר או מופרך.",
+    "unsupported": "אין מקור ראשוני — ה-LLM עלול להציג טענה לא-מבוססת כעובדה (סכנת הזיה).",
+    "indexed": "נקלט בלי אימות מקור — אין דרך לוודא שהאחזור נשען על מקור אמין.",
+    "synthesis": "סיכום ללא רשימת-מקורות — ה-LLM עלול להתייחס לפרשנות כאל עובדה (סכנת הזיה).",
+    "backed": "יש מקור אך אין חיזוק עצמאי — הסתמכות מלאה מוקדמת מדי לפני אימות נוסף.",
+}
+
+
 def _excluded(rel_path: Path, config: dict[str, Any]) -> bool:
     return bool(set(rel_path.parts) & set(config.get("exclude_dirs", [])))
 
@@ -117,6 +136,9 @@ def build_corpus_diagnostics(
             }
         )
 
+    for issue in issues:
+        issue["impact"] = RAG_IMPACT.get(str(issue.get("kind", "")), "")
+
     counts = {
         "unsupported_files": len(unsupported),
         "empty_files": sum(1 for issue in issues if issue["kind"] == "empty_file"),
@@ -173,6 +195,7 @@ def build_remediation(rows: list[dict[str, Any]], diagnostics: dict[str, Any]) -
             "file": str(issue.get("file", "")),
             "finding": str(issue.get("finding", "")),
             "action": str(issue.get("action", "")),
+            "impact": str(issue.get("impact", "")),
         }
         seen.add((item["file"], item["severity"]))
         queue.append(item)
@@ -198,6 +221,7 @@ def build_remediation(rows: list[dict[str, Any]], diagnostics: dict[str, Any]) -
                 "file": file_name,
                 "finding": str(row.get("explanation", "")),
                 "action": str(row.get("action", "")),
+                "impact": RAG_IMPACT.get(category, ""),
             }
         )
     return sorted(queue, key=lambda row: (int(row["priority"]), str(row["file"]).casefold()))

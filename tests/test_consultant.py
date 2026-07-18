@@ -57,6 +57,7 @@ def test_stop_finding_caps_readiness_and_creates_high_risk() -> None:
         "description": "Extraction failed",
         "severity": "High",
         "recommendation": "Replace with an extractable source",
+        "impact": "",
     }
     assert analysis["effort_estimate"]["minimum_hours"] >= 1
     assert "5 files" in analysis["executive_summary"]["en"]

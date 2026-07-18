@@ -78,6 +78,9 @@ the score in front of a skeptical client.**
 - **Triage tiles and tables.** Three tiles (passed / needs sources / do not
   rely) filter the file table; the remediation queue leads with the
   highest-impact actions; the risk register and effort range are SOW-ready.
+  Every remediation and risk item carries a plain-language RAG-impact line —
+  *why it matters* (retrieval bias, hallucination risk, data loss) — sourced
+  once on the server so the Web and Desktop surfaces always show the same text.
 - **Light + dark themes, RTL Hebrew UI, keyboard and screen-reader friendly**
   (visible focus states, `aria-live` scan status), served as a single
   self-contained document from `127.0.0.1` with no CDN and no network calls.

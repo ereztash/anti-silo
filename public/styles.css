@@ -729,6 +729,20 @@ footer a {
   color: var(--muted);
 }
 
+.action-impact {
+  grid-column: 2 / -1;
+  margin-top: 4px;
+  font-style: normal;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #6b4a12;
+}
+
+.action-impact span {
+  font-weight: 700;
+  color: #6b4a12;
+}
+
 .table-wrap {
   max-width: 100%;
   overflow-x: auto;

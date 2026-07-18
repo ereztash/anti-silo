@@ -100,6 +100,7 @@ def build_risk_register(remediation: list[dict[str, Any]]) -> list[dict[str, Any
                 "description": str(row.get("finding", "")),
                 "severity": severity_labels.get(str(row.get("severity", "review")), "Medium"),
                 "recommendation": str(row.get("action", "")),
+                "impact": str(row.get("impact", "")),
             }
         )
     return risks

@@ -369,8 +369,12 @@
 
     const actionList = document.getElementById("action-list");
     actionList.innerHTML = actions.slice(0, 6).map(function (action) {
+      const impact = String(action.impact || "").trim();
+      const impactLine = impact
+        ? "<em class=\"action-impact\"><span>למה זה משנה:</span> " + escapeHtml(impact) + "</em>"
+        : "";
       return "<li><b>" + escapeHtml(action.file || "Corpus") + "</b><span>" +
-        escapeHtml(action.action || action.finding || "") + "</span></li>";
+        escapeHtml(action.action || action.finding || "") + "</span>" + impactLine + "</li>";
     }).join("") || "<li><b>לא נמצאו פעולות דחופות</b><span>אפשר להמשיך לבדיקת התאמה מקצועית של התוכן.</span></li>";
 
     const riskBody = document.getElementById("risk-body");

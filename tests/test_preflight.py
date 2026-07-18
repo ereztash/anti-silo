@@ -32,6 +32,10 @@ def test_corpus_diagnostics_finds_duplicates_and_unsupported_files(tmp_path) -> 
     assert diagnostics["counts"]["duplicate_groups"] == 1
     assert diagnostics["counts"]["duplicate_files"] == 1
     assert {row["kind"] for row in diagnostics["issues"]} == {"unsupported_format", "exact_duplicate"}
+    # Every issue carries a plain-language RAG-impact explanation ("why it matters").
+    assert all(row["impact"] for row in diagnostics["issues"])
+    duplicate = next(row for row in diagnostics["issues"] if row["kind"] == "exact_duplicate")
+    assert "retrieval" in duplicate["impact"]
 
 
 def test_preflight_report_builds_client_pack_without_local_root_in_client_html(tmp_path) -> None:
@@ -51,8 +55,10 @@ def test_preflight_report_builds_client_pack_without_local_root_in_client_html(t
         assert report["verdict"]["status"] == "conditional_go"
         assert report["diagnostics"]["counts"]["unsupported_files"] == 1
         assert report["remediation"]
+        assert all(item["impact"] for item in report["remediation"])
         assert 0 <= report["readiness_score"]["score"] <= 100
         assert report["risk_register"]
+        assert all("impact" in risk for risk in report["risk_register"])
         assert report["executive_summary"]["en"]
         for key in (
             "audit_pack",
