@@ -19,18 +19,24 @@ class ExtractionResult:
 
 def _extract_csv(path: Path) -> ExtractionResult:
     rows: list[str] = []
-    with path.open("r", encoding="utf-8-sig", newline="", errors="replace") as f:
-        reader = csv.reader(f)
-        for idx, row in enumerate(reader):
-            if idx >= 200:
-                return ExtractionResult("\n".join(rows), "truncated", "CSV limited to the first 200 rows")
-            rows.append(" | ".join(cell.strip() for cell in row))
+    try:
+        with path.open("r", encoding="utf-8-sig", newline="", errors="replace") as f:
+            reader = csv.reader(f)
+            for idx, row in enumerate(reader):
+                if idx >= 200:
+                    return ExtractionResult("\n".join(rows), "truncated", "CSV limited to the first 200 rows")
+                rows.append(" | ".join(cell.strip() for cell in row))
+    except (csv.Error, OSError, ValueError) as exc:
+        return ExtractionResult("", "failed", f"CSV could not be read: {exc}")
     return ExtractionResult("\n".join(rows))
 
 
 def _extract_json(path: Path) -> ExtractionResult:
-    with path.open("r", encoding="utf-8-sig", errors="replace") as f:
-        data = json.load(f)
+    try:
+        with path.open("r", encoding="utf-8-sig", errors="replace") as f:
+            data = json.load(f)
+    except (ValueError, OSError) as exc:
+        return ExtractionResult("", "failed", f"JSON could not be parsed: {exc}")
     text = json.dumps(data, ensure_ascii=False, indent=2)
     if len(text) > 20000:
         return ExtractionResult(text[:20000], "truncated", "JSON limited to the first 20,000 characters")
@@ -49,7 +55,10 @@ def _extract_docx(path: Path) -> ExtractionResult:
         import docx  # type: ignore[import-not-found]
     except Exception as exc:  # pragma: no cover - depends on optional package
         return ExtractionResult("", "failed", f"DOCX extraction unavailable: {exc}")
-    document = docx.Document(str(path))
+    try:
+        document = docx.Document(str(path))
+    except Exception as exc:
+        return ExtractionResult("", "failed", f"DOCX could not be read (corrupt or not a real .docx): {exc}")
     return ExtractionResult("\n".join(paragraph.text for paragraph in document.paragraphs if paragraph.text.strip()))
 
 
@@ -58,7 +67,10 @@ def _extract_xlsx(path: Path) -> ExtractionResult:
         import openpyxl  # type: ignore[import-not-found]
     except Exception as exc:  # pragma: no cover - depends on optional package
         return ExtractionResult("", "failed", f"XLSX extraction unavailable: {exc}")
-    workbook = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    try:
+        workbook = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    except Exception as exc:
+        return ExtractionResult("", "failed", f"XLSX could not be read (corrupt or not a real .xlsx): {exc}")
     chunks: list[str] = []
     truncated = False
     for sheet in workbook.worksheets:
@@ -83,14 +95,18 @@ def _extract_pdf(path: Path) -> ExtractionResult:
         from pypdf import PdfReader  # type: ignore[import-not-found]
     except Exception as exc:  # pragma: no cover - depends on optional package
         return ExtractionResult("", "failed", f"PDF extraction unavailable: {exc}")
-    reader = PdfReader(str(path))
-    pages: list[str] = []
-    for page in reader.pages[:20]:
-        pages.append(page.extract_text() or "")
+    try:
+        reader = PdfReader(str(path))
+        pages: list[str] = []
+        for page in reader.pages[:20]:
+            pages.append(page.extract_text() or "")
+        page_count = len(reader.pages)
+    except Exception as exc:
+        return ExtractionResult("", "failed", f"PDF could not be read (corrupt, encrypted, or scanned without OCR): {exc}")
     return ExtractionResult(
         "\n".join(pages),
-        "truncated" if len(reader.pages) > 20 else "complete",
-        "PDF limited to the first 20 pages" if len(reader.pages) > 20 else "",
+        "truncated" if page_count > 20 else "complete",
+        "PDF limited to the first 20 pages" if page_count > 20 else "",
     )
 
 

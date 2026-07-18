@@ -293,6 +293,32 @@ def test_ingest_extraction_failure_and_truncation_create_hard_blocks(tmp_path) -
     assert payload["decision"] == "blocked"
 
 
+def test_corrupt_binary_files_fail_per_file_without_crashing(tmp_path) -> None:
+    from anti_silo.ingest_extract import extract_text
+
+    broken = {
+        "broken.docx": b"not a real docx",
+        "broken.xlsx": b"not a real xlsx",
+        "broken.json": b"{ not valid json ,,,",
+    }
+    for name, content in broken.items():
+        path = tmp_path / name
+        path.write_bytes(content)
+        # A corrupt/unreadable file must degrade to a per-file "failed" result,
+        # never raise (which previously crashed the entire scan batch).
+        result = extract_text(path)
+        assert result.status == "failed"
+        assert result.text == ""
+
+    source = tmp_path / "corpus"
+    source.mkdir()
+    (source / "good.txt").write_text("clean local note", encoding="utf-8")
+    (source / "broken.docx").write_bytes(b"not a real docx")
+    staged = tmp_path / "staged"
+    payload = write_ingest(source, load_config(), staged)
+    assert payload["files"] == 2
+
+
 def test_quick_scan_uses_temporary_staging_and_localized_outputs(tmp_path) -> None:
     source = tmp_path / "source"
     source.mkdir()

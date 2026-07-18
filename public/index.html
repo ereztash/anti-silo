@@ -119,7 +119,7 @@
           </details>
         </div>
         <div class="score-panel">
-          <div class="score" aria-label="ציון מוכנות">
+          <div class="score has-tip" tabindex="0" aria-label="ציון מוכנות" data-tip="ציון 0–100 שמשקלל את איכות שרשרת-המקורות של הקורפוס. סף GO = 85. הפירוט המלא בקישור 'איך חושב הציון?' למטה.">
             <b id="score-value">0</b>
             <span>/ 100</span>
             <small id="score-label"></small>
@@ -145,10 +145,10 @@
       </div>
 
       <div class="metrics-band" aria-label="סיכום ממצאים">
-        <div><b id="metric-total">0</b><span>קבצים שנבדקו</span></div>
-        <div class="metric-ready"><b id="metric-ready">0</b><span>מוכנים</span></div>
-        <div class="metric-review"><b id="metric-review">0</b><span>דורשים בדיקה</span></div>
-        <div class="metric-blocked"><b id="metric-blocked">0</b><span>חסומים</span></div>
+        <div class="has-tip" tabindex="0" data-tip="כל הקבצים שנכללו בסריקה. פורמטים לא-נתמכים נספרים בנפרד ואינם נכללים כאן."><b id="metric-total">0</b><span>קבצים שנבדקו</span></div>
+        <div class="metric-ready has-tip" tabindex="0" data-tip="שרשרת מקורות מלאה — אפשר להישען עליהם כמו שהם."><b id="metric-ready">0</b><span>מוכנים</span></div>
+        <div class="metric-review has-tip" tabindex="0" data-tip="מגובים חלקית או שחסר להם מקור/חיזוק — צריך השלמה לפני הסתמכות."><b id="metric-review">0</b><span>דורשים בדיקה</span></div>
+        <div class="metric-blocked has-tip" tabindex="0" data-tip="אסור להישען עליהם עד שהבעיה שסומנה תתוקן."><b id="metric-blocked">0</b><span>חסומים</span></div>
       </div>
 
       <section class="result-section" aria-labelledby="basis-title">

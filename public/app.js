@@ -227,6 +227,36 @@
     return parts.join(" · ");
   }
 
+  // category -> plain meaning, reused for badge tooltips (derived from the legend).
+  const CATEGORY_MEANING = LEGEND.reduce(function (acc, entry) {
+    acc[entry[0]] = entry[2];
+    return acc;
+  }, {});
+
+  // Internal tier code -> plain Hebrew, shown as a tooltip in the technical disclosure.
+  const TECH_TIER_GLOSSARY = {
+    triangulated: "מגובה במקור ראשוני וגם בחיזוק עצמאי — שרשרת מלאה.",
+    source_backed: "יש מקור ראשוני, אך עדיין ללא חיזוק עצמאי.",
+    indexed_unverified: "נקלט לאינדוקס בלבד, ללא מקור עצמאי שמאמת אותו.",
+    graph_only: "טענה ללא מקור ראשוני שאפשר להישען עליו.",
+    ledger_supported: "יש רישום פנימי תומך, אך חסר מקור ראשוני.",
+    corroborated_no_source: "יש חיזוק, אך אין אסמכתא ראשונית.",
+    refuted_or_blocked: "סומן כלא-מתאים להסתמכות (חסם אמון) — דורש תיקון לפני שימוש."
+  };
+
+  // When extraction failed or was truncated, add the likely cause + a web-viable action.
+  // Deliberately avoids "mark as Excluded" — that override does not exist in the web version.
+  function extractionHint(reason) {
+    const raw = String(reason || "");
+    if (raw.indexOf("extraction_failed") !== -1) {
+      return "הקובץ לא ניתן לחילוץ טקסט. סיבה אפשרית: PDF סרוק ללא שכבת-טקסט (OCR), או קובץ מוגן/פגום. מומלץ: החלף בגרסה טקסטואלית (DOCX/TXT), או הרץ אותו בגרסת ה-Desktop לניתוח מלא.";
+    }
+    if (raw.indexOf("extraction_truncated") !== -1) {
+      return "חילוץ הטקסט נקטע — ייתכן שהקובץ גדול או מורכב מדי, וחלק מהתוכן לא נכלל בבדיקה. מומלץ: פצל את הקובץ, או הרץ אותו בגרסת ה-Desktop.";
+    }
+    return "";
+  }
+
   function renderLegend() {
     const list = document.getElementById("basis-legend-list");
     if (!list) return;
@@ -270,9 +300,17 @@
         ? "<p class=\"basis-needs\"><span>כדי לקדם:</span> " + escapeHtml(needs) + "</p>"
         : "";
 
+      const hint = extractionHint(technicalReason);
+      const hintBlock = hint
+        ? "<p class=\"basis-extraction-hint\">" + escapeHtml(hint) + "</p>"
+        : "";
+
+      const badgeTip = CATEGORY_MEANING[row.category] || "";
+      const tierTip = TECH_TIER_GLOSSARY[technicalTier] || "";
+
       const technicalBlock = (technicalTier || technicalReason)
         ? "<details class=\"basis-technical\"><summary>פירוט טכני</summary><dl>" +
-            (technicalTier ? "<div><dt>שכבה</dt><dd><code>" + escapeHtml(technicalTier) + "</code></dd></div>" : "") +
+            (technicalTier ? "<div><dt>שכבה</dt><dd><code title=\"" + escapeHtml(tierTip) + "\">" + escapeHtml(technicalTier) + "</code></dd></div>" : "") +
             (technicalReason ? "<div><dt>קוד סיווג</dt><dd><code>" + escapeHtml(technicalReason) + "</code></dd></div>" : "") +
           "</dl></details>"
         : "";
@@ -280,10 +318,11 @@
       return "<article class=\"classification-card " + tone + "\">" +
         "<header class=\"basis-card-head\">" +
           "<b class=\"basis-file\" title=\"" + escapeHtml(row.file) + "\">" + escapeHtml(row.file) + "</b>" +
-          "<span class=\"basis-badge " + tone + "\">" + escapeHtml(status) + "</span>" +
+          "<span class=\"basis-badge " + tone + "\" title=\"" + escapeHtml(badgeTip) + "\">" + escapeHtml(status) + "</span>" +
         "</header>" +
         "<p class=\"basis-explanation\">" + escapeHtml(row.explanation || "") + "</p>" +
         "<p class=\"basis-reason\"><span>על סמך מה:</span> " + escapeHtml(basisText(technicalReason)) + "</p>" +
+        hintBlock +
         needsBlock +
         technicalBlock +
       "</article>";

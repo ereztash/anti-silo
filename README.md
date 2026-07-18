@@ -248,9 +248,12 @@ The default intake policy includes:
 ```
 
 Text formats work with the standard installation. Extraction for `.docx`,
-`.xlsx`, and `.pdf` uses optional local Python packages when available. Missing,
-failed, or truncated extraction remains visible in the report and can create a
-hard block.
+`.xlsx`, and `.pdf` uses optional local Python packages when available. A
+missing, corrupt, or unreadable file degrades to a per-file `extraction_failed`
+result and never aborts the rest of the scan; missing, failed, or truncated
+extraction remains visible in the report and can create a hard block. The hosted
+report explains the likely cause and a recommended action for each extraction
+failure.
 
 Intake does not let a file certify itself as an independent source. Ordinary
 documents enter review as `indexed_unverified` until provenance is established.
