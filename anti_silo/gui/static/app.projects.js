@@ -22,5 +22,7 @@
       document.getElementById('project-name').value = project.project_name || '';
       document.getElementById('consultant-name').value = project.consultant_name || '';
       document.getElementById('path').value = project.source_root || '';
+      const threshold = document.getElementById('go-threshold');
+      if (threshold && project.go_threshold) threshold.value = project.go_threshold;
       onboardingEl.hidden = true;
     }

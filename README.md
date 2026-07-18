@@ -66,7 +66,8 @@ the score in front of a skeptical client.**
 - **Custom GO threshold.** The GO band defaults to 85 but is configurable
   (`go_threshold` in the config, clamped to 60–100) — set a stricter bar for a
   regulated domain per scan on Desktop. The meter and labels follow the value on
-  both surfaces, sourced from the same engine.
+  both surfaces, sourced from the same engine. The threshold is remembered per
+  client profile: pick a recent client and their stricter bar is restored.
 - **The score is a ledger, not a gauge.** "How was this computed" folds out
   under the score into plain arithmetic — files per evidence tier × points,
   averaged over the scope, minus the duplicate penalty, capped by STOP

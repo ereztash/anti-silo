@@ -21,6 +21,15 @@ def _clean(value: Any, fallback: str = "") -> str:
     return " ".join(str(value or fallback).strip().split())[:160]
 
 
+def _clean_threshold(value: Any, fallback: int) -> int:
+    if value is None:
+        return max(60, min(100, int(fallback)))
+    try:
+        return max(60, min(100, int(value)))
+    except (TypeError, ValueError):
+        return max(60, min(100, int(fallback)))
+
+
 def scan_summary(report: dict[str, Any]) -> dict[str, Any]:
     counts = {key: int(value) for key, value in dict(report.get("counts", {})).items()}
     diagnostic_counts = {
@@ -124,12 +133,16 @@ class ProjectStore:
                 "scans": [],
             }
             projects.append(project)
+        # The GO threshold is remembered per client profile: a stricter bar set for a
+        # regulated client sticks across sessions. An absent value keeps the stored one.
+        go_threshold = _clean_threshold(metadata.get("go_threshold"), int(project.get("go_threshold", 85)))
         project.update(
             {
                 "client_name": client_name,
                 "project_name": project_name,
                 "consultant_name": consultant_name,
                 "source_root": str(source_root),
+                "go_threshold": go_threshold,
                 "updated_at": _now(),
             }
         )

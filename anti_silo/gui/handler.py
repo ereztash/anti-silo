@@ -194,7 +194,10 @@ class AntiSiloGuiHandler(BaseHTTPRequestHandler):
             source_root = Path(str(payload.get("path", ""))).expanduser().resolve()
             if not source_root.exists():
                 raise ValueError("התיקייה לא קיימת")
-            project = self.server.project_store.upsert(dict(payload.get("project", {})), source_root)
+            project_meta = dict(payload.get("project", {}))
+            if "go_threshold" in payload:
+                project_meta["go_threshold"] = payload.get("go_threshold")
+            project = self.server.project_store.upsert(project_meta, source_root)
             previous_scan = self.server.project_store.latest_scan(str(project["id"]))
             previous_report = getattr(self.server, "last_report", None)
             config = self.server.config

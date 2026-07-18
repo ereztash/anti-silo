@@ -107,6 +107,25 @@ def test_upsert_defaults_empty_names_for_quick_preflight(tmp_path) -> None:
     assert project["id"]
 
 
+def test_project_remembers_go_threshold_across_sessions(tmp_path) -> None:
+    source = tmp_path / "pharma-client"
+    source.mkdir()
+    store = ProjectStore(tmp_path / "projects.json")
+
+    # A stricter bar set for a regulated client is stored on the profile.
+    first = store.upsert({"client_name": "Pharma", "go_threshold": 95}, source)
+    assert first["go_threshold"] == 95
+
+    # A later scan without a threshold keeps the remembered value (out-of-range clamps).
+    same = store.upsert({"client_name": "Pharma"}, source)
+    assert same["go_threshold"] == 95
+
+    # A fresh store (new session) still surfaces it in the recent-projects list.
+    reopened = ProjectStore(tmp_path / "projects.json")
+    listed = reopened.list_projects()
+    assert listed[0]["go_threshold"] == 95
+
+
 def test_project_store_records_summary_and_produces_scan_delta(tmp_path) -> None:
     source = tmp_path / "client"
     source.mkdir()
