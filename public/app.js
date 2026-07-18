@@ -448,6 +448,63 @@
     downloadBlob("anti-silo-preflight.json", JSON.stringify(lastReport, null, 2), "application/json;charset=utf-8");
   }
 
+  // A 2-3 line client-ready summary the consultant can paste into WhatsApp/email.
+  function buildClientSummary(report) {
+    const score = Math.round(Number((report.readiness_score || {}).score || 0));
+    const scope = report.scope_impact || {};
+    const project = report.project || {};
+    const verdict = report.verdict || {};
+    const verdictHe = { go: "אפשר להתחיל (GO)", stop: "עצירה נדרשת (STOP)" }[verdict.status]
+      || "אפשר להמשיך בתנאים (CONDITIONAL GO)";
+    const name = String(project.project_name || "").trim();
+    const title = name ? "בדיקת מוכנות RAG — " + name : "בדיקת מוכנות RAG";
+    const total = Number(scope.total || report.files || 0);
+    return [
+      title + ": ציון מוכנות " + score + "/100 · " + verdictHe + ".",
+      "מתוך " + total + " קבצים: " + Number(scope.ready || 0) + " מוכנים, " +
+        Number(scope.review || 0) + " דורשים בדיקה, " + Number(scope.blocked || 0) + " חסומים.",
+      "דוח מלא מצורף."
+    ].join("\n");
+  }
+
+  function flashCopied() {
+    const button = document.getElementById("copy-summary");
+    if (!button || button.dataset.busy === "1") return;
+    const original = button.textContent;
+    button.dataset.busy = "1";
+    button.textContent = "הועתק ✓";
+    button.disabled = true;
+    setTimeout(function () {
+      button.textContent = original;
+      button.disabled = false;
+      delete button.dataset.busy;
+    }, 1600);
+  }
+
+  async function copySummary() {
+    if (!lastReport) return;
+    const text = buildClientSummary(lastReport);
+    try {
+      await navigator.clipboard.writeText(text);
+      flashCopied();
+      return;
+    } catch (error) {
+      // Fallback for browsers/contexts where the async clipboard API is unavailable.
+      const area = document.createElement("textarea");
+      area.value = text;
+      area.setAttribute("readonly", "");
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.appendChild(area);
+      area.select();
+      let copied = false;
+      try { copied = document.execCommand("copy"); } catch (fallbackError) { copied = false; }
+      area.remove();
+      if (copied) flashCopied();
+      else showError("לא ניתן היה להעתיק אוטומטית. הסיכום: " + text);
+    }
+  }
+
   function buildClientReport(report) {
     const project = report.project || {};
     const verdict = report.verdict || {};
@@ -562,6 +619,7 @@
   runButton.addEventListener("click", runScan);
   demoButton.addEventListener("click", runDemo);
   document.getElementById("download-client-report").addEventListener("click", downloadClientReport);
+  document.getElementById("copy-summary").addEventListener("click", copySummary);
   document.getElementById("download-report").addEventListener("click", downloadReport);
   document.getElementById("download-risks").addEventListener("click", downloadRisks);
   document.getElementById("new-scan").addEventListener("click", resetScan);
