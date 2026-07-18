@@ -1,5 +1,6 @@
 {
   "output_dir": "anti_silo_out",
+  "go_threshold": 85,
   "claim_globs": ["**/*.md"],
   "ingest_extensions": [".md", ".txt", ".csv", ".json", ".html", ".htm", ".docx", ".xlsx", ".pdf"],
   "index_extensions": [".md", ".pdf", ".html", ".htm"],

@@ -182,9 +182,15 @@ class AntiSiloGuiHandler(BaseHTTPRequestHandler):
             project = self.server.project_store.upsert(dict(payload.get("project", {})), source_root)
             previous_scan = self.server.project_store.latest_scan(str(project["id"]))
             previous_report = getattr(self.server, "last_report", None)
+            config = self.server.config
+            if "go_threshold" in payload:
+                # The consultant can set their own GO threshold per scan (e.g. a
+                # stricter bar for a regulated domain); the engine clamps it.
+                config = {**config, "go_threshold": payload.get("go_threshold")}
+                self.server.config = config
             report = build_human_report(
                 source_root,
-                self.server.config,
+                config,
                 repair_store=self.server.repair_store,
                 project=project,
                 previous_scan=previous_scan,

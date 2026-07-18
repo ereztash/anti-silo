@@ -27,7 +27,23 @@ _RISK_CATEGORIES = {
 }
 
 
-def build_readiness_score(counts: dict[str, int], diagnostics: dict[str, Any]) -> dict[str, Any]:
+DEFAULT_GO_THRESHOLD = 85
+
+
+def _clamp_go_threshold(value: Any) -> int:
+    try:
+        threshold = int(value)
+    except (TypeError, ValueError):
+        threshold = DEFAULT_GO_THRESHOLD
+    return max(60, min(100, threshold))
+
+
+def build_readiness_score(
+    counts: dict[str, int],
+    diagnostics: dict[str, Any],
+    go_threshold: int = DEFAULT_GO_THRESHOLD,
+) -> dict[str, Any]:
+    go_threshold = _clamp_go_threshold(go_threshold)
     total = int(diagnostics.get("total_files", 0))
     if total <= 0:
         return {
@@ -35,6 +51,7 @@ def build_readiness_score(counts: dict[str, int], diagnostics: dict[str, Any]) -
             "band": "no_corpus",
             "label": "No corpus",
             "label_he": "אין קבצים לבדיקה",
+            "go_threshold": go_threshold,
             "grounding_eligible_pct": 0,
             "source_backed_pct": 0,
             "intake_coverage_pct": 0,
@@ -55,7 +72,7 @@ def build_readiness_score(counts: dict[str, int], diagnostics: dict[str, Any]) -
         + int(diagnostic_counts.get("extraction_truncated", 0))
     )
     score = min(raw_score, 49) if stop_findings else raw_score
-    if score >= 85:
+    if score >= go_threshold:
         band, label, label_he = "ready", "Ready", "מוכן"
     elif score >= 65:
         band, label, label_he = "targeted_remediation", "Targeted remediation", "דורש תיקון ממוקד"
@@ -70,6 +87,7 @@ def build_readiness_score(counts: dict[str, int], diagnostics: dict[str, Any]) -
         "band": band,
         "label": label,
         "label_he": label_he,
+        "go_threshold": go_threshold,
         "grounding_eligible_pct": pct(counts.get("ready", 0)),
         "source_backed_pct": pct(int(counts.get("ready", 0)) + int(counts.get("backed", 0))),
         "intake_coverage_pct": pct(diagnostics.get("ingested_files", 0)),
@@ -159,8 +177,9 @@ def build_consultant_analysis(
     remediation: list[dict[str, Any]],
     verdict: dict[str, str],
     scope: dict[str, int],
+    go_threshold: int = DEFAULT_GO_THRESHOLD,
 ) -> dict[str, Any]:
-    readiness = build_readiness_score(counts, diagnostics)
+    readiness = build_readiness_score(counts, diagnostics, go_threshold)
     risks = build_risk_register(remediation)
     effort = estimate_cleanup_effort(risks)
     return {

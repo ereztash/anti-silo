@@ -349,6 +349,9 @@
     const scoreValue = Math.max(0, Math.min(100, Number(score.score || 0)));
     document.getElementById("score-fill").style.width = scoreValue + "%";
     document.getElementById("score-meter").setAttribute("aria-valuenow", String(scoreValue));
+    const goThreshold = Math.max(0, Math.min(100, Number(score.go_threshold || 85)));
+    document.getElementById("score-threshold-label").textContent = "סף GO: " + goThreshold;
+    document.getElementById("score-threshold-marker").style.insetInlineStart = goThreshold + "%";
     document.getElementById("score-weighted-base").textContent = Number(scoreComponents.weighted_base || 0);
     document.getElementById("score-duplicate-penalty").textContent =
       scoreComponents.duplicate_penalty ? "-" + Number(scoreComponents.duplicate_penalty) : "0";

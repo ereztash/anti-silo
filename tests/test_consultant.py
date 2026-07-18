@@ -24,6 +24,26 @@ def test_readiness_score_is_explainable_and_rewards_grounding_eligibility() -> N
     assert "ready=100" in score["methodology"]
 
 
+def test_custom_go_threshold_shifts_ready_band_and_is_clamped() -> None:
+    # A corpus scoring 90 is "ready" at the default 85, but a consultant in a
+    # regulated domain can raise the bar to 95 and the same corpus drops out.
+    diagnostics = {"total_files": 10, "ingested_files": 10, "counts": {}}
+    counts = {"ready": 9, "backed": 1}  # 9*100 + 1*75 = 975 / 10 -> 98
+
+    default_band = build_readiness_score(counts, diagnostics)
+    assert default_band["go_threshold"] == 85
+    assert default_band["band"] == "ready"
+
+    strict = build_readiness_score(counts, diagnostics, go_threshold=99)
+    assert strict["go_threshold"] == 99
+    assert strict["band"] != "ready"
+
+    # Out-of-range values are clamped to a sane [60, 100] band.
+    assert build_readiness_score(counts, diagnostics, go_threshold=500)["go_threshold"] == 100
+    assert build_readiness_score(counts, diagnostics, go_threshold=5)["go_threshold"] == 60
+    assert build_readiness_score(counts, diagnostics, go_threshold="oops")["go_threshold"] == 85
+
+
 def test_stop_finding_caps_readiness_and_creates_high_risk() -> None:
     counts = {"ready": 4, "contradiction": 1}
     diagnostics = {

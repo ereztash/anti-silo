@@ -61,8 +61,12 @@ the score in front of a skeptical client.**
 
 - **Verdict band, above the fold.** One verdict chip (`GO` / `CONDITIONAL GO` /
   `STOP`, always icon + word, never color alone), the Readiness Score with a
-  threshold meter (`GO ≥ 85`), and a single primary action for the current
-  state. Everything else is progressive disclosure.
+  threshold meter (default `GO ≥ 85`), and a single primary action for the
+  current state. Everything else is progressive disclosure.
+- **Custom GO threshold.** The GO band defaults to 85 but is configurable
+  (`go_threshold` in the config, clamped to 60–100) — set a stricter bar for a
+  regulated domain per scan on Desktop. The meter and labels follow the value on
+  both surfaces, sourced from the same engine.
 - **The score is a ledger, not a gauge.** "How was this computed" folds out
   under the score into plain arithmetic — files per evidence tier × points,
   averaged over the scope, minus the duplicate penalty, capped by STOP

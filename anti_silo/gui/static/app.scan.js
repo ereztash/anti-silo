@@ -67,9 +67,10 @@
       const clientName = document.getElementById('client-name').value.trim();
       const projectName = document.getElementById('project-name').value.trim();
       const consultantName = document.getElementById('consultant-name').value.trim();
+      const goThreshold = parseInt(document.getElementById('go-threshold').value, 10);
       lastPath = path; button.disabled = true; statusEl.className = 'panel empty'; statusEl.textContent = 'בודק מקורות, התאמה ביניהם וחוסרים...';
       try {
-        const response = await fetch('/api/scan', {method:'POST', headers:{'Content-Type':'application/json','X-Anti-Silo-CSRF':csrfToken}, body:JSON.stringify({path,project:{client_name:clientName,project_name:projectName,consultant_name:consultantName}})});
+        const response = await fetch('/api/scan', {method:'POST', headers:{'Content-Type':'application/json','X-Anti-Silo-CSRF':csrfToken}, body:JSON.stringify({path,project:{client_name:clientName,project_name:projectName,consultant_name:consultantName},go_threshold:Number.isFinite(goThreshold) ? goThreshold : 85})});
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'scan failed');
         render(data);

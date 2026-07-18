@@ -124,7 +124,9 @@ def build_human_report(
     verdict = build_verdict(counts, diagnostics)
     remediation = build_remediation(rows, diagnostics)
     scope = _scope_impact(rows, diagnostics)
-    analysis = build_consultant_analysis(counts, diagnostics, remediation, verdict, scope)
+    analysis = build_consultant_analysis(
+        counts, diagnostics, remediation, verdict, scope, go_threshold=config.get("go_threshold", 85)
+    )
     current_summary = {
         "scanned_at": datetime.now(timezone.utc).isoformat(),
         "counts": counts,

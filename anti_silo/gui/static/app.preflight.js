@@ -85,6 +85,7 @@
       const readiness = data.readiness_score || {};
       const executive = data.executive_summary || {};
       const score = Number(readiness.score || 0);
+      const goThreshold = Math.max(0, Math.min(100, Number(readiness.go_threshold || 85)));
       const delta = data.delta || {};
       const previous = delta.has_previous ? score - Number(delta.readiness_score || 0) : null;
       const fixesHtml = fixes.length ? `<b style="font-size:12.5px">תיקונים ראשונים</b><ul class="next-fixes">${fixes.map(row => `<li><b>${escapeHtml(row.file)}</b><span>${escapeHtml(row.action || row.finding)}</span>${row.impact ? `<em class="impact-note"><span>למה זה משנה:</span> ${escapeHtml(row.impact)}</em>` : ''}${row.category === 'indexed' ? `<div class="actions"><button class="secondary" type="button" data-file="${escapeHtml(row.file)}" onclick="attachSource(this.dataset.file)">בחר מקור עצמאי</button></div>` : ''}</li>`).join('')}</ul>` : '';
@@ -103,12 +104,12 @@
           <div class="scorelab">ציון מוכנות</div>
           <div class="readiness-hero num" aria-label="ציון מוכנות ${score} מתוך 100">${score}<small> / 100</small></div>
           <div class="readiness-band-label">${escapeHtml(readiness.label_he || '')}</div>
-          <div class="meter" role="img" aria-label="ציון ${score} מתוך 100. סף GO הוא 85.${previous === null ? '' : ' סריקה קודמת ' + previous + '.'}">
+          <div class="meter" role="img" aria-label="ציון ${score} מתוך 100. סף GO הוא ${goThreshold}.${previous === null ? '' : ' סריקה קודמת ' + previous + '.'}">
             <div class="fill" style="width:${Math.max(0, Math.min(100, score))}%"></div>
-            <div class="tick" style="inset-inline-start:85%"></div>
+            <div class="tick" style="inset-inline-start:${goThreshold}%"></div>
             ${previous === null ? '' : `<div class="ghost" style="inset-inline-start:${Math.max(0, Math.min(100, previous))}%"></div>`}
           </div>
-          <div class="meter-labels"><span style="inset-inline-start:85%">GO ≥ 85</span></div>
+          <div class="meter-labels"><span style="inset-inline-start:${goThreshold}%">GO ≥ ${goThreshold}</span></div>
           ${scoreLedger(data)}
         </div>
         <div>
