@@ -396,6 +396,10 @@
     document.getElementById("verdict-label").textContent = verdict.label || verdict.status || "PRE-FLIGHT";
     document.getElementById("verdict-title").textContent = verdict.title || "הבדיקה הושלמה";
     document.getElementById("verdict-summary").textContent = executive.he || verdict.summary || "";
+    const execCard = report.executive_card || {};
+    document.getElementById("exec-allowed").textContent = execCard.allowed || "";
+    document.getElementById("exec-missing").textContent = execCard.missing || "";
+    document.getElementById("exec-time").textContent = execCard.time || "";
     document.getElementById("score-value").textContent = Number(score.score || 0);
     document.getElementById("score-label").textContent = score.label_he || "";
     const scoreValue = Math.max(0, Math.min(100, Number(score.score || 0)));
@@ -721,6 +725,7 @@
     const components = score.components || {};
     const scope = report.scope_impact || {};
     const executive = report.executive_summary || {};
+    const execCard = report.executive_card || {};
     const effort = report.effort_estimate || {};
     const actions = report.remediation || [];
     const risks = report.risk_register || [];
@@ -753,6 +758,9 @@
     .ledger{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.ledger div{padding:14px;background:#f4f7f5}.ledger span{display:block;color:#607068;font-size:12px}
     table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:9px;border:1px solid #dce5e1;text-align:right;vertical-align:top}th{background:#eef4f1}
     .trust{margin-top:30px;padding:18px;border:1px solid #a9bbb3}.footer{margin-top:28px;color:#607068;font-size:11px}.footer a{color:inherit}
+    .exec-card{margin:0 0 28px;padding:16px 20px;border:1px solid #dce5e1;border-radius:6px;background:#f4f7f5}
+    .exec-card div{display:flex;gap:10px;padding:5px 0;font-size:13.5px}
+    .exec-card div span{flex-shrink:0;min-width:82px;color:#607068;font-weight:700}
     @media(max-width:680px){main{width:100%;margin:0;padding:22px}.verdict{grid-template-columns:1fr}.metrics,.ledger{grid-template-columns:1fr 1fr}table{font-size:10px}}
     @media print{body{background:#fff}main{width:100%;margin:0;border:0;padding:0}h2{break-after:avoid}table{break-inside:auto}tr{break-inside:avoid}}
   </style>
@@ -765,6 +773,11 @@
     <section class="verdict">
       <div><b>${escapeHtml(verdict.label || verdict.status || "PRE-FLIGHT")}</b><h2>${escapeHtml(verdict.title || "הבדיקה הושלמה")}</h2><p>${escapeHtml(executive.he || verdict.summary || "")}</p></div>
       <div class="score">${escapeHtml(score.score || 0)}<small>/100</small></div>
+    </section>
+    <section class="exec-card">
+      <div><span>מה מותר</span>${escapeHtml(execCard.allowed || "")}</div>
+      <div><span>מה חסר</span>${escapeHtml(execCard.missing || "")}</div>
+      <div><span>כמה זמן לתקן</span>${escapeHtml(execCard.time || "")}</div>
     </section>
     <section class="metrics">
       <div><b>${escapeHtml(scope.total || report.files || 0)}</b>קבצים</div>

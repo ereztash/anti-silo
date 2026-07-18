@@ -106,6 +106,15 @@ the score in front of a skeptical client.**
   `GROUNDING_PERMIT.md` / `.json` in the Desktop Audit Pack; both surfaces ask
   the same three questions before Scan and compute the permit from one engine
   (`anti_silo/grounding_permit.py`).
+- **Executive Card.** A 3-line, jargon-free summary — what's allowed, what's
+  missing, how long to fix — next to the verdict on both surfaces and at the
+  top of both client-facing HTML reports. Says nothing about tiers or
+  "grounding"; a client reads it without asking what a term means.
+- **Branding (Desktop).** Settings → הגדרות מיתוג sets a logo and business name
+  that are embedded in every exported client report, so the report reads as
+  the consultant's own work. Persists locally (`%LOCALAPPDATA%\AntiSilo\branding.json`)
+  across scans. A separate, per-report free-text "consultant notes" field
+  appears at the end of the client report.
 - **Light + dark themes, RTL Hebrew UI, keyboard and screen-reader friendly**
   (visible focus states, `aria-live` scan status), served as a single
   self-contained document from `127.0.0.1` with no CDN and no network calls.

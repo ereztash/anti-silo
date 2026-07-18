@@ -171,6 +171,39 @@ def build_executive_summary(
     return {"en": english, "he": hebrew}
 
 
+def build_executive_card(scope: dict[str, int], effort: dict[str, Any]) -> dict[str, str]:
+    """A 3-line, jargon-free summary for a non-technical client: what's allowed, what's
+    missing, how long to fix. Deliberately says nothing about tiers or 'grounding' —
+    scope counts and hours only, so a client never has to ask what a term means."""
+    total = int(scope.get("total", 0))
+    ready = int(scope.get("ready", 0))
+    review = int(scope.get("review", 0))
+    blocked = int(scope.get("blocked", 0))
+
+    if total == 0:
+        allowed = "לא נסרקו קבצים."
+    elif ready == total:
+        allowed = f"כל {total} הקבצים מוכנים לשימוש כפי שהם."
+    else:
+        allowed = f"{ready} מתוך {total} קבצים מוכנים לשימוש כפי שהם, בלי תיקון נוסף."
+
+    needs_work = review + blocked
+    if needs_work == 0:
+        missing = "אין פערים פתוחים בהיקף הנוכחי."
+    elif blocked:
+        missing = f"{needs_work} קבצים דורשים תיקון — {blocked} מהם חסומים ולא ניתן להסתמך עליהם כרגע."
+    else:
+        missing = f"{needs_work} קבצים דורשים השלמת מקור או אימות לפני הסתמכות מלאה."
+
+    min_hours = int(effort.get("minimum_hours", 0))
+    max_hours = int(effort.get("maximum_hours", 0))
+    time_line = (
+        "אין עבודת תיקון נדרשת כרגע." if max_hours == 0 else f"{min_hours}–{max_hours} שעות משוערות לסגירת הפערים."
+    )
+
+    return {"allowed": allowed, "missing": missing, "time": time_line}
+
+
 def build_consultant_analysis(
     counts: dict[str, int],
     diagnostics: dict[str, Any],
@@ -187,4 +220,5 @@ def build_consultant_analysis(
         "risk_register": risks,
         "effort_estimate": effort,
         "executive_summary": build_executive_summary(scope, readiness, verdict, risks, effort),
+        "executive_card": build_executive_card(scope, effort),
     }

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from anti_silo.consultant import (
     build_consultant_analysis,
+    build_executive_card,
     build_readiness_score,
     build_risk_register,
     estimate_cleanup_effort,
@@ -22,6 +23,26 @@ def test_readiness_score_is_explainable_and_rewards_grounding_eligibility() -> N
         "stop_findings": 0,
     }
     assert "ready=100" in score["methodology"]
+
+
+def test_executive_card_is_jargon_free_and_reflects_scope() -> None:
+    all_ready = build_executive_card({"total": 5, "ready": 5, "review": 0, "blocked": 0}, {"minimum_hours": 0, "maximum_hours": 0})
+    assert all_ready["allowed"] == "כל 5 הקבצים מוכנים לשימוש כפי שהם."
+    assert "אין פערים" in all_ready["missing"]
+    assert "אין עבודת תיקון" in all_ready["time"]
+    for line in all_ready.values():
+        for jargon in ("triangulated", "source_backed", "grounding", "tier"):
+            assert jargon not in line
+
+    mixed = build_executive_card({"total": 10, "ready": 6, "review": 3, "blocked": 1}, {"minimum_hours": 2, "maximum_hours": 4})
+    assert mixed["allowed"] == "6 מתוך 10 קבצים מוכנים לשימוש כפי שהם, בלי תיקון נוסף."
+    assert "4 קבצים דורשים תיקון" in mixed["missing"]
+    assert "1 מהם חסומים" in mixed["missing"]
+    assert mixed["time"] == "2–4 שעות משוערות לסגירת הפערים."
+
+    no_blocks = build_executive_card({"total": 4, "ready": 2, "review": 2, "blocked": 0}, {"minimum_hours": 1, "maximum_hours": 2})
+    assert "חסומים" not in no_blocks["missing"]
+    assert "השלמת מקור או אימות" in no_blocks["missing"]
 
 
 def test_custom_go_threshold_shifts_ready_band_and_is_clamped() -> None:

@@ -63,8 +63,24 @@ def render_report_html(report: dict[str, Any]) -> str:
     diagnostic_counts = dict(report.get("diagnostics", {}).get("counts", {}))
     readiness = dict(report.get("readiness_score", {}))
     executive = dict(report.get("executive_summary", {}))
+    executive_card = dict(report.get("executive_card", {}))
     effort = dict(report.get("effort_estimate", {}))
+    branding = dict(report.get("branding", {}))
+    consultant_notes = str(report.get("consultant_notes", "")).strip()
     verdict_class = escape(str(verdict.get("status", "conditional_go")))
+    logo_html = (
+        f'<img src="{escape(str(branding.get("logo_data_uri", "")))}" alt="" class="brand-logo">'
+        if branding.get("logo_data_uri")
+        else ""
+    )
+    business_name_html = (
+        f'<div class="brand-name">{escape(str(branding.get("business_name", "")))}</div>'
+        if branding.get("business_name")
+        else ""
+    )
+    notes_section = (
+        f'<section><h2>הערות היועץ</h2><p>{escape(consultant_notes)}</p></section>' if consultant_notes else ""
+    )
     return f"""<!doctype html>
 <html lang="he" dir="rtl">
 <head>
@@ -96,6 +112,12 @@ def render_report_html(report: dict[str, Any]) -> str:
     .pill {{ display:inline-block; border-radius:999px; padding:4px 8px; font-weight:700; }}
     .ready {{ color:var(--ok); }} .backed,.synthesis,.indexed {{ color:var(--warn); }} .unsupported,.contradiction {{ color:var(--bad); }}
     .boundary {{ padding:14px; background:#fff8e8; border:1px solid #f0d99a; }}
+    .exec-card {{ display:grid; gap:6px; margin-top:12px; padding:14px 16px; list-style:none; border:1px solid var(--line); border-radius:8px; background:#fbfcfd; }}
+    .exec-card li {{ display:flex; gap:8px; align-items:baseline; font-size:13.5px; }}
+    .exec-card span {{ flex-shrink:0; min-width:82px; color:var(--muted); font-weight:700; }}
+    .brand-row {{ display:flex; align-items:center; gap:12px; margin-bottom:10px; }}
+    .brand-logo {{ max-height:48px; max-width:180px; object-fit:contain; }}
+    .brand-name {{ font-weight:700; color:var(--ink); }}
     footer {{ color:var(--muted); font-size:13px; }}
     footer a {{ color:inherit; }}
     @media (max-width:700px) {{ header,main,footer {{ padding:20px; }} .metrics,.delta-metrics,.decision-grid {{ grid-template-columns:1fr 1fr; }} .decision-grid {{ grid-template-columns:1fr; }} table {{ font-size:13px; }} }}
@@ -104,6 +126,7 @@ def render_report_html(report: dict[str, Any]) -> str:
 </head>
 <body>
   <header>
+    {f'<div class="brand-row">{logo_html}{business_name_html}</div>' if (logo_html or business_name_html) else ""}
     <div class="eyebrow">Anti-Silo Preflight · RAG Source Audit</div>
     <h1>{escape(str(project.get('project_name', 'בדיקת מקורות RAG')))}</h1>
     <div>{escape(str(project.get('client_name', 'לקוח')))}</div>
@@ -111,7 +134,13 @@ def render_report_html(report: dict[str, Any]) -> str:
   </header>
   <main>
     <section><div class="decision-grid"><div class="score"><b>{int(readiness.get('score', 0))}</b><span>מתוך 100 · {escape(str(readiness.get('label_he', '')))}</span></div><div class="verdict {verdict_class}"><span>{escape(str(verdict.get('label', 'CONDITIONAL GO')))}</span><strong>{escape(str(verdict.get('title', '')))}</strong><div>{escape(str(verdict.get('summary', '')))}</div></div></div></section>
-    <section><h2>תקציר מנהלים</h2><p>{escape(str(executive.get('he', '')))}</p><p class="meta">טווח תכנון לתיקון: {int(effort.get('minimum_hours', 0))}-{int(effort.get('maximum_hours', 0))} שעות. זו אינה הצעת מחיר מחייבת.</p></section>
+    <section><h2>תקציר מנהלים</h2><p>{escape(str(executive.get('he', '')))}</p>
+      <ul class="exec-card">
+        <li><span>מה מותר</span>{escape(str(executive_card.get('allowed', '')))}</li>
+        <li><span>מה חסר</span>{escape(str(executive_card.get('missing', '')))}</li>
+        <li><span>כמה זמן לתקן</span>{escape(str(executive_card.get('time', '')))}</li>
+      </ul>
+      <p class="meta">טווח תכנון לתיקון: {int(effort.get('minimum_hours', 0))}-{int(effort.get('maximum_hours', 0))} שעות. זו אינה הצעת מחיר מחייבת.</p></section>
     <section><h2>השפעת היקף</h2><div class="metrics">
       <div class="metric"><b>{int(scope.get('total', 0))}</b><span>קבצים בתיקייה</span></div>
       <div class="metric"><b>{int(scope.get('ready', 0))}</b><span>עברו מדיניות</span></div>
@@ -128,6 +157,7 @@ def render_report_html(report: dict[str, Any]) -> str:
       <div class="metric"><b>{int(diagnostic_counts.get('extraction_truncated', 0))}</b><span>חילוץ חלקי</span></div>
     </div></section>
     <section><h2>פירוט מדיניות המקורות</h2><table><thead><tr><th>מצב</th><th>קובץ</th><th>מה לעשות</th></tr></thead><tbody>{_source_rows(report)}</tbody></table></section>
+    {notes_section}
     <section><div class="boundary"><b>גבול אמון</b><br>{escape(str(report.get('trust_boundary', '')))}</div></section>
   </main>
   <footer>הדוח נוצר מקומית. שמות ונתיבי תיקיות מקומיים אינם נשלחים לשירות חיצוני.<br>נוצר עם <a href="https://anti-silo.vercel.app" target="_blank" rel="noopener">Anti-Silo</a> — בדיקת מוכנות מקורות ל-RAG.</footer>

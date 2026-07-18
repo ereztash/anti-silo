@@ -2,17 +2,14 @@ from __future__ import annotations
 
 import hmac
 import json
-import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote, unquote, urlparse
 
-from ..quick_scan import discard_quick_scan
-from ..simulate import simulate_readiness
+from .aux_routes import GET_ROUTES, POST_ROUTES
 from .assets import HTML
-from .pickers import _choose_file, _choose_folder, _default_desktop_dir
 from .report import build_human_report
 
 
@@ -60,14 +57,9 @@ class AntiSiloGuiHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(data)
             return
-        if parsed.path == "/api/brain":
-            self._send_json(self.server.brain_store.dashboard())
-            return
-        if parsed.path == "/api/watch":
-            self._send_json(self.server.watch_store.dashboard())
-            return
-        if parsed.path == "/api/projects":
-            self._send_json({"projects": self.server.project_store.list_projects()})
+        route = GET_ROUTES.get(parsed.path)
+        if route:
+            route(self)
             return
         self.send_error(HTTPStatus.NOT_FOUND)
 
@@ -76,114 +68,9 @@ class AntiSiloGuiHandler(BaseHTTPRequestHandler):
             self._send_json({"error": "invalid local request token"}, HTTPStatus.FORBIDDEN)
             return
         path = urlparse(self.path).path
-        if path == "/api/default-desktop":
-            self.server.telemetry.record("scan_started", source="desktop")
-            self._send_json({"path": str(_default_desktop_dir())})
-            return
-        if path == "/api/pick-folder":
-            try:
-                self._send_json({"path": _choose_folder()})
-            except Exception as exc:
-                self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
-            return
-        if path == "/api/pick-source":
-            try:
-                self._send_json({"path": _choose_file()})
-            except Exception as exc:
-                self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
-            return
-        if path == "/api/shutdown":
-            self.server.telemetry.record("app_exit")
-            self._send_json({"closed": True})
-            threading.Thread(target=self.server.shutdown, name="anti-silo-shutdown", daemon=True).start()
-            return
-        if path == "/api/event":
-            try:
-                length = int(self.headers.get("Content-Length", "0"))
-                payload = json.loads(self.rfile.read(length).decode("utf-8"))
-                event = str(payload.get("event", ""))
-                allowed = {"result_action_taken", "brain_opened", "brain_decision_saved", "watch_enabled", "repair_started"}
-                if event not in allowed:
-                    raise ValueError("unknown local usage event")
-                self.server.telemetry.record(event, **dict(payload.get("properties", {})))
-                self._send_json({"recorded": True})
-            except Exception as exc:
-                self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
-            return
-        if path == "/api/watch":
-            try:
-                length = int(self.headers.get("Content-Length", "0"))
-                payload = json.loads(self.rfile.read(length).decode("utf-8"))
-                self._send_json({"watch": self.server.watch_store.add(Path(str(payload.get("path", ""))))})
-                self.server.telemetry.record("watch_enabled")
-            except Exception as exc:
-                self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
-            return
-        if path == "/api/repair/source":
-            try:
-                length = int(self.headers.get("Content-Length", "0"))
-                payload = json.loads(self.rfile.read(length).decode("utf-8"))
-                report = getattr(self.server, "last_report", None)
-                source_root = Path(str(payload.get("source_root", ""))).expanduser().resolve()
-                if not report or source_root != Path(str(report.get("source_root", ""))).resolve():
-                    raise ValueError("יש לסרוק את התיקייה לפני קישור מקור")
-                link = self.server.repair_store.add(
-                    source_root,
-                    str(payload.get("target_file", "")),
-                    Path(str(payload.get("source_path", ""))),
-                )
-                self.server.telemetry.record("repair_completed", kind="attach_source")
-                self._send_json({"link": link})
-            except Exception as exc:
-                self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
-            return
-        if path == "/api/discard":
-            try:
-                length = int(self.headers.get("Content-Length", "0"))
-                payload = json.loads(self.rfile.read(length).decode("utf-8"))
-                discard_quick_scan(str(payload.get("staged_vault", "")))
-                self._send_json({"discarded": True})
-            except Exception as exc:
-                self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
-            return
-        if path == "/api/brain/import-last-scan":
-            try:
-                report = getattr(self.server, "last_report", None)
-                if not report:
-                    raise ValueError("יש לבצע סריקה לפני ייבוא מקורות למוח השני")
-                self._send_json(self.server.brain_store.import_scan_report(report))
-            except Exception as exc:
-                self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
-            return
-        if path == "/api/brain/entries":
-            try:
-                length = int(self.headers.get("Content-Length", "0"))
-                payload = json.loads(self.rfile.read(length).decode("utf-8"))
-                entry = self.server.brain_store.add_entry(
-                    kind=str(payload.get("kind", "note")),
-                    title=str(payload.get("title", "")),
-                    body=str(payload.get("body", "")),
-                    source_ids=[str(item) for item in payload.get("source_ids", [])],
-                )
-                self._send_json({"entry": entry})
-                if entry.get("kind") == "decision":
-                    self.server.telemetry.record("brain_decision_saved", has_sources=bool(entry.get("source_ids")))
-            except Exception as exc:
-                self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
-            return
-        if path == "/api/simulate":
-            try:
-                length = int(self.headers.get("Content-Length", "0"))
-                payload = json.loads(self.rfile.read(length).decode("utf-8"))
-                report = getattr(self.server, "last_report", None)
-                if not report:
-                    raise ValueError("יש לבצע סריקה לפני הרצת What-If")
-                resolutions = payload.get("resolutions", [])
-                if not isinstance(resolutions, list):
-                    raise ValueError("resolutions must be a list")
-                self._send_json(simulate_readiness(report, resolutions))
-            except Exception as exc:
-                self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+        route = POST_ROUTES.get(path)
+        if route:
+            route(self)
             return
         if path != "/api/scan":
             self.send_error(HTTPStatus.NOT_FOUND)
@@ -213,6 +100,8 @@ class AntiSiloGuiHandler(BaseHTTPRequestHandler):
                 project=project,
                 previous_scan=previous_scan,
                 permit_request=payload.get("permit") if isinstance(payload.get("permit"), dict) else None,
+                branding=self.server.branding_store.get(),
+                consultant_notes=str(payload.get("consultant_notes", "")),
             )
             self.server.project_store.record_scan(str(project["id"]), report)
             self.server.allowed_roots = [Path(report["staged_vault"]).resolve(), Path(report["output_dir"]).resolve()]

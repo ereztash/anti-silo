@@ -554,6 +554,42 @@ footer a {
   color: var(--muted);
 }
 
+#verdict-summary {
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+
+.executive-card {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--subtle);
+}
+
+.executive-card li {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.executive-card span {
+  flex-shrink: 0;
+  min-width: 82px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.executive-card b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
 .trust-disclosure {
   max-width: 680px;
   margin-top: 18px;

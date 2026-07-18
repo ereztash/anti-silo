@@ -84,6 +84,7 @@
       const project = data.project || {};
       const readiness = data.readiness_score || {};
       const executive = data.executive_summary || {};
+      const execCard = data.executive_card || {};
       const score = Number(readiness.score || 0);
       const goThreshold = Math.max(0, Math.min(100, Number(readiness.go_threshold || 85)));
       const delta = data.delta || {};
@@ -97,6 +98,11 @@
           <h2>${escapeHtml(meta.title || '')}</h2>
           <p class="vsub">${escapeHtml(meta.body || '')}</p>
           <p class="executive-summary">${escapeHtml(executive.he || '')}</p>
+          <ul class="executive-card">
+            <li><span>מה מותר</span><b>${escapeHtml(execCard.allowed || '')}</b></li>
+            <li><span>מה חסר</span><b>${escapeHtml(execCard.missing || '')}</b></li>
+            <li><span>כמה זמן לתקן</span><b>${escapeHtml(execCard.time || '')}</b></li>
+          </ul>
           <div class="boundary-line">גבול אמון: בודק שרשרת מקורות ושלמות חילוץ — לא נכונות עובדתית. <button type="button" onclick="toggleBoundary(this)" aria-expanded="false">מה זה אומר</button></div>
           <div class="boundary-more" hidden>GO פירושו שכל קובץ בהיקף <b>כשיר לקליטה</b>: נקרא במלואו, ניתן לעקוב אחר מקורו, ואינו מתנגש עם מקור אחר. Anti-Silo אינו שופט אם התוכן נכון — האחריות הזו נשארת אצל בעלי המסמכים, והמשפט הזה מופיע גם בדוח ללקוח.</div>
         </div>

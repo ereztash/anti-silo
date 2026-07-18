@@ -10,6 +10,7 @@ from typing import Any
 from urllib.request import urlopen
 
 from ..brain import BrainStore
+from ..branding import BrandingStore
 from ..projects import ProjectStore
 from ..repair import RepairStore
 from ..telemetry import LocalTelemetry
@@ -31,6 +32,7 @@ class AntiSiloGuiServer(ThreadingHTTPServer):
     telemetry: LocalTelemetry
     repair_store: RepairStore
     project_store: ProjectStore
+    branding_store: BrandingStore
 
 
 def serve_gui(
@@ -62,6 +64,7 @@ def serve_gui(
     server.watch_store = WatchStore()
     server.repair_store = RepairStore()
     server.project_store = ProjectStore()
+    server.branding_store = BrandingStore()
     server.watch_service = WatchService(server.watch_store, lambda root: _watch_scan(root, config, server.repair_store))
     server.watch_service.start()
     server.initial_view = initial_view

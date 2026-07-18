@@ -28,6 +28,7 @@
     let lastPath = '';
     let latestWatchEvent = '';
     let recentProjects = [];
+    let pendingLogoDataUri = '';
     const initialView = '__INITIAL_VIEW__';
     const initialPath = __INITIAL_PATH_JSON__;
 

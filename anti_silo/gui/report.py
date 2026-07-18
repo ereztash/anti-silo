@@ -100,6 +100,8 @@ def build_human_report(
     project: dict[str, Any] | None = None,
     previous_scan: dict[str, Any] | None = None,
     permit_request: dict[str, Any] | None = None,
+    branding: dict[str, Any] | None = None,
+    consultant_notes: str = "",
 ) -> dict[str, Any]:
     quick_payload: dict[str, Any] | None = None
     if output_vault is None:
@@ -161,6 +163,8 @@ def build_human_report(
         "diagnostics": diagnostics,
         "remediation": remediation,
         "grounding_permit": grounding_permit,
+        "branding": dict(branding or {}),
+        "consultant_notes": " ".join(str(consultant_notes or "").split())[:600],
         **analysis,
         "delta": compare_scans(previous_scan, current_summary),
         "client_manifest": client_manifest(ingest_payload),

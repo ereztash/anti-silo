@@ -19,6 +19,7 @@ __ANTI_SILO_CSS__
       <div class="header-actions">
         <button id="theme-toggle" class="secondary" type="button" onclick="toggleTheme()" aria-label="החלף ערכת צבעים">ערכה כהה/בהירה</button>
         <button id="expert-toggle" class="secondary mode-toggle" type="button" aria-pressed="false" onclick="toggleExpertMode()">פרטים למתקדמים</button>
+        <button class="secondary" type="button" onclick="openBranding()">הגדרות מיתוג</button>
         <button class="secondary" type="button" onclick="exitApp()">סגור את Anti-Silo</button>
       </div>
     </div>
@@ -30,6 +31,17 @@ __ANTI_SILO_CSS__
       <div class="actions"><button type="button" onclick="chooseFolder()">בחר תיקיית לקוח</button></div>
       <div class="actions"><button class="secondary" type="button" onclick="scanDesktop()">השתמש בשולחן העבודה</button><button class="secondary" type="button" onclick="openBrain()">פתח את המוח השני</button></div>
       <p class="privacy-line">היסטוריית הפרויקטים שומרת מטא־דאטה בלבד (כינוי, ציונים, גיבובים). תוכן קובצי המקור לעולם אינו מועתק להיסטוריה.</p>
+    </section>
+    <section id="branding-panel" class="panel" hidden>
+      <h2 class="section-title">הגדרות מיתוג</h2>
+      <p class="hint" style="margin-top:0">הלוגו ושם העסק מוטבעים בכל דוח שמיוצא ללקוח, כדי שהדוח ייראה כשלך — לא כשל Anti-Silo. נשמר מקומית, חל על כל הפרויקטים הבאים.</p>
+      <div class="form-grid">
+        <div><label for="branding-business-name">שם העסק / הסוכנות</label><input class="text-input" id="branding-business-name" placeholder="לדוגמה: Acme Consulting"></div>
+        <div><label for="branding-logo-file">לוגו (PNG / JPEG / SVG, עד 300KB)</label><input id="branding-logo-file" type="file" accept="image/png,image/jpeg,image/svg+xml" onchange="onBrandingLogoSelected(event)"></div>
+      </div>
+      <div id="branding-logo-preview" class="branding-preview" hidden><img id="branding-logo-img" alt="תצוגה מקדימה של הלוגו"><button class="secondary" type="button" onclick="clearBrandingLogo()">הסר לוגו</button></div>
+      <div id="branding-status" class="hint" role="status"></div>
+      <div class="actions"><button type="button" onclick="saveBranding()">שמור</button><button class="secondary" type="button" onclick="closeBranding()">סגור</button></div>
     </section>
     <section id="project-panel" class="panel">
       <h2 class="section-title">פרויקט לקוח</h2>
@@ -70,6 +82,7 @@ __ANTI_SILO_CSS__
           </select>
         </div>
       </div>
+      <div><label for="consultant-notes">הערות היועץ לדוח הזה (אופציונלי)</label><textarea id="consultant-notes" rows="2" placeholder="לדוגמה: מומלץ לטפל קודם בכפילויות, ואז בקבצים הסרוקים." maxlength="600"></textarea></div>
       <div class="toolbar"><label class="sr-only" for="recent-projects">פרויקטים אחרונים</label><select id="recent-projects" onchange="selectRecentProject(this.value)"><option value="">פרויקטים אחרונים</option></select></div>
     </section>
     <section id="scan-panel" class="panel">
