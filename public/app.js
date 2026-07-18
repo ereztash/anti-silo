@@ -156,6 +156,14 @@
     };
   }
 
+  function permitPayload() {
+    return {
+      requested_authority: document.getElementById("permit-authority").value,
+      audience: document.getElementById("permit-audience").value,
+      failure_impact: document.getElementById("permit-impact").value
+    };
+  }
+
   function escapeHtml(value) {
     return String(value == null ? "" : value)
       .replaceAll("&", "&amp;")
@@ -329,6 +337,50 @@
     }).join("");
   }
 
+  const PERMIT_AUTHORITY_LABEL = {
+    locate: "איתור מקורות",
+    draft: "ניסוח טיוטה",
+    draft_with_human_review: "ניסוח טיוטה (אישור אנושי)",
+    advise: "המלצה למשתמש",
+    decide: "קבלת החלטה",
+    act: "פעולה אוטומטית",
+    none: "ללא הרשאה"
+  };
+  const PERMIT_AUDIENCE_LABEL = { internal: "פנימי", client: "לקוח", external: "חיצוני / ציבורי" };
+  const PERMIT_IMPACT_LABEL = { low: "אי-נוחות בלבד", financial: "הפסד כספי", legal: "משפטי / רגולטורי", safety: "בטיחותי" };
+  const PERMIT_STATUS_LABEL = { granted: "מאושר", conditional: "מותנה", denied: "נדחה" };
+  const PERMIT_STATUS_TONE = { granted: "ready", conditional: "review", denied: "blocked" };
+
+  function renderGroundingPermit(report) {
+    const permit = report.grounding_permit || {};
+    const badge = document.getElementById("permit-badge");
+    if (!badge) return;
+    const tone = PERMIT_STATUS_TONE[permit.permission] || "review";
+    const statusLabel = PERMIT_STATUS_LABEL[permit.permission] || permit.permission || "";
+    const grantedLabel = PERMIT_AUTHORITY_LABEL[permit.granted_authority] || permit.granted_authority || "";
+    badge.className = "basis-badge " + tone;
+    badge.textContent = statusLabel + (grantedLabel ? " · " + grantedLabel : "");
+
+    document.getElementById("permit-requested").textContent =
+      PERMIT_AUTHORITY_LABEL[permit.requested_authority] || permit.requested_authority || "";
+    document.getElementById("permit-audience-out").textContent =
+      PERMIT_AUDIENCE_LABEL[permit.audience] || permit.audience || "";
+    document.getElementById("permit-impact-out").textContent =
+      PERMIT_IMPACT_LABEL[permit.failure_impact] || permit.failure_impact || "";
+    document.getElementById("permit-tier").textContent = permit.corpus_evidence_tier || "";
+
+    const listHtml = function (items) {
+      return (items || []).map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("");
+    };
+    document.getElementById("permit-allowed-list").innerHTML =
+      listHtml(permit.permitted_uses) || "<li>אין שימושים מאושרים כרגע.</li>";
+    document.getElementById("permit-prohibited-list").innerHTML = listHtml(permit.prohibited_uses);
+
+    const upgrade = permit.upgrade_conditions || [];
+    document.getElementById("permit-upgrade").hidden = !upgrade.length;
+    document.getElementById("permit-upgrade-list").innerHTML = listHtml(upgrade);
+  }
+
   function renderReport(report) {
     const verdict = report.verdict || {};
     const score = report.readiness_score || {};
@@ -368,6 +420,7 @@
       Number(effort.minimum_hours || 0) + "–" + Number(effort.maximum_hours || 0) + " שעות תיקון משוערות";
 
     document.getElementById("go-celebration").hidden = verdict.status !== "go";
+    renderGroundingPermit(report);
 
     renderLegend();
     renderClassification(report);
@@ -426,6 +479,7 @@
     await requestScan({
       files: await serializeFiles(),
       project: projectPayload(),
+      permit: permitPayload(),
       consent: true,
       website: websiteInput.value
     });

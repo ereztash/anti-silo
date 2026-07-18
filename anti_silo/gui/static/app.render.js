@@ -41,6 +41,7 @@
       summaryEl.hidden = true;
       renderSimpleSummary(data);
       renderWizard(data);
+      renderGroundingPermit(data);
       resultsEl.hidden = false;
       resultsEl.innerHTML = table(data.rows);
       renderCorpus(data);

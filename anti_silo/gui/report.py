@@ -7,6 +7,7 @@ from typing import Any
 
 from ..consultant import build_consultant_analysis
 from ..config import output_dir
+from ..grounding_permit import evaluate_grounding_permit
 from ..ingest import write_ingest
 from ..preflight import build_corpus_diagnostics, build_remediation, build_verdict
 from ..preflight_artifacts import client_manifest, write_preflight_artifacts
@@ -98,6 +99,7 @@ def build_human_report(
     repair_store: RepairStore | None = None,
     project: dict[str, Any] | None = None,
     previous_scan: dict[str, Any] | None = None,
+    permit_request: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     quick_payload: dict[str, Any] | None = None
     if output_vault is None:
@@ -127,6 +129,14 @@ def build_human_report(
     analysis = build_consultant_analysis(
         counts, diagnostics, remediation, verdict, scope, go_threshold=config.get("go_threshold", 85)
     )
+    permit_request = permit_request or {}
+    grounding_permit = evaluate_grounding_permit(
+        str(permit_request.get("requested_authority", "locate")),
+        str(permit_request.get("audience", "internal")),
+        str(permit_request.get("failure_impact", "low")),
+        counts,
+        diagnostics,
+    )
     current_summary = {
         "scanned_at": datetime.now(timezone.utc).isoformat(),
         "counts": counts,
@@ -150,6 +160,7 @@ def build_human_report(
         "scope_impact": scope,
         "diagnostics": diagnostics,
         "remediation": remediation,
+        "grounding_permit": grounding_permit,
         **analysis,
         "delta": compare_scans(previous_scan, current_summary),
         "client_manifest": client_manifest(ingest_payload),

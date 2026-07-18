@@ -212,6 +212,7 @@ class AntiSiloGuiHandler(BaseHTTPRequestHandler):
                 repair_store=self.server.repair_store,
                 project=project,
                 previous_scan=previous_scan,
+                permit_request=payload.get("permit") if isinstance(payload.get("permit"), dict) else None,
             )
             self.server.project_store.record_scan(str(project["id"]), report)
             self.server.allowed_roots = [Path(report["staged_vault"]).resolve(), Path(report["output_dir"]).resolve()]

@@ -60,6 +60,40 @@
         </label>
       </div>
 
+      <div class="permit-fields-heading">
+        <b>מה המערכת תהיה רשאית לעשות עם הקורפוס?</b>
+        <span>לא רק האם הקורפוס תקין ל-RAG — אלא איזו סמכות שרשרת-המקורות הזו מקנה לשימוש המבוקש.</span>
+      </div>
+      <div class="project-fields permit-fields">
+        <label>
+          <span>שימוש מבוקש</span>
+          <select id="permit-authority">
+            <option value="locate">איתור מקורות בלבד</option>
+            <option value="draft">ניסוח טיוטה לאישור אנושי</option>
+            <option value="advise" selected>המלצה למשתמש</option>
+            <option value="decide">קבלת החלטה</option>
+            <option value="act">הפעלת פעולה אוטומטית</option>
+          </select>
+        </label>
+        <label>
+          <span>קהל</span>
+          <select id="permit-audience">
+            <option value="internal">פנימי</option>
+            <option value="client" selected>לקוח</option>
+            <option value="external">חיצוני / ציבורי</option>
+          </select>
+        </label>
+        <label>
+          <span>השפעת כשל</span>
+          <select id="permit-impact">
+            <option value="low">אי-נוחות בלבד</option>
+            <option value="financial" selected>הפסד כספי</option>
+            <option value="legal">משפטי / רגולטורי</option>
+            <option value="safety">בטיחותי</option>
+          </select>
+        </label>
+      </div>
+
       <div id="dropzone" class="dropzone" aria-describedby="drop-help">
         <input id="folder-input" type="file" webkitdirectory multiple hidden>
         <div class="drop-icon" aria-hidden="true">+</div>
@@ -150,6 +184,37 @@
         <div class="metric-review has-tip" tabindex="0" data-tip="מגובים חלקית או שחסר להם מקור/חיזוק — צריך השלמה לפני הסתמכות."><b id="metric-review">0</b><span>דורשים בדיקה</span></div>
         <div class="metric-blocked has-tip" tabindex="0" data-tip="אסור להישען עליהם עד שהבעיה שסומנה תתוקן."><b id="metric-blocked">0</b><span>חסומים</span></div>
       </div>
+
+      <section id="grounding-permit" class="result-section" aria-labelledby="permit-title">
+        <div class="result-heading">
+          <div>
+            <p class="section-kicker">GROUNDING PERMIT</p>
+            <h2 id="permit-title">איזו סמכות שרשרת המקורות מקנה</h2>
+          </div>
+          <span id="permit-badge" class="basis-badge"></span>
+        </div>
+        <p class="permit-intro">זה נפרד מציון המוכנות: הציון מודד את איכות הראיות; ההרשאה קובעת מה מותר לעשות בהן עבור השימוש, הקהל וההשפעה שביקשתם — ואינה משנה את הציון עצמו.</p>
+        <div class="permit-grid">
+          <div><span>שימוש מבוקש</span><b id="permit-requested"></b></div>
+          <div><span>קהל</span><b id="permit-audience-out"></b></div>
+          <div><span>השפעת כשל</span><b id="permit-impact-out"></b></div>
+          <div><span>דרגת ראיה (הקובץ החלש בהיקף)</span><b id="permit-tier"></b></div>
+        </div>
+        <div class="permit-columns">
+          <div class="permit-col permit-allowed">
+            <b>מותר כרגע</b>
+            <ul id="permit-allowed-list"></ul>
+          </div>
+          <div class="permit-col permit-blocked">
+            <b>אסור כרגע</b>
+            <ul id="permit-prohibited-list"></ul>
+          </div>
+        </div>
+        <div id="permit-upgrade" class="permit-upgrade" hidden>
+          <b>כדי להרחיב את ההרשאה</b>
+          <ul id="permit-upgrade-list"></ul>
+        </div>
+      </section>
 
       <div id="go-celebration" class="go-celebration" hidden>
         <div class="go-celebration-copy">

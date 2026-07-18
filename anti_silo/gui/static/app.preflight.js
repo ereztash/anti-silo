@@ -136,6 +136,43 @@
       riskEl.innerHTML = `<div class="risk-header"><div><h2 class="section-title">מרשם סיכונים</h2><p>השאלות שהלקוח ישאל — עם התשובות שלך מוכנות מראש. ניתן לצרף לשיחת היקף או ל-SOW.</p></div><div class="effort-range"><b class="num">${Number(effort.minimum_hours || 0)}-${Number(effort.maximum_hours || 0)}</b><span>שעות לתכנון</span></div></div><div class="table-scroll"><table><thead><tr><th>מזהה</th><th>קטגוריה</th><th>קובץ</th><th>חומרה</th><th>המלצה</th></tr></thead><tbody>${rows || '<tr><td colspan="5">לא נמצאו סיכונים לרישום.</td></tr>'}</tbody></table></div><p class="hint">הערכת השעות מבוססת על מספר הממצאים וחומרתם. יש לאמת מורכבות לפני הצעת מחיר.</p>`;
     }
 
+    const PERMIT_AUTHORITY_LABEL = {
+      locate: 'איתור מקורות', draft: 'ניסוח טיוטה', draft_with_human_review: 'ניסוח טיוטה (אישור אנושי)',
+      advise: 'המלצה למשתמש', decide: 'קבלת החלטה', act: 'פעולה אוטומטית', none: 'ללא הרשאה'
+    };
+    const PERMIT_AUDIENCE_LABEL = { internal: 'פנימי', client: 'לקוח', external: 'חיצוני / ציבורי' };
+    const PERMIT_IMPACT_LABEL = { low: 'אי-נוחות בלבד', financial: 'הפסד כספי', legal: 'משפטי / רגולטורי', safety: 'בטיחותי' };
+    const PERMIT_STATUS_LABEL = { granted: 'מאושר', conditional: 'מותנה', denied: 'נדחה' };
+    const PERMIT_STATUS_PILL = { granted: 'ready', conditional: 'review', denied: 'unsupported' };
+
+    function renderGroundingPermit(data) {
+      const permit = data.grounding_permit;
+      if (!permit) { permitEl.hidden = true; permitEl.innerHTML = ''; return; }
+      const statusLabel = PERMIT_STATUS_LABEL[permit.permission] || permit.permission || '';
+      const grantedLabel = PERMIT_AUTHORITY_LABEL[permit.granted_authority] || permit.granted_authority || '';
+      const allowed = (permit.permitted_uses || []).map(item => `<li>${escapeHtml(item)}</li>`).join('') || '<li>אין שימושים מאושרים כרגע.</li>';
+      const prohibited = (permit.prohibited_uses || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
+      const upgrade = permit.upgrade_conditions || [];
+      const upgradeHtml = upgrade.length
+        ? `<div class="permit-upgrade"><b>כדי להרחיב את ההרשאה</b><ul>${upgrade.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>`
+        : '';
+      permitEl.hidden = false;
+      permitEl.innerHTML = `<div class="risk-header"><div><h2 class="section-title">Grounding Permit — איזו סמכות שרשרת המקורות מקנה</h2>
+        <p>נפרד מציון המוכנות: הציון מודד איכות ראיות, ההרשאה קובעת מה מותר לעשות בהן — ואינה משנה את הציון עצמו.</p></div>
+        <span class="pill ${escapeHtml(PERMIT_STATUS_PILL[permit.permission] || 'review')}">${escapeHtml(statusLabel)}${grantedLabel ? ' · ' + escapeHtml(grantedLabel) : ''}</span></div>
+        <div class="permit-grid">
+          <div><span>שימוש מבוקש</span><b>${escapeHtml(PERMIT_AUTHORITY_LABEL[permit.requested_authority] || permit.requested_authority || '')}</b></div>
+          <div><span>קהל</span><b>${escapeHtml(PERMIT_AUDIENCE_LABEL[permit.audience] || permit.audience || '')}</b></div>
+          <div><span>השפעת כשל</span><b>${escapeHtml(PERMIT_IMPACT_LABEL[permit.failure_impact] || permit.failure_impact || '')}</b></div>
+          <div><span>דרגת ראיה (הקובץ החלש בהיקף)</span><b>${escapeHtml(permit.corpus_evidence_tier || '')}</b></div>
+        </div>
+        <div class="permit-columns">
+          <div class="permit-col permit-allowed"><b>מותר כרגע</b><ul>${allowed}</ul></div>
+          <div class="permit-col permit-blocked"><b>אסור כרגע</b><ul>${prohibited}</ul></div>
+        </div>
+        ${upgradeHtml}`;
+    }
+
     // What-If: available actions per remediation category. First option is the
     // realistic default; labels mirror the server-side SIM_MODEL effect ids.
     const WHATIF_ACTIONS = {

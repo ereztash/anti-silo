@@ -97,6 +97,43 @@ def _sow_ready_markdown(report: dict[str, Any]) -> str:
     )
 
 
+def _grounding_permit_markdown(report: dict[str, Any]) -> str:
+    permit = dict(report.get("grounding_permit", {}))
+    readiness = dict(report.get("readiness_score", {}))
+    permission_label = {"granted": "GRANTED", "conditional": "CONDITIONAL", "denied": "DENIED"}.get(
+        str(permit.get("permission", "")), str(permit.get("permission", "")).upper()
+    )
+    return "\n".join(
+        [
+            "# Grounding Permit",
+            "",
+            "> This is separate from the Readiness Score. Readiness Score measures evidence",
+            "> quality; this measures what that evidence quality authorizes for the requested",
+            "> use, audience, and failure impact. Anti-Silo audits file-level evidence, not",
+            "> organizational governance — it cannot verify a named owner or a human fallback",
+            "> procedure exists, so `decide` is never fully granted and `act` is never granted.",
+            "",
+            f"**Corpus Readiness:** {int(readiness.get('score', 0))}/100",
+            f"**Corpus evidence tier (weakest file in scope):** {_markdown_cell(permit.get('corpus_evidence_tier'))}",
+            f"**Requested authority:** {_markdown_cell(permit.get('requested_authority'))}",
+            f"**Audience:** {_markdown_cell(permit.get('audience'))}",
+            f"**Failure impact:** {_markdown_cell(permit.get('failure_impact'))}",
+            f"**Permission:** {permission_label}",
+            f"**Granted authority:** {_markdown_cell(permit.get('granted_authority'))}",
+            "",
+            "## מותר כרגע" if permit.get("permitted_uses") else "",
+            *[f"- {_markdown_cell(item)}" for item in permit.get("permitted_uses", [])],
+            "",
+            "## אסור כרגע" if permit.get("prohibited_uses") else "",
+            *[f"- {_markdown_cell(item)}" for item in permit.get("prohibited_uses", [])],
+            "",
+            "## כדי להרחיב את ההרשאה" if permit.get("upgrade_conditions") else "",
+            *[f"- {_markdown_cell(item)}" for item in permit.get("upgrade_conditions", [])],
+            "",
+        ]
+    )
+
+
 def write_preflight_artifacts(report: dict[str, Any], output_dir: Path) -> dict[str, Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     summary_path = output_dir / "PREFLIGHT_SUMMARY.json"
@@ -104,6 +141,8 @@ def write_preflight_artifacts(report: dict[str, Any], output_dir: Path) -> dict[
     risk_path = output_dir / "RISK_REGISTER.csv"
     delta_path = output_dir / "SCAN_DELTA.json"
     sow_path = output_dir / "SOW_READY.md"
+    permit_md_path = output_dir / "GROUNDING_PERMIT.md"
+    permit_json_path = output_dir / "GROUNDING_PERMIT.json"
     manifest_path = output_dir / "CLIENT_SOURCE_MANIFEST.json"
     pack_path = output_dir / "ANTI_SILO_PREFLIGHT_PACK.zip"
 
@@ -119,8 +158,13 @@ def write_preflight_artifacts(report: dict[str, Any], output_dir: Path) -> dict[
         "diagnostics": report.get("diagnostics", {}),
         "delta": report.get("delta", {}),
         "trust_boundary": report.get("trust_boundary", ""),
+        "grounding_permit": report.get("grounding_permit", {}),
     }
     summary_path.write_text(json.dumps(public_summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    permit_json_path.write_text(
+        json.dumps(report.get("grounding_permit", {}), ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    permit_md_path.write_text(_grounding_permit_markdown(report), encoding="utf-8")
     manifest_path.write_text(
         json.dumps(report.get("client_manifest", {}), ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
@@ -145,6 +189,8 @@ def write_preflight_artifacts(report: dict[str, Any], output_dir: Path) -> dict[
         risk_path,
         delta_path,
         sow_path,
+        permit_md_path,
+        permit_json_path,
         manifest_path,
     ]
     eligible = output_dir / "eligible_sources.csv"
@@ -161,5 +207,7 @@ def write_preflight_artifacts(report: dict[str, Any], output_dir: Path) -> dict[
         "risk_register": risk_path,
         "scan_delta": delta_path,
         "sow_ready": sow_path,
+        "grounding_permit_md": permit_md_path,
+        "grounding_permit_json": permit_json_path,
         "client_manifest": manifest_path,
     }

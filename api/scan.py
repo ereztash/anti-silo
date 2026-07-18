@@ -152,6 +152,15 @@ def _project_payload(value: object) -> dict[str, str]:
     }
 
 
+def _permit_payload(value: object) -> dict[str, str]:
+    permit = value if isinstance(value, dict) else {}
+    return {
+        "requested_authority": _clean_text(permit.get("requested_authority"), "locate"),
+        "audience": _clean_text(permit.get("audience"), "internal"),
+        "failure_impact": _clean_text(permit.get("failure_impact"), "low"),
+    }
+
+
 def _demo_rows() -> list[dict[str, str]]:
     rows = [
         {
@@ -269,6 +278,7 @@ def build_web_report(payload: object) -> dict[str, Any]:
                     else {}
                 )
             ),
+            permit_request=_permit_payload(payload.get("permit")),
         )
         quick_scan_path = str(report.get("staged_vault", ""))
         result = _public_report(report)

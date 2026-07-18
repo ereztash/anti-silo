@@ -43,6 +43,24 @@
     button:disabled { opacity:.55; cursor:wait; }
     button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible,summary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
     .hint { margin-top:8px; font-size:12.5px; color:var(--muted); }
+    .permit-fields-heading { display:grid; gap:3px; margin:16px 0 10px; padding:12px 14px; border:1px solid var(--hairline); border-radius:8px; background:var(--page); }
+    .permit-fields-heading b { font-size:13.5px; color:var(--ink); }
+    .permit-fields-heading span { color:var(--muted); font-size:12px; line-height:1.5; }
+    .permit-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin:12px 0; }
+    .permit-grid div { padding:10px 12px; border:1px solid var(--hairline); border-radius:7px; background:var(--surface); }
+    .permit-grid span { display:block; margin-bottom:3px; color:var(--muted); font-size:11.5px; }
+    .permit-grid b { font-size:13px; }
+    .permit-columns { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+    .permit-col { padding:12px 14px; border-radius:8px; border:1px solid var(--hairline); }
+    .permit-col b { display:block; margin-bottom:6px; font-size:12.5px; }
+    .permit-col ul { margin:0; padding-inline-start:16px; font-size:12.5px; line-height:1.55; color:var(--ink2); }
+    .permit-allowed { border-color:var(--ok); background:color-mix(in srgb, var(--ok) 8%, var(--surface)); }
+    .permit-allowed b { color:var(--ok-text); }
+    .permit-blocked { border-color:var(--bad); background:color-mix(in srgb, var(--bad) 8%, var(--surface)); }
+    .permit-blocked b { color:var(--bad); }
+    .permit-upgrade { margin-top:12px; padding:12px 14px; border:1px solid var(--warn); border-radius:8px; background:color-mix(in srgb, var(--warn) 10%, var(--surface)); }
+    .permit-upgrade b { display:block; margin-bottom:6px; font-size:12.5px; color:var(--warn-text); }
+    .permit-upgrade ul { margin:0; padding-inline-start:16px; font-size:12.5px; line-height:1.55; color:var(--ink2); }
     .impact-note { display:block; margin-top:5px; font-style:normal; font-size:12px; line-height:1.5; color:var(--ink2); }
     .impact-note span { font-weight:600; color:var(--warn-text); }
     .whatif-readout { display:flex; align-items:baseline; gap:12px; margin:10px 0 14px; }

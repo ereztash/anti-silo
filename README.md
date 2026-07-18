@@ -91,6 +91,21 @@ the score in front of a skeptical client.**
   deterministic `/api/simulate` (no re-scan), recomputed by the same engine. The
   projection is realistic, not optimistic — "add a source" moves a file to
   *source-backed*, not straight to *ready* — so a projected GO stays honest.
+- **Grounding Permit.** A second, deliberately separate output from the
+  Readiness Score: given a requested use (`locate` / `draft` / `advise` /
+  `decide` / `act`), an audience (internal / client / external), and a failure
+  impact (low / financial / legal / safety), it states what the corpus's
+  weakest-link evidence tier actually authorizes — `granted`, `conditional`
+  (with a downgraded, safer authority), or `denied` — plus what's allowed,
+  what isn't, and what would raise the grant. The Readiness Score is never
+  changed by this choice; only the permission is. Anti-Silo audits file-level
+  evidence, not organizational governance, so `decide` is never fully granted
+  (owner and human-fallback are attested to separately, not verified by the
+  tool) and `act` is never granted at all — the standard RAG-security
+  distinction between retrieval permission and action permission. Exports as
+  `GROUNDING_PERMIT.md` / `.json` in the Desktop Audit Pack; both surfaces ask
+  the same three questions before Scan and compute the permit from one engine
+  (`anti_silo/grounding_permit.py`).
 - **Light + dark themes, RTL Hebrew UI, keyboard and screen-reader friendly**
   (visible focus states, `aria-live` scan status), served as a single
   self-contained document from `127.0.0.1` with no CDN and no network calls.
@@ -193,7 +208,7 @@ The Web Beta:
 - offers a built-in demo corpus so the workflow can be evaluated without uploading files
 - requires explicit cloud-processing consent before any user-selected file is sent
 - runs the existing deterministic Preflight engine in a temporary Python Function
-- returns the verdict, Readiness Score, a per-file classification breakdown (why each file landed in its tier), remediation queue, and Risk Register
+- returns the verdict, Readiness Score, a per-file classification breakdown (why each file landed in its tier), remediation queue, Risk Register, and a Grounding Permit for the requested use/audience/failure-impact set before scanning
 - lets the consultant download a client-ready HTML report, raw JSON, and the Risk Register as CSV
 - lets the consultant copy a client-ready summary, copy a personal accomplishment post, and save a
   shareable 1200×630 verdict card (PNG, generated client-side via Canvas, no server round-trip) — a
