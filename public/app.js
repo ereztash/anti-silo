@@ -175,6 +175,121 @@
     return String(value || "Low").toLowerCase();
   }
 
+  // Maps each classification category to a colour tone shared with the scope metrics.
+  const CATEGORY_TONE = {
+    ready: "ready",
+    backed: "review",
+    indexed: "review",
+    synthesis: "review",
+    unsupported: "blocked",
+    contradiction: "blocked"
+  };
+
+  const TONE_LABEL = { ready: "מוכן", review: "דורש בדיקה", blocked: "חסום" };
+
+  // Plain-language legend for the classification system itself ("on what basis").
+  const LEGEND = [
+    ["ready", "מוכן לשימוש", "נמצאה טענה, מקור ראשוני, וגם חיזוק עצמאי — שרשרת מקורות מלאה."],
+    ["backed", "מגובה, דורש אימות נוסף", "יש מקור ראשוני, אבל עדיין חסר חיזוק עצמאי לפני הסתמכות חזקה."],
+    ["indexed", "נסרק, טרם אומת", "הקובץ נקלט לבדיקה, אך לא נמצא לו מקור עצמאי שאפשר להישען עליו."],
+    ["synthesis", "סיכום שצריך השלמת מקורות", "המסמך נראה כמו סיכום או מסגרת חשיבה, אך חסרה בו רשימת מקורות מסודרת."],
+    ["unsupported", "חסר אסמכתא", "לא נמצא מקור ראשוני שאפשר להישען עליו."],
+    ["contradiction", "סתירה או חסם אמון", "נמצאה בעיית אמון שמונעת הסתמכות עד לתיקון."]
+  ];
+
+  // Translates the engine's internal reason codes into a human "basis" sentence.
+  // Reasons arrive as one or more atoms joined by "; ".
+  const REASON_ATOMS = {
+    "claim + raw_source_hash + corroboration": "יש טענה, מקור גולמי מאומת בהצמדת hash, וגם חיזוק עצמאי",
+    "claim + source + corroboration": "יש טענה, מקור מזוהה, וגם חיזוק עצמאי",
+    "claim + raw_source_hash": "יש טענה ומקור גולמי מאומת בהצמדת hash — חסר חיזוק עצמאי",
+    "claim + source": "יש טענה ומקור מזוהה — חסר חיזוק עצמאי",
+    "claim + corroboration": "יש טענה וחיזוק, אך חסרה אסמכתא ראשונית (מקור)",
+    "claim + ledger": "יש טענה ורישום פנימי תומך, אך חסר מקור ראשוני",
+    "claim only": "יש טענה בלבד — ללא מקור וללא חיזוק",
+    "synthesis_without_source_spine": "המסמך נראה כמו סיכום/סינתזה אך אין בו רשימת מקורות (source spine)",
+    "self_indexed_intake": "הקובץ נקלט לאינדוקס עצמאי בלבד — אין מאחוריו רשומת מקור מקורית",
+    "extraction_failed": "חילוץ הטקסט מהקובץ נכשל",
+    "extraction_truncated": "חילוץ הטקסט מהקובץ נקטע באמצע",
+    "blocked marker": "הקובץ סומן כלא מתאים להסתמכות",
+    "source_hash_matches_non_raw_surface": "ה-source_hash שהוצהר תואם קובץ שאינו מקור גולמי",
+    "source_hash_not_found": "ה-source_hash שהוצהר לא נמצא באף קובץ בבחירה",
+    "source_hash_required_for_raw_source_only": "כדי לאמת מקור חובה להצהיר source_hash"
+  };
+
+  function basisText(reason) {
+    const raw = String(reason || "").trim();
+    if (!raw) return "לא נמצאה שרשרת מקורות לקובץ.";
+    const parts = raw.split(";").map(function (part) {
+      const atom = part.trim();
+      return REASON_ATOMS[atom] || atom;
+    });
+    return parts.join(" · ");
+  }
+
+  function renderLegend() {
+    const list = document.getElementById("basis-legend-list");
+    if (!list) return;
+    list.innerHTML = LEGEND.map(function (entry) {
+      const tone = CATEGORY_TONE[entry[0]] || "review";
+      return "<div><dt><span class=\"basis-badge " + tone + "\">" + escapeHtml(entry[1]) +
+        "</span></dt><dd>" + escapeHtml(entry[2]) + "</dd></div>";
+    }).join("");
+  }
+
+  function renderClassification(report) {
+    const container = document.getElementById("classification-list");
+    if (!container) return;
+    const rows = Array.isArray(report.rows) ? report.rows : [];
+    const countLabel = document.getElementById("basis-count");
+
+    if (!rows.length) {
+      container.innerHTML = "<p class=\"basis-empty\">לא נסרקו קבצים עם טענות לסיווג.</p>";
+      if (countLabel) countLabel.textContent = "";
+      return;
+    }
+
+    // Show the files that need attention first: blocked, then review, then ready.
+    const order = { blocked: 0, review: 1, ready: 2 };
+    const sorted = rows.slice().sort(function (a, b) {
+      const ta = order[CATEGORY_TONE[a.category] || "review"];
+      const tb = order[CATEGORY_TONE[b.category] || "review"];
+      return ta - tb;
+    });
+
+    if (countLabel) countLabel.textContent = rows.length + " קבצים סווגו";
+
+    container.innerHTML = sorted.map(function (row) {
+      const tone = CATEGORY_TONE[row.category] || "review";
+      const status = row.status || row.category_label || row.category || "";
+      const needs = String(row.needs || "").trim();
+      const technicalTier = String(row.technical_tier || "").trim();
+      const technicalReason = String(row.technical_reason || "").trim();
+
+      const needsBlock = needs
+        ? "<p class=\"basis-needs\"><span>כדי לקדם:</span> " + escapeHtml(needs) + "</p>"
+        : "";
+
+      const technicalBlock = (technicalTier || technicalReason)
+        ? "<details class=\"basis-technical\"><summary>פירוט טכני</summary><dl>" +
+            (technicalTier ? "<div><dt>שכבה</dt><dd><code>" + escapeHtml(technicalTier) + "</code></dd></div>" : "") +
+            (technicalReason ? "<div><dt>קוד סיווג</dt><dd><code>" + escapeHtml(technicalReason) + "</code></dd></div>" : "") +
+          "</dl></details>"
+        : "";
+
+      return "<article class=\"classification-card " + tone + "\">" +
+        "<header class=\"basis-card-head\">" +
+          "<b class=\"basis-file\" title=\"" + escapeHtml(row.file) + "\">" + escapeHtml(row.file) + "</b>" +
+          "<span class=\"basis-badge " + tone + "\">" + escapeHtml(status) + "</span>" +
+        "</header>" +
+        "<p class=\"basis-explanation\">" + escapeHtml(row.explanation || "") + "</p>" +
+        "<p class=\"basis-reason\"><span>על סמך מה:</span> " + escapeHtml(basisText(technicalReason)) + "</p>" +
+        needsBlock +
+        technicalBlock +
+      "</article>";
+    }).join("");
+  }
+
   function renderReport(report) {
     const verdict = report.verdict || {};
     const score = report.readiness_score || {};
@@ -209,6 +324,9 @@
 
     document.getElementById("effort-estimate").textContent =
       Number(effort.minimum_hours || 0) + "–" + Number(effort.maximum_hours || 0) + " שעות תיקון משוערות";
+
+    renderLegend();
+    renderClassification(report);
 
     const actionList = document.getElementById("action-list");
     actionList.innerHTML = actions.slice(0, 6).map(function (action) {

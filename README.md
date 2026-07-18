@@ -178,7 +178,7 @@ The Web Beta:
 - offers a built-in demo corpus so the workflow can be evaluated without uploading files
 - requires explicit cloud-processing consent before any user-selected file is sent
 - runs the existing deterministic Preflight engine in a temporary Python Function
-- returns the verdict, Readiness Score, remediation queue, and Risk Register
+- returns the verdict, Readiness Score, a per-file classification breakdown (why each file landed in its tier), remediation queue, and Risk Register
 - lets the consultant download a client-ready HTML report, raw JSON, and the Risk Register as CSV
 - does not provide scan history, watch mode, source repair, or the complete Audit Pack yet
 
