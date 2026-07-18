@@ -5,7 +5,11 @@
       document.getElementById('path').value = path;
       const projectInput = document.getElementById('project-name');
       if (!projectInput.value.trim()) projectInput.value = path.split(/[\\/]/).filter(Boolean).pop() || 'RAG Preflight';
-      document.getElementById('client-name').focus();
+      // Quick Preflight: a dragged or picked folder runs immediately. Client and
+      // project default server-side, so no form-filling is required for a first
+      // verdict — names matter only for saving, comparing, or exporting, and the
+      // consultant can set them and re-scan.
+      scan();
     }
 
     async function scanDesktop() {
@@ -58,14 +62,11 @@
     async function scan() {
       const path = document.getElementById('path').value.trim();
       if (!path) return;
+      // Names are optional for a quick scan; the server defaults an empty client
+      // to "לקוח" and an empty project to the folder name.
       const clientName = document.getElementById('client-name').value.trim();
       const projectName = document.getElementById('project-name').value.trim();
       const consultantName = document.getElementById('consultant-name').value.trim();
-      if (!clientName || !projectName) {
-        statusEl.className = 'panel'; statusEl.textContent = 'יש למלא שם לקוח ושם פרויקט לפני הרצת Preflight.';
-        document.getElementById(!clientName ? 'client-name' : 'project-name').focus();
-        return;
-      }
       lastPath = path; button.disabled = true; statusEl.className = 'panel empty'; statusEl.textContent = 'בודק מקורות, התאמה ביניהם וחוסרים...';
       try {
         const response = await fetch('/api/scan', {method:'POST', headers:{'Content-Type':'application/json','X-Anti-Silo-CSRF':csrfToken}, body:JSON.stringify({path,project:{client_name:clientName,project_name:projectName,consultant_name:consultantName}})});

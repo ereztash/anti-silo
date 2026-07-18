@@ -88,6 +88,19 @@ def test_preflight_report_builds_client_pack_without_local_root_in_client_html(t
         discard_quick_scan(report["staged_vault"])
 
 
+def test_upsert_defaults_empty_names_for_quick_preflight(tmp_path) -> None:
+    # A quick scan (dragged folder, no form input) sends an empty project payload.
+    # The store must default the names instead of failing, so no project creation
+    # is required for a first verdict.
+    source = tmp_path / "portal-docs"
+    source.mkdir()
+    store = ProjectStore(tmp_path / "projects.json")
+    project = store.upsert({}, source)
+    assert project["client_name"] == "לקוח"
+    assert project["project_name"] == "portal-docs"
+    assert project["id"]
+
+
 def test_project_store_records_summary_and_produces_scan_delta(tmp_path) -> None:
     source = tmp_path / "client"
     source.mkdir()

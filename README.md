@@ -41,12 +41,14 @@ Anti-Silo is useful when you need to:
 
 ## Consultant Workflow
 
-1. Create a local project with a client alias, engagement name, and consultant name.
-2. Select the client source folder.
-3. Run Preflight and review the verdict, corpus diagnostics, and prioritized remediation queue.
-4. Repair, exclude, or replace problematic sources, then scan again.
-5. Use the scan delta to show what changed.
-6. Export `ANTI_SILO_PREFLIGHT_PACK.zip` for the client call, SOW, or ingestion handoff.
+1. Drag the client source folder onto the app (or pick it) — Preflight runs
+   immediately and returns the verdict, corpus diagnostics, and prioritized
+   remediation queue. No project setup is required for a first read.
+2. Optionally name the client and engagement — these are only needed to title
+   the report and to compare scans over time — then re-scan.
+3. Repair, exclude, or replace problematic sources, then scan again.
+4. Use the scan delta to show what changed.
+5. Export `ANTI_SILO_PREFLIGHT_PACK.zip` for the client call, SOW, or ingestion handoff.
 
 Project metadata and summary-only scan history are stored locally. Source file
 contents are not copied into project history.
