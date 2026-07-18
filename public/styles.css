@@ -1035,6 +1035,43 @@ td {
   outline-offset: 2px;
 }
 
+.go-celebration {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-top: 18px;
+  padding: 18px 22px;
+  border: 1px solid color-mix(in srgb, var(--ready) 35%, var(--line));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ready) 8%, white);
+}
+
+.go-celebration-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.go-celebration-copy b {
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.go-celebration-copy span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.go-celebration-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
 .basis-cta {
   display: flex;
   gap: 18px;

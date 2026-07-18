@@ -97,6 +97,7 @@ def render_report_html(report: dict[str, Any]) -> str:
     .ready {{ color:var(--ok); }} .backed,.synthesis,.indexed {{ color:var(--warn); }} .unsupported,.contradiction {{ color:var(--bad); }}
     .boundary {{ padding:14px; background:#fff8e8; border:1px solid #f0d99a; }}
     footer {{ color:var(--muted); font-size:13px; }}
+    footer a {{ color:inherit; }}
     @media (max-width:700px) {{ header,main,footer {{ padding:20px; }} .metrics,.delta-metrics,.decision-grid {{ grid-template-columns:1fr 1fr; }} .decision-grid {{ grid-template-columns:1fr; }} table {{ font-size:13px; }} }}
     @media print {{ header,main,footer {{ max-width:none; padding:12mm 0; }} section {{ break-inside:avoid; }} }}
   </style>
@@ -129,7 +130,7 @@ def render_report_html(report: dict[str, Any]) -> str:
     <section><h2>פירוט מדיניות המקורות</h2><table><thead><tr><th>מצב</th><th>קובץ</th><th>מה לעשות</th></tr></thead><tbody>{_source_rows(report)}</tbody></table></section>
     <section><div class="boundary"><b>גבול אמון</b><br>{escape(str(report.get('trust_boundary', '')))}</div></section>
   </main>
-  <footer>הדוח נוצר מקומית. שמות ונתיבי תיקיות מקומיים אינם נשלחים לשירות חיצוני.</footer>
+  <footer>הדוח נוצר מקומית. שמות ונתיבי תיקיות מקומיים אינם נשלחים לשירות חיצוני.<br>נוצר עם <a href="https://anti-silo.vercel.app" target="_blank" rel="noopener">Anti-Silo</a> — בדיקת מוכנות מקורות ל-RAG.</footer>
 </body>
 </html>
 """

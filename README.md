@@ -195,6 +195,11 @@ The Web Beta:
 - runs the existing deterministic Preflight engine in a temporary Python Function
 - returns the verdict, Readiness Score, a per-file classification breakdown (why each file landed in its tier), remediation queue, and Risk Register
 - lets the consultant download a client-ready HTML report, raw JSON, and the Risk Register as CSV
+- lets the consultant copy a client-ready summary, copy a personal accomplishment post, and save a
+  shareable 1200×630 verdict card (PNG, generated client-side via Canvas, no server round-trip) — a
+  small "🎉 you hit GO" prompt surfaces these when the verdict is GO
+- signs both the Web and Desktop client-facing HTML reports with a subtle "generated with Anti-Silo"
+  footer line
 - does not provide scan history, watch mode, source repair, or the complete Audit Pack yet
 
 Run the complete hosted flow locally for development or UI review:

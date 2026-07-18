@@ -367,6 +367,8 @@
     document.getElementById("effort-estimate").textContent =
       Number(effort.minimum_hours || 0) + "–" + Number(effort.maximum_hours || 0) + " שעות תיקון משוערות";
 
+    document.getElementById("go-celebration").hidden = verdict.status !== "go";
+
     renderLegend();
     renderClassification(report);
 
@@ -474,8 +476,22 @@
     ].join("\n");
   }
 
-  function flashCopied() {
-    const button = document.getElementById("copy-summary");
+  // A short, personal post the consultant can share about their own work — distinct
+  // from buildClientSummary, which is written FOR the client, not about the consultant.
+  function buildAccomplishmentPost(report) {
+    const score = Math.round(Number((report.readiness_score || {}).score || 0));
+    const scope = report.scope_impact || {};
+    const total = Number(scope.total || report.files || 0);
+    const verdict = report.verdict || {};
+    const closing = verdict.status === "go"
+      ? "המוכנות ל-GO הושגה 🎯"
+      : "יש עוד עבודה, אבל הכיוון ברור.";
+    return "הרגע השלמתי Pre-flight audit לקורפוס RAG של " + total + " קבצים עם Anti-Silo — " +
+      "ציון מוכנות " + score + "/100. " + closing + "\n#RAG #Preflight #AntiSilo";
+  }
+
+  function flashCopied(buttonId) {
+    const button = document.getElementById(buttonId);
     if (!button || button.dataset.busy === "1") return;
     const original = button.textContent;
     button.dataset.busy = "1";
@@ -488,12 +504,10 @@
     }, 1600);
   }
 
-  async function copySummary() {
-    if (!lastReport) return;
-    const text = buildClientSummary(lastReport);
+  async function copyTextToClipboard(text, buttonId) {
     try {
       await navigator.clipboard.writeText(text);
-      flashCopied();
+      flashCopied(buttonId);
       return;
     } catch (error) {
       // Fallback for browsers/contexts where the async clipboard API is unavailable.
@@ -507,9 +521,143 @@
       let copied = false;
       try { copied = document.execCommand("copy"); } catch (fallbackError) { copied = false; }
       area.remove();
-      if (copied) flashCopied();
-      else showError("לא ניתן היה להעתיק אוטומטית. הסיכום: " + text);
+      if (copied) flashCopied(buttonId);
+      else showError("לא ניתן היה להעתיק אוטומטית. הטקסט: " + text);
     }
+  }
+
+  async function copySummary() {
+    if (!lastReport) return;
+    await copyTextToClipboard(buildClientSummary(lastReport), "copy-summary");
+  }
+
+  async function copyAccomplishment() {
+    if (!lastReport) return;
+    await copyTextToClipboard(buildAccomplishmentPost(lastReport), "copy-accomplishment");
+  }
+
+  function fitCanvasText(ctx, text, maxWidth) {
+    if (ctx.measureText(text).width <= maxWidth) return text;
+    let clipped = text;
+    while (clipped.length > 1 && ctx.measureText(clipped + "…").width > maxWidth) {
+      clipped = clipped.slice(0, -1);
+    }
+    return clipped + "…";
+  }
+
+  const CARD_TONE = { go: "#157347", stop: "#b42318", conditional: "#a85d00" };
+  const CARD_FONT_HE = "Arial, 'Noto Sans Hebrew', sans-serif";
+
+  // A 1200x630 shareable PNG summarizing the verdict — for the consultant to post,
+  // not the client-facing report. Drawn with Canvas so it needs no server round-trip.
+  function buildVerdictCardCanvas(report) {
+    const verdict = report.verdict || {};
+    const score = report.readiness_score || {};
+    const scope = report.scope_impact || {};
+    const project = report.project || {};
+    const tone = CARD_TONE[verdictClass(verdict.status)] || CARD_TONE.conditional;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 1200;
+    canvas.height = 630;
+    const ctx = canvas.getContext("2d");
+    const rightEdge = canvas.width - 60;
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = tone;
+    ctx.fillRect(0, 0, canvas.width, 10);
+
+    ctx.direction = "rtl";
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#5f6c67";
+    ctx.font = "600 20px " + CARD_FONT_HE;
+    ctx.fillText("Anti-Silo · Consultant Preflight", rightEdge, 70);
+
+    ctx.fillStyle = tone;
+    ctx.font = "800 50px " + CARD_FONT_HE;
+    ctx.fillText(String(verdict.label || verdict.status || "PRE-FLIGHT"), rightEdge, 140);
+
+    ctx.fillStyle = "#17201d";
+    ctx.font = "400 24px " + CARD_FONT_HE;
+    ctx.fillText(fitCanvasText(ctx, String(verdict.title || ""), canvas.width - 120), rightEdge, 180);
+
+    const scoreValue = String(Math.max(0, Math.min(100, Number(score.score || 0))));
+    ctx.direction = "ltr";
+    ctx.textAlign = "left";
+    ctx.font = "800 150px Arial, sans-serif";
+    ctx.fillStyle = "#17201d";
+    const scoreWidth = ctx.measureText(scoreValue).width;
+    const scoreX = rightEdge - scoreWidth;
+    ctx.fillText(scoreValue, scoreX, 360);
+    ctx.textAlign = "right";
+    ctx.font = "400 32px Arial, sans-serif";
+    ctx.fillStyle = "#5f6c67";
+    ctx.fillText("/ 100", scoreX - 12, 360);
+
+    const stats = [
+      { n: Number(scope.total || report.files || 0), l: "קבצים" },
+      { n: Number(scope.ready || 0), l: "מוכנים" },
+      { n: Number(scope.review || 0), l: "דורשים בדיקה" },
+      { n: Number(scope.blocked || 0), l: "חסומים" }
+    ];
+    const colWidth = (canvas.width - 120) / stats.length;
+    stats.forEach(function (stat, i) {
+      const cx = 60 + colWidth * i + colWidth / 2;
+      ctx.textAlign = "center";
+      ctx.direction = "ltr";
+      ctx.font = "800 40px Arial, sans-serif";
+      ctx.fillStyle = "#17201d";
+      ctx.fillText(String(stat.n), cx, 460);
+      ctx.direction = "rtl";
+      ctx.font = "400 16px " + CARD_FONT_HE;
+      ctx.fillStyle = "#5f6c67";
+      ctx.fillText(stat.l, cx, 488);
+    });
+
+    ctx.strokeStyle = "#d8dfdc";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(60, 512);
+    ctx.lineTo(canvas.width - 60, 512);
+    ctx.stroke();
+
+    const projectLabel = [project.client_name, project.project_name].filter(Boolean).join(" · ") || "RAG Preflight";
+    ctx.direction = "rtl";
+    ctx.textAlign = "right";
+    ctx.font = "400 18px " + CARD_FONT_HE;
+    ctx.fillStyle = "#5f6c67";
+    ctx.fillText(fitCanvasText(ctx, projectLabel, 620), rightEdge, 555);
+    const dateLabel = report.generated_at ? new Date(report.generated_at).toLocaleDateString("he-IL") : "";
+    ctx.font = "400 15px Arial, sans-serif";
+    ctx.direction = "ltr";
+    ctx.fillText(dateLabel, rightEdge, 580);
+
+    ctx.direction = "ltr";
+    ctx.textAlign = "left";
+    ctx.font = "600 18px Arial, sans-serif";
+    ctx.fillStyle = tone;
+    ctx.fillText("anti-silo.vercel.app", 60, 570);
+
+    return canvas;
+  }
+
+  function downloadVerdictCard() {
+    if (!lastReport) return;
+    const canvas = buildVerdictCardCanvas(lastReport);
+    canvas.toBlob(function (blob) {
+      if (!blob) {
+        showError("לא ניתן היה ליצור את כרטיס השיתוף.");
+        return;
+      }
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "anti-silo-verdict-card.png";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(function () { URL.revokeObjectURL(link.href); }, 1000);
+    }, "image/png");
   }
 
   function buildClientReport(report) {
@@ -550,7 +698,7 @@
     .metrics{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid #dce5e1}.metrics div{padding:16px;border-left:1px solid #dce5e1}.metrics div:last-child{border:0}.metrics b{display:block;font-size:25px}
     .ledger{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.ledger div{padding:14px;background:#f4f7f5}.ledger span{display:block;color:#607068;font-size:12px}
     table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:9px;border:1px solid #dce5e1;text-align:right;vertical-align:top}th{background:#eef4f1}
-    .trust{margin-top:30px;padding:18px;border:1px solid #a9bbb3}.footer{margin-top:28px;color:#607068;font-size:11px}
+    .trust{margin-top:30px;padding:18px;border:1px solid #a9bbb3}.footer{margin-top:28px;color:#607068;font-size:11px}.footer a{color:inherit}
     @media(max-width:680px){main{width:100%;margin:0;padding:22px}.verdict{grid-template-columns:1fr}.metrics,.ledger{grid-template-columns:1fr 1fr}table{font-size:10px}}
     @media print{body{background:#fff}main{width:100%;margin:0;border:0;padding:0}h2{break-after:avoid}table{break-inside:auto}tr{break-inside:avoid}}
   </style>
@@ -584,7 +732,7 @@
     <h2>מרשם סיכונים</h2>
     <table><thead><tr><th>מזהה</th><th>חומרה</th><th>קובץ</th><th>ממצא</th><th>המלצה</th></tr></thead><tbody>${riskRows}</tbody></table>
     <div class="trust"><b>גבול האמון</b><p>${escapeHtml(report.trust_boundary || "")}</p></div>
-    <p class="footer">נוצר ב-${escapeHtml(generatedAt)}. הדוח הופק מאותו מנוע דטרמיניסטי שמציג את התוצאה במסך. Anti-Silo אינו מאמת נכונות עובדתית.</p>
+    <p class="footer">נוצר ב-${escapeHtml(generatedAt)}. הדוח הופק מאותו מנוע דטרמיניסטי שמציג את התוצאה במסך. Anti-Silo אינו מאמת נכונות עובדתית.<br>נוצר עם <a href="https://anti-silo.vercel.app" target="_blank" rel="noopener">Anti-Silo</a> — בדיקת מוכנות מקורות ל-RAG.</p>
   </main>
 </body>
 </html>`;
@@ -627,6 +775,10 @@
   demoButton.addEventListener("click", runDemo);
   document.getElementById("download-client-report").addEventListener("click", downloadClientReport);
   document.getElementById("copy-summary").addEventListener("click", copySummary);
+  document.getElementById("save-verdict-card").addEventListener("click", downloadVerdictCard);
+  document.getElementById("copy-accomplishment").addEventListener("click", copyAccomplishment);
+  document.getElementById("go-save-card").addEventListener("click", downloadVerdictCard);
+  document.getElementById("go-copy-accomplishment").addEventListener("click", copyAccomplishment);
   document.getElementById("download-report").addEventListener("click", downloadReport);
   document.getElementById("download-risks").addEventListener("click", downloadRisks);
   document.getElementById("new-scan").addEventListener("click", resetScan);
