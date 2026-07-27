@@ -195,6 +195,20 @@ def _extract_pdf(path: Path) -> ExtractionResult:
         return ExtractionResult("", "failed", f"PDF could not be read (corrupt, encrypted, or scanned without OCR): {exc}")
     if page_count > MAX_PDF_PAGES:
         truncated = True
+    # pypdf returns "" for an image-only page instead of raising, so the except
+    # branch above — whose message already names "scanned without OCR" — never
+    # fires on the single most common real input a consultant receives. Measured:
+    # three image-only contract scans all reported `complete`, 0 characters,
+    # `extraction_failed: 0`, `intake_coverage_pct: 100`. The one thing this
+    # product exists to say is "your RAG cannot read this", and on scanned
+    # contracts it said the opposite.
+    if not budget.text().strip():
+        return ExtractionResult(
+            "",
+            "failed",
+            f"PDF parsed but contains no extractable text across {page_count} page(s) — "
+            "almost certainly an image-only scan that needs OCR before ingestion.",
+        )
     return ExtractionResult(
         budget.text(),
         "truncated" if truncated else "complete",

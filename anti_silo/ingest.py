@@ -36,9 +36,22 @@ def _sha256(path: Path) -> str:
 
 
 def _safe_name(rel_path: Path) -> str:
+    """A staged filename that is unique per source path, including non-ASCII.
+
+    The ASCII squeeze alone silently destroyed the analysis on the product's own
+    primary market. Every Hebrew name reduced to an empty stem and became
+    `source.md`, with no collision check on the write below, so each file
+    overwrote the last. Measured: a 10-file Hebrew corpus produced ONE row, a
+    score of 4/100, and a client-facing report claiming zero extraction failures
+    while nine documents were gone without a trace. Same for CJK and Cyrillic.
+
+    The path digest makes the name unique and stable — the same source path
+    always yields the same staged name, so the determinism guarantee holds.
+    """
     stem = "__".join(rel_path.with_suffix("").parts)
     stem = re.sub(r"[^A-Za-z0-9._-]+", "_", stem).strip("._-")
-    return f"{stem or 'source'}.md"
+    digest = hashlib.sha256(rel_path.as_posix().encode("utf-8")).hexdigest()[:10]
+    return f"{stem or 'source'}__{digest}.md"
 
 
 def _excluded(rel_path: Path, config: dict[str, Any]) -> bool:
