@@ -175,9 +175,29 @@ prototype of this screen live in [`docs/design/`](docs/design/UI_DESIGN.md).
 | `CONDITIONAL GO` | The corpus can proceed after named review, provenance, or cleanup actions. |
 | `STOP` | At least one blocking source, provenance, contradiction, or extraction issue must be resolved before ingestion. |
 | `NO DATA` | The folder is empty or every file was excluded — there is no corpus to assess. Not a positive result. |
+| `GO — hygiene only` | Extraction and duplication are clean, but every source marker in scope was written inside the scanned folder. Hygiene passed; provenance was never opined on. |
 
 The verdict is deterministic and policy-based. It is not a probabilistic
 confidence score.
+
+### Disclaimer of Opinion
+
+Audit practice separates an *adverse* opinion ("the provenance is bad") from a
+*disclaimer* ("I cannot form one"). They are not interchangeable, and Anti-Silo
+issues both.
+
+Extraction failure is fully decidable from the bytes, so it gets a full opinion.
+Contradicting drafts get an opinion on *detection* only — the tool states that
+two versions conflict, never which one is current. Provenance gets a **formal
+disclaimer** whenever every `trust_origin` in scope is `self_declared`: a corpus
+that vouches for itself gives the tool no independent footing, and a score
+computed from it would be an opinion the evidence cannot support.
+
+When provenance is disclaimed the grounding permit **cannot be fully granted** —
+not because the evidence fell short of the bar, but because nothing here can say
+it cleared it. Measured before this rule existed, a fabricated, wholly
+self-referential corpus was granted `locate` outright while carrying
+`self_declared` on every row. The same corpus now returns `conditional → none`.
 
 ### Readiness Score Method
 
@@ -555,6 +575,12 @@ checks; it does not replace the local privacy boundary or full Desktop workflow.
 
 This repository contains the portable product layer only. Do not commit private
 client folders, CRM exports, credentials, or sensitive source material.
+
+For the commercial picture — evidence status, roadmap gates, business model,
+competitive landscape, and what buyers pay today for products making a similar
+claim — see [docs/INVESTOR_BRIEF.md](docs/INVESTOR_BRIEF.md). It states the
+position plainly, including zero customers and a pre-registered test that has
+not been run.
 
 ## License
 
