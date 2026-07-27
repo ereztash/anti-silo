@@ -10,6 +10,7 @@ from typing import Any
 
 from .config import is_within_root
 from .ingest_extract import extract_text
+from .near_duplicate import content_sketch, figure_fingerprint
 
 
 GENERATED_BY = "anti-silo ingest"
@@ -157,6 +158,11 @@ def write_ingest(
                 "extraction_status": extraction.status,
                 "extraction_note": extraction.note,
                 "linked_source": linked_source.name if linked_digest and linked_source else "",
+                # Computed here because the extracted text is already in hand;
+                # recomputing it later would mean extracting every file twice.
+                # Bounded and metadata-only: hashes of word 5-grams, never text.
+                "content_sketch": content_sketch(extracted),
+                "figures": figure_fingerprint(extracted),
             }
         )
 

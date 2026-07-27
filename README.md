@@ -228,6 +228,10 @@ Each completed Preflight can export:
 - empty files
 - failed or partial extraction
 - exact duplicate content using SHA-256
+- **near-duplicate documents** — reworded drafts of the same document, which
+  hashing cannot see (see below)
+- **near-duplicates that contradict each other** — the same document in several
+  versions quoting different figures
 - missing source anchors
 - synthesis documents without a source spine
 - graph-only or weakly supported claims
@@ -237,6 +241,37 @@ Each completed Preflight can export:
 
 Anti-Silo can also generate strict grounding allowlists and source-spine repair
 templates for structured knowledge vaults.
+
+## Near-Duplicates and Contradicting Drafts
+
+Byte-identical duplicates are the *rare* case in a real client folder. People
+do not copy files, they save `sow.md`, `sow-v2.md`, `sow-FINAL.md` — three
+near-identical documents quoting three different prices. SHA-256 sees three
+unrelated files. The retriever sees three strong matches and cannot tell which
+one is current, so the model may ground on a superseded draft and state an
+obsolete number with full confidence.
+
+Anti-Silo compares documents by overlap of word 3-grams (a bottom-k shingle
+sketch) and separates two cases:
+
+| Finding | Severity | Meaning |
+|---|---|---|
+| `near_duplicate` | cleanup | Overlapping versions that agree. They inflate the index and crowd out other sources in retrieval. |
+| `near_duplicate_conflict` | review | Overlapping versions that **disagree on their figures**. The report names the conflicting values. |
+
+The method is deterministic and model-free, like the rest of the engine: the
+same bytes produce the same score on any machine, and the score is explainable
+to a client as "these documents share ~94% of their phrasing".
+
+**Calibration and limits.** The threshold (`near_duplicate_threshold`, default
+`0.72`) was set by measurement, not intuition. Against the realistic
+false-positive case — two *different* engagements written on one template —
+a true near-duplicate scores `0.96` and the template pair `0.46` on long
+documents. On short documents the same pair scores `0.82` versus `0.62`: still
+separable, but a narrower margin, because a handful of shingles means a single
+edit moves the score a lot. Short documents are therefore the weaker signal
+here, which is why a near-duplicate on its own is only `cleanup`, and
+disagreeing figures are what raise it to `review`.
 
 ## The Grounding Firewall
 

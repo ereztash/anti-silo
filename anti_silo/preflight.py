@@ -5,25 +5,9 @@ from pathlib import Path
 from typing import Any
 
 from .config import is_within_root
-
-
-# Why each issue matters for a RAG build, in a consultant's words. Keyed by the
-# corpus-diagnostic `kind` and by the triangulation `category`, so both the Web
-# and Desktop surfaces render the same explanation from this one source.
-RAG_IMPACT = {
-    # corpus diagnostics
-    "unsupported_format": "הקובץ לא ייכנס ל-RAG כלל — הידע שבו יהיה שקוף למנוע האחזור.",
-    "empty_file": "קובץ ריק תורם רעש בלי ידע ועלול לדלל את תוצאות האחזור.",
-    "extraction_failed": "התוכן חסר — הקובץ יהיה שקוף ל-RAG, אובדן מידע שהלקוח מצפה שיהיה זמין.",
-    "extraction_truncated": "רק חלק מהתוכן נכלל — המנוע יאחזר ידע חלקי ועלול לענות על סמך קטע חסר.",
-    "exact_duplicate": "אותו תוכן נספר כמה פעמים — מטה את ה-retrieval, העותק הכפול מקבל משקל-יתר בתוצאות.",
-    # triangulation categories
-    "contradiction": "חסם-אמון — הסתמכות עליו עלולה להזין את ה-RAG במידע שנמצא סותר או מופרך.",
-    "unsupported": "אין מקור ראשוני — ה-LLM עלול להציג טענה לא-מבוססת כעובדה (סכנת הזיה).",
-    "indexed": "נקלט בלי אימות מקור — אין דרך לוודא שהאחזור נשען על מקור אמין.",
-    "synthesis": "סיכום ללא רשימת-מקורות — ה-LLM עלול להתייחס לפרשנות כאל עובדה (סכנת הזיה).",
-    "backed": "יש מקור אך אין חיזוק עצמאי — הסתמכות מלאה מוקדמת מדי לפני אימות נוסף.",
-}
+from .near_duplicate import DEFAULT_THRESHOLD as NEAR_DUPLICATE_THRESHOLD
+from .near_duplicate import build_issues as build_near_duplicate_issues
+from .rag_impact import RAG_IMPACT
 
 
 def _excluded(rel_path: Path, config: dict[str, Any]) -> bool:
@@ -140,6 +124,15 @@ def build_corpus_diagnostics(
             }
         )
 
+    # Hash equality only finds byte-identical copies; reworded drafts of one
+    # document are the common case and are invisible to it.
+    near_issues = build_near_duplicate_issues(
+        ingest_rows,
+        float(config.get("near_duplicate_threshold", NEAR_DUPLICATE_THRESHOLD)),
+        {name for group in duplicate_groups for name in group},
+    )
+    issues.extend(near_issues)
+
     for issue in issues:
         issue["impact"] = RAG_IMPACT.get(str(issue.get("kind", "")), "")
 
@@ -150,6 +143,8 @@ def build_corpus_diagnostics(
         "extraction_truncated": sum(1 for issue in issues if issue["kind"] == "extraction_truncated"),
         "duplicate_groups": len(duplicate_groups),
         "duplicate_files": sum(len(group) - 1 for group in duplicate_groups),
+        "near_duplicate_groups": len(near_issues),
+        "near_duplicate_conflicts": sum(1 for i in near_issues if i["kind"] == "near_duplicate_conflict"),
     }
     return {
         "total_files": len(all_files),
