@@ -195,9 +195,18 @@ def _permit_decision(
     copy = _GRANTED_COPY.get(granted_authority, _GRANTED_COPY["none"])
     conditions = _upgrade_conditions(requested_authority, counts, diagnostics) if permission != "granted" else []
     if disclaimed:
+        # The earlier wording here told the operator to "add an independent
+        # source outside the scanned folder". That is structurally impossible:
+        # `is_within_root` refuses to read anything outside the scan root, by
+        # design, because following a junction out of the folder was a real leak.
+        # Following the README's tagging convention could not clear the
+        # disclaimer either — every marker written inside the corpus is
+        # self_declared, so the documented path had no exit. The one mechanism
+        # that works is the repair flow's attestation, and it was undocumented.
         conditions = [
-            "להוסיף מקור עצמאי אחד לפחות מחוץ לתיקייה שנסרקה — "
-            "בלעדיו Anti-Silo נמנע מחוות דעת על מקוריות, ולא יעניק הרשאה מלאה.",
+            "לצרף מקור עצמאי דרך זרימת-התיקון (לבחור את קובץ-המקור ידנית) — "
+            "בחירה של אדם היא הדבר היחיד שהכלי סופר כעדות שאינה של הקורפוס על עצמו. "
+            "סימון שנכתב בתוך התיקייה הנסרקת, מדויק ככל שיהיה, נשאר `self_declared`.",
             *conditions,
         ]
     return {

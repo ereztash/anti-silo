@@ -177,3 +177,36 @@ def test_hygiene_only_verdict_replaces_a_bare_go() -> None:
     # A STOP is already the strictest headline; the disclaimer must not soften it.
     stop = {"status": "stop", "label": "STOP", "title": "t", "summary": "s"}
     assert apply_to_verdict(stop, disclaimed)["status"] == "stop"
+
+
+def test_the_documented_tagging_convention_can_never_clear_the_disclaimer() -> None:
+    """Pins the trap, so the remedy text can never drift back to being wrong.
+
+    A marker written inside the scanned folder is the corpus speaking about
+    itself, however accurate. Following the README convention perfectly leaves
+    every row `self_declared`, so the opinion stays disclaimed and the permit
+    can never be fully granted. Only a human selecting the source — the repair
+    flow's `type: user_selected_source` — counts as outside testimony.
+
+    Measured before this was documented: full compliance scored 74 and still
+    returned `conditional -> locate`; an operator attestation returned
+    `granted -> draft_with_human_review`.
+    """
+    from anti_silo.model import OPERATOR_ATTESTED, SELF_DECLARED
+
+    perfectly_tagged = [{"trust_origin": SELF_DECLARED} for _ in range(4)]
+    provenance = evaluate_provenance_opinion(perfectly_tagged)
+    assert provenance["opinion"] == "disclaimed"
+
+    permit = evaluate_grounding_permit("draft", "client", "legal", {"ready": 4}, _diag(), provenance)
+    assert permit["permission"] != "granted"
+
+    # The remedy must name the mechanism that exists. It once told the operator to
+    # add a source "outside the scanned folder" — which `is_within_root` refuses
+    # to read, by design, so the instruction could not be followed at all.
+    remedy = " ".join(permit["upgrade_conditions"])
+    assert "מחוץ לתיקייה שנסרקה" not in remedy
+    assert "זרימת-התיקון" in remedy
+
+    attested = evaluate_provenance_opinion([{"trust_origin": OPERATOR_ATTESTED}])
+    assert attested["opinion"] == "expressed"
