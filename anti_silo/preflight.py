@@ -8,6 +8,7 @@ from .config import is_within_root
 from .near_duplicate import DEFAULT_THRESHOLD as NEAR_DUPLICATE_THRESHOLD
 from .near_duplicate import build_issues as build_near_duplicate_issues
 from .rag_impact import RAG_IMPACT
+from .remediation_order import aggregate_unanchored, sort_queue
 
 
 def _excluded(rel_path: Path, config: dict[str, Any]) -> bool:
@@ -213,11 +214,16 @@ def build_remediation(rows: list[dict[str, Any]], diagnostics: dict[str, Any]) -
         "synthesis": "review",
         "backed": "review",
     }
+    # Match on the file alone, not (file, severity). A file already reported by a
+    # diagnostic does not need a second, weaker row: an empty placeholder was
+    # listed once as `empty_file` (block) and again as `indexed` (review) — one
+    # problem, shown twice.
+    seen_files = {file_name for file_name, _ in seen}
     for row in rows:
         category = str(row.get("category", "ready"))
         severity = category_severity.get(category)
         file_name = str(row.get("file", ""))
-        if not severity or (file_name, severity) in seen:
+        if not severity or file_name in seen_files:
             continue
         queue.append(
             {
@@ -230,4 +236,4 @@ def build_remediation(rows: list[dict[str, Any]], diagnostics: dict[str, Any]) -
                 "impact": RAG_IMPACT.get(category, ""),
             }
         )
-    return sorted(queue, key=lambda row: (int(row["priority"]), str(row["file"]).casefold()))
+    return sort_queue(aggregate_unanchored(queue))
