@@ -3,6 +3,8 @@ from __future__ import annotations
 import math
 from typing import Any
 
+from .remediation_order import consequence
+
 
 _TIER_WEIGHTS = {
     "ready": 1.0,
@@ -110,13 +112,22 @@ def build_risk_register(remediation: list[dict[str, Any]]) -> list[dict[str, Any
     risks = []
     for index, row in enumerate(remediation, start=1):
         category = str(row.get("category", "source_policy"))
+        label = severity_labels.get(str(row.get("severity", "review")), "Medium")
+        # A silent, downstream consequence (a conflict that retrieval resolves the
+        # wrong way, with no visible symptom in the answer) is ranked first by
+        # consequence; its risk LABEL has to agree, or a reader scanning the
+        # severity column sees the top row marked Medium above two High blockers.
+        # Ingestion severity is left untouched - it drives the verdict, and a
+        # version conflict is not a reason to block ingestion outright.
+        if consequence(category) == 1 and label != "High":
+            label = "High"
         risks.append(
             {
                 "risk_id": f"R{index:03d}",
                 "category": _RISK_CATEGORIES.get(category, category.replace("_", " ").title()),
                 "file": str(row.get("file", "")),
                 "description": str(row.get("finding", "")),
-                "severity": severity_labels.get(str(row.get("severity", "review")), "Medium"),
+                "severity": label,
                 "recommendation": str(row.get("action", "")),
                 "impact": str(row.get("impact", "")),
             }

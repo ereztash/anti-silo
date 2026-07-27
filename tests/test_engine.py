@@ -778,3 +778,17 @@ def test_a_file_is_not_listed_twice_under_two_severities() -> None:
     diagnostics = {"issues": [{"kind": "empty_file", "severity": "block", "file": "p.txt", "finding": "", "action": ""}]}
     queue = build_remediation([{"file": "p.txt", "category": "indexed", "explanation": "", "action": ""}], diagnostics)
     assert [item["file"] for item in queue] == ["p.txt"]
+
+
+def test_risk_register_elevates_silent_conflict_above_loud_blockers() -> None:
+    """A version conflict is silent (retrieval picks one, the answer hides it),
+    so it ranks first by consequence - its risk LABEL must be High too, or the
+    top row reads Medium above two High blockers. Ingestion severity stays."""
+    from anti_silo.consultant import build_risk_register
+    remediation = [
+        {"category": "near_duplicate_conflict", "severity": "review", "file": "contract-FINAL.docx", "finding": "x", "action": "y"},
+        {"category": "empty_file", "severity": "block", "file": "empty.txt", "finding": "x", "action": "y"},
+    ]
+    by_file = {r["file"]: r for r in build_risk_register(remediation)}
+    assert by_file["contract-FINAL.docx"]["severity"] == "High"
+    assert by_file["empty.txt"]["severity"] == "High"
