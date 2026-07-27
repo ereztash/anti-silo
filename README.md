@@ -56,6 +56,14 @@ Anti-Silo is useful when you need to:
 - produce a repeatable handoff artifact for an implementation team
 - keep sensitive source material local
 
+**Economic buyer:** the consultant or agency principal who decides to adopt
+the tool. **Technical buyer:** today the same person — there is no separate
+technical evaluator yet; this splits out once a larger agency or an in-house
+AI/compliance team adopts it. **Daily user:** the consultant or delivery lead
+running a scan before every new client engagement. **Auditor:** the client's
+own compliance or legal reviewer, who receives the exported Audit Pack as the
+artifact of record — a report recipient today, not yet a logged-in user.
+
 ## Consultant Workflow
 
 1. Drag the client source folder onto the app (or pick it) — Preflight runs
@@ -210,6 +218,15 @@ tier against the configured `promotion_policy` and only marks tiers that
 clear it `promotion_allowed`; everything else stays `review_before_promotion`
 or blocked. The firewall is this pair together: a hash-verified identity, plus
 a policy gate that decided it was allowed to have one.
+
+## One Decision, Not Many Gates
+
+Triangulation, contradiction penalties, the evidence-upgrade queue, and the
+promotion gate are four separate checks — a consultant does not have time to
+read four reports before every client call. `pulse` runs all of them and
+compresses the result into a single top-level `decision`
+(`blocked` / `conditional` / a passing verdict), so Enforcement is a
+one-field answer, not an exercise in cross-referencing outputs by hand.
 
 ## Trust Boundary
 
