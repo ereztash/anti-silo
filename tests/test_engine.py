@@ -728,3 +728,53 @@ def test_local_telemetry_never_records_file_paths_or_titles(tmp_path) -> None:
     assert record["properties"] == {"files": 3}
     assert telemetry.has_event("first_scan_completed")
     assert telemetry.summary() == {"first_scan_completed": 1, "scan_completed": 2}
+
+
+def test_silent_conflict_outranks_loud_hygiene_in_the_remediation_queue() -> None:
+    """A contradiction must reach the reader before an empty file does.
+
+    Measured on a real legal intake folder: three drafts of one services
+    agreement with liability caps of $250,000 and $100,000 and terms of 24 and
+    18 months ranked 13th of 15, under ten boilerplate rows, while an empty
+    placeholder ranked first. Defensible for ingestion, wrong for the reader —
+    an extraction failure is loud and visible, a conflicting clause is silent
+    and gets cited with full confidence.
+    """
+    from anti_silo.preflight import build_remediation
+
+    diagnostics = {
+        "issues": [
+            {"kind": "empty_file", "severity": "block", "file": "placeholder.txt", "finding": "", "action": ""},
+            {"kind": "extraction_failed", "severity": "block", "file": "scan.pdf", "finding": "", "action": ""},
+            {"kind": "near_duplicate_conflict", "severity": "review", "file": "sow-FINAL.md", "finding": "", "action": ""},
+        ]
+    }
+    queue = build_remediation([], diagnostics)
+    assert queue[0]["category"] == "near_duplicate_conflict"
+    assert [item["category"] for item in queue[1:]] == ["extraction_failed", "empty_file"]
+
+
+def test_unanchored_files_collapse_into_one_finding() -> None:
+    """Ten files with no external source is one fact about the folder, not ten
+    findings — and a client's own fee schedule is the authority, not a risk."""
+    from anti_silo.preflight import build_remediation
+
+    rows = [{"file": f"doc{i}.md", "category": "indexed", "explanation": "", "action": ""} for i in range(8)]
+    queue = build_remediation(rows, {"issues": []})
+    assert len(queue) == 1
+    assert queue[0]["category"] == "corpus_unanchored"
+    assert len(queue[0]["related_files"]) == 8
+
+    # Below the threshold the per-file rows stay, where the list is still readable.
+    few = build_remediation(rows[:2], {"issues": []})
+    assert [item["category"] for item in few] == ["indexed", "indexed"]
+
+
+def test_a_file_is_not_listed_twice_under_two_severities() -> None:
+    """An empty placeholder was reported once as `empty_file` (block) and again
+    as `indexed` (review) — one problem shown twice."""
+    from anti_silo.preflight import build_remediation
+
+    diagnostics = {"issues": [{"kind": "empty_file", "severity": "block", "file": "p.txt", "finding": "", "action": ""}]}
+    queue = build_remediation([{"file": "p.txt", "category": "indexed", "explanation": "", "action": ""}], diagnostics)
+    assert [item["file"] for item in queue] == ["p.txt"]
