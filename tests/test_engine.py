@@ -6,7 +6,7 @@ from pathlib import Path
 
 import anti_silo
 from anti_silo.brain import BrainStore
-from anti_silo.config import load_config
+from anti_silo.config import is_within_root, load_config
 from anti_silo.contradiction import build_contradiction_penalties
 from anti_silo.evidence_queue import build_queue
 from anti_silo.eligible import build_eligible_sources, build_internal_grounding_candidates
@@ -92,6 +92,64 @@ def test_raw_source_registry_hash_can_anchor_claim(tmp_path) -> None:
     assert claim.source == "raw-source-pointer.md"
     assert claim.source_hash == raw_hash
     assert claim.reason == "claim + raw_source_hash"
+
+
+def test_is_within_root_rejects_path_outside_root(tmp_path) -> None:
+    root = tmp_path / "vault"
+    root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    outside_file = outside / "secret.txt"
+    outside_file.write_text("secret", encoding="utf-8")
+
+    assert is_within_root(root / "claim.md", root) is True
+    assert is_within_root(outside_file, root) is False
+
+
+def test_scan_claims_does_not_follow_symlink_outside_vault(tmp_path) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "real.md").write_text("claim: legitimate claim\n", encoding="utf-8")
+
+    outside = tmp_path / "outside_client"
+    outside.mkdir()
+    (outside / "secret.md").write_text("claim: another client's private data\n", encoding="utf-8")
+
+    link = vault / "linked"
+    try:
+        link.symlink_to(outside, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        import pytest
+
+        pytest.skip("symlink creation not permitted in this environment")
+
+    paths = [p.name for p in iter_markdown(vault, load_config())]
+    assert "real.md" in paths
+    claims = scan_claims(vault, load_config())
+    assert all("outside_client" not in claim.file and "linked" not in claim.file for claim in claims)
+
+
+def test_build_index_does_not_follow_symlink_outside_vault(tmp_path) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "real.md").write_text("source_of_truth: true\n", encoding="utf-8")
+
+    outside = tmp_path / "outside_client"
+    outside.mkdir()
+    (outside / "secret.md").write_text("source_of_truth: true\n", encoding="utf-8")
+
+    link = vault / "linked"
+    try:
+        link.symlink_to(outside, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        import pytest
+
+        pytest.skip("symlink creation not permitted in this environment")
+
+    rows = build_index(vault, load_config())
+    files = {row.file for row in rows}
+    assert "real.md" in files
+    assert all("outside_client" not in f and "linked" not in f for f in files)
 
 
 def test_iter_markdown_is_sorted(tmp_path) -> None:

@@ -4,6 +4,8 @@ import hashlib
 from pathlib import Path
 from typing import Any
 
+from .config import is_within_root
+
 
 # Why each issue matters for a RAG build, in a consultant's words. Keyed by the
 # corpus-diagnostic `kind` and by the triangulation `category`, so both the Web
@@ -42,6 +44,8 @@ def _all_files(source_root: Path, config: dict[str, Any]) -> list[Path]:
     files: list[Path] = []
     for path in source_root.rglob("*"):
         if not path.is_file() or path.name.startswith("~$"):
+            continue
+        if not is_within_root(path, source_root):
             continue
         if _excluded(path.relative_to(source_root), config):
             continue

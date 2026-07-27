@@ -5,7 +5,7 @@ from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Any, Iterable
 
-from .config import rel
+from .config import is_within_root, rel
 from .model import Claim
 
 
@@ -33,6 +33,8 @@ def iter_markdown(vault: Path, config: dict[str, Any]) -> Iterable[Path]:
     include_dirs = list(config.get("include_dirs", []))
     globs = list(config.get("claim_globs", ["**/*.md"]))
     for path in sorted(vault.rglob("*.md")):
+        if not is_within_root(path, vault):
+            continue
         rel_path = path.relative_to(vault)
         parts = set(rel_path.parts)
         if parts & excluded:
@@ -50,6 +52,8 @@ def iter_indexable_files(vault: Path, config: dict[str, Any]) -> Iterable[Path]:
     extensions = {ext.lower() for ext in config.get("index_extensions", [".md"])}
     for path in sorted(vault.rglob("*")):
         if not path.is_file():
+            continue
+        if not is_within_root(path, vault):
             continue
         rel_path = path.relative_to(vault)
         parts = set(rel_path.parts)
