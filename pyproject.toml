@@ -8,6 +8,8 @@ version = "0.5.0"
 description = "Portable trust-surface and triangulation engine for local knowledge graphs."
 readme = "README.md"
 requires-python = ">=3.11"
+license = {file = "LICENSE"}
+classifiers = ["License :: Other/Proprietary License"]
 dependencies = []
 
 [project.optional-dependencies]

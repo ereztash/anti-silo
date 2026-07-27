@@ -449,3 +449,10 @@ checks; it does not replace the local privacy boundary or full Desktop workflow.
 
 This repository contains the portable product layer only. Do not commit private
 client folders, CRM exports, credentials, or sensitive source material.
+
+## License
+
+Proprietary. All rights reserved — see [LICENSE](LICENSE). This repository is
+public for transparency and evaluation; it is not open source, and no license
+to use, copy, modify, or redistribute the Software is granted except by
+separate written agreement.
