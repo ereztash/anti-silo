@@ -344,6 +344,42 @@ def test_blocked_marker_still_honors_status_field(tmp_path) -> None:
     assert claim.tier == "refuted_or_blocked"
 
 
+def test_body_text_warning_is_invisible_by_default_field_mode(tmp_path) -> None:
+    # blocked_marker_mode="field" (the default) only checks recognized
+    # frontmatter fields - an explicit, severe warning written as plain body
+    # prose is not caught unless critical_safety_markers is configured for it.
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "claim.md").write_text(
+        "claim: this treatment is safe and effective\n"
+        "---\n"
+        "IMPORTANT UPDATE: This claim was REFUTED after publication. "
+        "PATIENTS DIED as a result of following this advice.\n",
+        encoding="utf-8",
+    )
+
+    rows = build_triangulation(vault, load_config())
+    claim = next(row for row in rows if row.file == "claim.md")
+    assert claim.tier != "refuted_or_blocked"
+
+
+def test_critical_safety_marker_catches_body_text_regardless_of_mode(tmp_path) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "claim.md").write_text(
+        "claim: this treatment is safe and effective\n"
+        "---\n"
+        "IMPORTANT UPDATE: This claim was REFUTED after publication. "
+        "PATIENTS DIED as a result of following this advice.\n",
+        encoding="utf-8",
+    )
+    config = {**load_config(), "critical_safety_markers": ["patients died"]}
+
+    rows = build_triangulation(vault, config)
+    claim = next(row for row in rows if row.file == "claim.md")
+    assert claim.tier == "refuted_or_blocked"
+
+
 def test_ingest_stages_source_documents_as_unverified_intake(tmp_path) -> None:
     source = tmp_path / "source"
     source.mkdir()

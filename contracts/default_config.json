@@ -75,6 +75,7 @@
   "blocked_marker_mode": "field",
   "blocked_marker_fields": ["status", "tier", "decision", "maturity", "promotion", "gate", "blocked", "refuted"],
   "blocked_line_prefixes": ["blocked:", "refuted:", "do not promote", "over_claimed"],
+  "critical_safety_markers": [],
   "corroboration_markers": ["corroborated", "field_validated", "methodological_review", "adversarial_review"],
   "ledger_markers": ["ledger", "corroboration ledger", "פנקס"],
   "promotion_policy": {

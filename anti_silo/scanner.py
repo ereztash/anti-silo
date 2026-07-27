@@ -84,6 +84,18 @@ def _has_any(blob: str, markers: list[str]) -> bool:
 
 
 def has_blocked_marker(text: str, meta: dict[str, str], config: dict[str, Any]) -> bool:
+    # Independent of blocked_marker_mode: a small, narrow set of
+    # severity-critical phrases (config: critical_safety_markers) is always
+    # checked against the full body text, not just recognized frontmatter
+    # fields. blocked_marker_mode="field" (the default) exists precisely so
+    # ordinary prose mentioning "refuted" or "blocked" in passing doesn't
+    # false-positive - but that means an explicit in-body safety warning
+    # ("REFUTED, PATIENTS DIED") was silently invisible to the blocked-marker
+    # system entirely. This list is meant to stay short and unambiguous.
+    critical_markers = [m.lower() for m in config.get("critical_safety_markers", [])]
+    if critical_markers and _has_any(text.lower(), critical_markers):
+        return True
+
     markers = [m.lower() for m in config.get("blocked_markers", [])]
     if not markers:
         return False

@@ -112,6 +112,7 @@
     .verdict.blocked .vchip { background:color-mix(in srgb, var(--bad) 11%, var(--surface)); border:1px solid color-mix(in srgb, var(--bad) 45%, var(--surface)); }
     .verdict.needs .vchip { background:color-mix(in srgb, var(--warn) 13%, var(--surface)); border:1px solid color-mix(in srgb, var(--warn) 55%, var(--surface)); }
     .verdict.ready .vchip { background:color-mix(in srgb, var(--ok) 11%, var(--surface)); border:1px solid color-mix(in srgb, var(--ok) 45%, var(--surface)); }
+    .verdict.no-data .vchip { background:color-mix(in srgb, var(--muted) 14%, var(--surface)); border:1px solid color-mix(in srgb, var(--muted) 45%, var(--surface)); }
     .verdict h2 { margin:12px 0 0; font-size:16px; font-weight:600; }
     .verdict .vsub { margin-top:6px; font-size:13.5px; }
     .executive-summary { margin-top:10px; font-size:13px; color:var(--ink2); }
@@ -132,6 +133,7 @@
     .verdict.blocked { --meter-fill:var(--bad); --meter-track:color-mix(in srgb, var(--bad) 15%, var(--surface)); }
     .verdict.needs { --meter-fill:var(--warn); --meter-track:color-mix(in srgb, var(--warn) 18%, var(--surface)); }
     .verdict.ready { --meter-fill:var(--ok); --meter-track:color-mix(in srgb, var(--ok) 15%, var(--surface)); }
+    .verdict.no-data { --meter-fill:var(--muted); --meter-track:color-mix(in srgb, var(--muted) 15%, var(--surface)); }
     .ledger-toggle { margin-top:12px; }
     .ledger-toggle summary { cursor:pointer; color:var(--accent); font-size:12.5px; list-style:none; }
     .ledger-toggle summary::before { content:"◂ "; font-size:10px; }

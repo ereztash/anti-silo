@@ -161,6 +161,13 @@ def build_corpus_diagnostics(
 
 
 def build_verdict(counts: dict[str, int], diagnostics: dict[str, Any]) -> dict[str, str]:
+    if int(diagnostics.get("total_files", 0)) == 0:
+        return {
+            "status": "no_corpus",
+            "label": "NO DATA",
+            "title": "לא נמצאו קבצים להערכה",
+            "summary": "התיקייה ריקה או כל הקבצים הוחרגו — אין קורפוס להעריך, וזה אינו תוצאה חיובית.",
+        }
     review = sum(int(counts.get(key, 0)) for key in ("backed", "indexed", "synthesis"))
     blocked = int(counts.get("unsupported", 0)) + int(counts.get("contradiction", 0))
     diagnostic_blocks = sum(1 for issue in diagnostics.get("issues", []) if issue.get("severity") == "block")
