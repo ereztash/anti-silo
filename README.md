@@ -2,11 +2,25 @@
 
 **Local pre-flight source audits for consultants and agencies building client RAG systems.**
 
-Anti-Silo inspects a client source folder before ingestion. It identifies
-provenance gaps, extraction failures, unsupported formats, duplicate content,
-and sources that should not enter grounding under the configured policy. The
-result is a deterministic `GO`, `CONDITIONAL GO`, or `STOP` decision, an
-explainable Readiness Score, and a client-ready Audit Pack.
+Anti-Silo inspects a client source folder before ingestion and produces a
+deterministic `GO`, `CONDITIONAL GO`, or `STOP` decision, a Readiness Score,
+and a client-ready Audit Pack. It does two genuinely different things, and
+reading the score correctly means not conflating them:
+
+1. **Corpus hygiene** — finds problems that make *any* folder worse for RAG,
+   regardless of content: failed or partial extraction, duplicate files,
+   unsupported formats, empty files. This needs no special conventions and
+   works the same on any real folder you point it at.
+2. **Provenance-discipline enforcement** — checks whether claims carry a
+   source anchor, corroboration, and (optionally) a hash link back to a real,
+   independently verifiable source. This is where the top of the score range
+   lives, and it rewards a *tagging convention* your team adopts
+   (`source_of_truth:`, `raw_source_hash:`, etc.) — an ordinary client folder
+   that has never used one will score in a narrow, low band regardless of how
+   good its content actually is. **A low score there means "this folder
+   hasn't adopted structured provenance tagging," not "this content is
+   bad."** Read [Readiness Score Method](#readiness-score-method) before
+   presenting a score as a judgment on a client's content.
 
 The Desktop app keeps all processing on the local machine. The optional hosted
 Web Beta processes only the files selected by the user in a temporary Vercel
@@ -50,7 +64,10 @@ or implementation.
 
 Anti-Silo is useful when you need to:
 
-- assess whether a client corpus is ready for ingestion
+- catch corpus-hygiene problems (duplicates, failed extraction, unsupported
+  formats) before they enter a RAG pipeline, on any client folder
+- see whether a corpus has adopted verifiable provenance tagging, and enforce
+  that discipline once it has
 - scope cleanup work before committing to a delivery plan
 - explain exclusions and remediation requirements to a client
 - produce a repeatable handoff artifact for an implementation team
@@ -154,6 +171,7 @@ prototype of this screen live in [`docs/design/`](docs/design/UI_DESIGN.md).
 | `GO` | No source-policy or extraction blockers were found under the active policy. |
 | `CONDITIONAL GO` | The corpus can proceed after named review, provenance, or cleanup actions. |
 | `STOP` | At least one blocking source, provenance, contradiction, or extraction issue must be resolved before ingestion. |
+| `NO DATA` | The folder is empty or every file was excluded — there is no corpus to assess. Not a positive result. |
 
 The verdict is deterministic and policy-based. It is not a probabilistic
 confidence score.
@@ -173,6 +191,20 @@ The `0-100` score is intentionally explainable:
 The weighted total is divided by all files in scope, including unsupported
 files. The report exposes the components and methodology used for every score.
 This is a corpus-readiness indicator, not a factual-quality score.
+
+**A folder that has never adopted `source_of_truth:`/`raw_source_hash:`
+tagging cannot score above 40 per file**, because every file in it lands in
+`indexed_unverified` — there is no path to `triangulated` (100) or
+`source_backed` (75) without an explicit source anchor. Concretely: a small,
+well-written, entirely legitimate business folder (a handbook, meeting notes,
+a pricing sheet, a proposal) with no tagging convention scores **~40,
+`CONDITIONAL GO`, 0% grounding-eligible** — the same band a genuinely messy
+folder would land in. That is not this tool failing to notice the folder is
+fine; it is this tool measuring something else entirely (whether provenance
+is *machine-verifiable*), which a normal client folder was never going to
+have. Reserve top-of-scale readings for corpora that have adopted the tagging
+convention; for everything else, read the score as "has this adopted
+structured provenance" rather than "is this good."
 
 ## What the Audit Pack Contains
 
@@ -244,6 +276,18 @@ It does **not** prove:
 
 **Grounding eligible is not the same as true, useful, adopted, or commercially
 validated.**
+
+By default, blocked-claim detection (`blocked_marker_mode: field`) only
+checks recognized frontmatter fields, not free body text — this is
+deliberate, to avoid false-positiving on prose that merely *discusses* a
+refuted claim. The practical consequence: an explicit, severe warning written
+as plain prose ("this was refuted after publication; people were harmed") is
+not caught by default. `critical_safety_markers` in the config (empty by
+default) is a narrow, additive exception — phrases listed there are always
+checked against full body text regardless of mode. It ships empty because
+there is no universal list of "dangerous phrases" across arbitrary document
+domains that would respect your content the way a domain-specific list you
+choose would; populate it for your own content type if you need this net.
 
 ## Install and Run
 

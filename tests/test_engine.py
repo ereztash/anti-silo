@@ -6,7 +6,7 @@ from pathlib import Path
 
 import anti_silo
 from anti_silo.brain import BrainStore
-from anti_silo.config import load_config
+from anti_silo.config import is_within_root, load_config
 from anti_silo.contradiction import build_contradiction_penalties
 from anti_silo.evidence_queue import build_queue
 from anti_silo.eligible import build_eligible_sources, build_internal_grounding_candidates
@@ -77,6 +77,10 @@ def test_raw_source_only_blocks_hash_to_derived_surface(tmp_path) -> None:
 
 
 def test_raw_source_registry_hash_can_anchor_claim(tmp_path) -> None:
+    # An unverified raw_source_hash (not backed by any real file's actually
+    # computed hash) still anchors the claim as source_backed - but is now
+    # honestly labeled unverified, and is capped below `triangulated` even
+    # with corroboration (see test_unverified_raw_source_hash_is_capped_below_triangulated).
     vault = tmp_path / "vault"
     vault.mkdir()
     raw_hash = "a" * 64
@@ -91,7 +95,111 @@ def test_raw_source_registry_hash_can_anchor_claim(tmp_path) -> None:
     assert claim.tier == "source_backed"
     assert claim.source == "raw-source-pointer.md"
     assert claim.source_hash == raw_hash
+    assert claim.reason == "claim + unverified_raw_source_hash"
+
+
+def test_unverified_raw_source_hash_is_capped_below_triangulated(tmp_path) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    fake_hash = "b" * 64
+    (vault / "raw-source-pointer.md").write_text(
+        f"source_of_truth: true\nraw_source_hash: {fake_hash}\nsource_anchor: BZ/source-002\n",
+        encoding="utf-8",
+    )
+    # has_corroboration would normally be enough for `triangulated` once a
+    # source is found - it must not be, when that source is an unverified hash.
+    (vault / "claim.md").write_text(
+        f"claim: local claim\nsource_hash: {fake_hash}\ncorroborated: true\n", encoding="utf-8"
+    )
+
+    rows = build_triangulation(vault, load_config())
+    claim = next(row for row in rows if row.file == "claim.md")
+    assert claim.tier != "triangulated"
+    assert claim.tier == "source_backed"
+    assert claim.reason == "claim + unverified_raw_source_hash"
+
+
+def test_raw_source_hash_matching_real_file_content_is_verified(tmp_path) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    # The raw source is a real file actually present in the corpus - its
+    # content_hash is genuinely computed by sha256_file, not self-declared.
+    raw_source = vault / "raw-external-doc.md"
+    raw_source.write_text("This is the real external source document.\n", encoding="utf-8")
+    import hashlib
+
+    real_hash = hashlib.sha256(raw_source.read_bytes()).hexdigest()
+
+    pointer = vault / "raw-source-pointer.md"
+    pointer.write_text(
+        f"source_of_truth: true\nraw_source_hash: {real_hash}\nsource_anchor: BZ/source-003\n",
+        encoding="utf-8",
+    )
+    (vault / "claim.md").write_text(f"claim: local claim\nsource_hash: {real_hash}\n", encoding="utf-8")
+
+    rows = build_triangulation(vault, load_config())
+    claim = next(row for row in rows if row.file == "claim.md")
+    assert claim.tier == "source_backed"
+    assert claim.source == "raw-source-pointer.md"
     assert claim.reason == "claim + raw_source_hash"
+
+
+def test_is_within_root_rejects_path_outside_root(tmp_path) -> None:
+    root = tmp_path / "vault"
+    root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    outside_file = outside / "secret.txt"
+    outside_file.write_text("secret", encoding="utf-8")
+
+    assert is_within_root(root / "claim.md", root) is True
+    assert is_within_root(outside_file, root) is False
+
+
+def test_scan_claims_does_not_follow_symlink_outside_vault(tmp_path) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "real.md").write_text("claim: legitimate claim\n", encoding="utf-8")
+
+    outside = tmp_path / "outside_client"
+    outside.mkdir()
+    (outside / "secret.md").write_text("claim: another client's private data\n", encoding="utf-8")
+
+    link = vault / "linked"
+    try:
+        link.symlink_to(outside, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        import pytest
+
+        pytest.skip("symlink creation not permitted in this environment")
+
+    paths = [p.name for p in iter_markdown(vault, load_config())]
+    assert "real.md" in paths
+    claims = scan_claims(vault, load_config())
+    assert all("outside_client" not in claim.file and "linked" not in claim.file for claim in claims)
+
+
+def test_build_index_does_not_follow_symlink_outside_vault(tmp_path) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "real.md").write_text("source_of_truth: true\n", encoding="utf-8")
+
+    outside = tmp_path / "outside_client"
+    outside.mkdir()
+    (outside / "secret.md").write_text("source_of_truth: true\n", encoding="utf-8")
+
+    link = vault / "linked"
+    try:
+        link.symlink_to(outside, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        import pytest
+
+        pytest.skip("symlink creation not permitted in this environment")
+
+    rows = build_index(vault, load_config())
+    files = {row.file for row in rows}
+    assert "real.md" in files
+    assert all("outside_client" not in f and "linked" not in f for f in files)
 
 
 def test_iter_markdown_is_sorted(tmp_path) -> None:
@@ -232,6 +340,42 @@ def test_blocked_marker_still_honors_status_field(tmp_path) -> None:
     (vault / "claim.md").write_text("claim: local claim\nstatus: refuted\n", encoding="utf-8")
 
     rows = build_triangulation(vault, load_config())
+    claim = next(row for row in rows if row.file == "claim.md")
+    assert claim.tier == "refuted_or_blocked"
+
+
+def test_body_text_warning_is_invisible_by_default_field_mode(tmp_path) -> None:
+    # blocked_marker_mode="field" (the default) only checks recognized
+    # frontmatter fields - an explicit, severe warning written as plain body
+    # prose is not caught unless critical_safety_markers is configured for it.
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "claim.md").write_text(
+        "claim: this treatment is safe and effective\n"
+        "---\n"
+        "IMPORTANT UPDATE: This claim was REFUTED after publication. "
+        "PATIENTS DIED as a result of following this advice.\n",
+        encoding="utf-8",
+    )
+
+    rows = build_triangulation(vault, load_config())
+    claim = next(row for row in rows if row.file == "claim.md")
+    assert claim.tier != "refuted_or_blocked"
+
+
+def test_critical_safety_marker_catches_body_text_regardless_of_mode(tmp_path) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "claim.md").write_text(
+        "claim: this treatment is safe and effective\n"
+        "---\n"
+        "IMPORTANT UPDATE: This claim was REFUTED after publication. "
+        "PATIENTS DIED as a result of following this advice.\n",
+        encoding="utf-8",
+    )
+    config = {**load_config(), "critical_safety_markers": ["patients died"]}
+
+    rows = build_triangulation(vault, config)
     claim = next(row for row in rows if row.file == "claim.md")
     assert claim.tier == "refuted_or_blocked"
 

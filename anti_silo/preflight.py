@@ -4,6 +4,8 @@ import hashlib
 from pathlib import Path
 from typing import Any
 
+from .config import is_within_root
+
 
 # Why each issue matters for a RAG build, in a consultant's words. Keyed by the
 # corpus-diagnostic `kind` and by the triangulation `category`, so both the Web
@@ -42,6 +44,8 @@ def _all_files(source_root: Path, config: dict[str, Any]) -> list[Path]:
     files: list[Path] = []
     for path in source_root.rglob("*"):
         if not path.is_file() or path.name.startswith("~$"):
+            continue
+        if not is_within_root(path, source_root):
             continue
         if _excluded(path.relative_to(source_root), config):
             continue
@@ -157,6 +161,13 @@ def build_corpus_diagnostics(
 
 
 def build_verdict(counts: dict[str, int], diagnostics: dict[str, Any]) -> dict[str, str]:
+    if int(diagnostics.get("total_files", 0)) == 0:
+        return {
+            "status": "no_corpus",
+            "label": "NO DATA",
+            "title": "לא נמצאו קבצים להערכה",
+            "summary": "התיקייה ריקה או כל הקבצים הוחרגו — אין קורפוס להעריך, וזה אינו תוצאה חיובית.",
+        }
     review = sum(int(counts.get(key, 0)) for key in ("backed", "indexed", "synthesis"))
     blocked = int(counts.get("unsupported", 0)) + int(counts.get("contradiction", 0))
     diagnostic_blocks = sum(1 for issue in diagnostics.get("issues", []) if issue.get("severity") == "block")

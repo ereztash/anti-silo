@@ -38,6 +38,17 @@ def test_corpus_diagnostics_finds_duplicates_and_unsupported_files(tmp_path) -> 
     assert "retrieval" in duplicate["impact"]
 
 
+def test_empty_folder_is_no_corpus_not_go(tmp_path) -> None:
+    source = tmp_path / "empty-client-corpus"
+    source.mkdir()
+
+    report = build_human_report(source, load_config())
+
+    assert report["files"] == 0
+    assert report["verdict"]["status"] == "no_corpus"
+    assert report["verdict"]["status"] != "go"
+
+
 def test_preflight_report_builds_client_pack_without_local_root_in_client_html(tmp_path) -> None:
     source = tmp_path / "client-corpus"
     source.mkdir()

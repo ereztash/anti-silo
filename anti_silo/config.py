@@ -40,3 +40,20 @@ def output_dir(vault: Path, config: dict[str, Any]) -> Path:
 
 def rel(vault: Path, path: Path) -> str:
     return path.relative_to(vault).as_posix()
+
+
+def is_within_root(path: Path, root: Path) -> bool:
+    """True if path's real, reparse-point-resolved location is still under root.
+
+    A symlink or Windows junction inside the scanned folder can point outside
+    it; Path.rglob descends into both without warning. Without this check,
+    ingest/index/preflight would silently pull in content (another client's
+    files, system files) from outside the folder the operator actually chose
+    to scan.
+    """
+    try:
+        resolved_root = root.resolve()
+        resolved_path = path.resolve()
+    except OSError:
+        return False
+    return resolved_path == resolved_root or resolved_root in resolved_path.parents

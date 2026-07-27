@@ -98,6 +98,7 @@ def render_report_html(report: dict[str, Any]) -> str:
     .eyebrow,.meta {{ color:var(--muted); font-weight:700; }} .meta {{ margin-top:8px; font-weight:400; }}
     .verdict {{ border-right:6px solid var(--warn); padding:18px; background:#fbfcfd; }}
     .verdict.go {{ border-right-color:var(--ok); }} .verdict.stop {{ border-right-color:var(--bad); }}
+    .verdict.no_corpus {{ border-right-color:var(--muted); }}
     .verdict strong {{ display:block; font-size:25px; margin:4px 0; }}
     .decision-grid {{ display:grid; grid-template-columns:180px 1fr; gap:16px; align-items:stretch; }}
     .score {{ border:1px solid var(--line); padding:18px; text-align:center; display:grid; place-content:center; }}

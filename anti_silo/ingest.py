@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .config import is_within_root
 from .ingest_extract import extract_text
 
 
@@ -68,6 +69,8 @@ def iter_source_files(source_root: Path, config: dict[str, Any]) -> list[Path]:
         return [source_root] if source_root.suffix.lower() in extensions and not source_root.name.startswith("~$") else []
     for path in source_root.rglob("*"):
         if not path.is_file() or path.name.startswith("~$"):
+            continue
+        if not is_within_root(path, source_root):
             continue
         rel_path = path.relative_to(source_root)
         if _excluded(rel_path, config):
