@@ -339,6 +339,33 @@ it cleared it. Measured before this rule existed, a fabricated, wholly
 self-referential corpus was granted `locate` outright while carrying
 `self_declared` on every row. The same corpus now returns `conditional → none`.
 
+#### How to clear a disclaimer — and why tagging alone never does
+
+**A marker you write inside the scanned folder cannot clear it.** Not
+`source_of_truth:`, not a `source_hash:` whose bytes genuinely verify, not
+`corroborated:`, not all three together. Every one of them is still the corpus
+speaking about itself, so every row stays `self_declared` and the opinion stays
+disclaimed. That is the rule working, not a bug — but it means the tagging
+convention alone has no exit, and this section exists because that was not
+written down anywhere.
+
+Measured on one corpus, tagged progressively:
+
+| what the folder carries | score | provenance | permit (draft / client / legal) |
+|---|---:|---|---|
+| nothing | 40 | disclaimed | `denied → none` |
+| a real source + verifying `source_hash:` | 54 | disclaimed | `conditional → locate` |
+| the above + `corroborated:` | 74 | **still disclaimed** | `conditional → locate` |
+| an **operator-attested** source | — | **expressed** | **`granted → draft_with_human_review`** |
+
+The one mechanism that clears it is a human pointing at the source: use the
+repair flow to select an independent file, which writes a pointer marked
+`type: user_selected_source`. Anti-Silo counts that as testimony from outside
+the corpus, because a person chose it — and counts nothing else.
+
+Tagging still matters: it is what moves the score, and it is what the permit
+reads for evidence tier. It simply is not the same question as who vouches.
+
 ### Readiness Score Method
 
 The `0-100` score is intentionally explainable:

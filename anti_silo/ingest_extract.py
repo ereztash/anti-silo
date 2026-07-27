@@ -86,12 +86,48 @@ def _extract_docx(path: Path) -> ExtractionResult:
         return ExtractionResult("", "failed", f"DOCX could not be read (corrupt or not a real .docx): {exc}")
     budget = Budget()
     truncated = False
-    for paragraph in document.paragraphs:
-        if not paragraph.text.strip():
-            continue
-        if not budget.add(paragraph.text):
+
+    def take(text: str) -> bool:
+        """False once the budget is spent, so every caller stops the same way."""
+        nonlocal truncated
+        if not text.strip():
+            return True
+        if not budget.add(text):
             truncated = True
+            return False
+        return True
+
+    # Paragraphs alone miss the shape most commercial documents actually use. A
+    # rate card, fee schedule or term sheet is a TABLE, and `document.paragraphs`
+    # never descends into one. Measured before this fix: two Word rate cards
+    # whose every day rate differed (6400/7100, 4900/5450, 4200/4700, 3100/3450,
+    # 2350/2600) each extracted to 39 characters - the heading - and were
+    # reported `complete`. The near-duplicate detector then compared two nearly
+    # empty strings, called them 100% identical, filed it `cleanup`, and advised
+    # deleting one. Reading nothing while reporting success is worse than failing
+    # to read: every other cap in this module truncates loudly, this path did not.
+    for paragraph in document.paragraphs:
+        if not take(paragraph.text):
             break
+    for table in document.tables if not truncated else []:
+        for row in table.rows:
+            seen: set[int] = set()  # merged cells repeat one object across a row
+            cells = [c for c in row.cells if id(c) not in seen and not seen.add(id(c))]
+            if not take(" | ".join(cell.text.strip() for cell in cells)):
+                break
+        if truncated:
+            break
+    # A contract's total value sits in the footer often enough to matter.
+    for section in document.sections if not truncated else []:
+        for container in (section.header, section.footer):
+            for paragraph in container.paragraphs:
+                if not take(paragraph.text):
+                    break
+            if truncated:
+                break
+        if truncated:
+            break
+
     return ExtractionResult(
         budget.text(),
         "truncated" if truncated else "complete",
@@ -159,6 +195,20 @@ def _extract_pdf(path: Path) -> ExtractionResult:
         return ExtractionResult("", "failed", f"PDF could not be read (corrupt, encrypted, or scanned without OCR): {exc}")
     if page_count > MAX_PDF_PAGES:
         truncated = True
+    # pypdf returns "" for an image-only page instead of raising, so the except
+    # branch above — whose message already names "scanned without OCR" — never
+    # fires on the single most common real input a consultant receives. Measured:
+    # three image-only contract scans all reported `complete`, 0 characters,
+    # `extraction_failed: 0`, `intake_coverage_pct: 100`. The one thing this
+    # product exists to say is "your RAG cannot read this", and on scanned
+    # contracts it said the opposite.
+    if not budget.text().strip():
+        return ExtractionResult(
+            "",
+            "failed",
+            f"PDF parsed but contains no extractable text across {page_count} page(s) — "
+            "almost certainly an image-only scan that needs OCR before ingestion.",
+        )
     return ExtractionResult(
         budget.text(),
         "truncated" if truncated else "complete",

@@ -43,8 +43,13 @@ _AUTHORITY_BASE_RANK = {"locate": 1, "draft": 2, "advise": 3, "decide": 3}
 _DOWNGRADE = {"decide": "advise", "advise": "draft_with_human_review", "draft": "locate", "locate": "none"}
 
 _GRANTED_COPY = {
+    # The `permitted` list here used to hold a *prohibition*, which the report
+    # then printed under the heading "מותר כרגע" — "currently permitted". A
+    # client reading the permitted section found "do not use this corpus to
+    # produce answers, recommendations or actions" listed as what they may do.
+    # An empty list is the honest content: nothing is permitted.
     "none": {
-        "permitted": ["אין להשתמש בקורפוס הזה להפקת תשובות, המלצות או פעולות."],
+        "permitted": [],
         "prohibited": ["חיפוש, ניסוח, המלצה, החלטה ופעולה — כולם חסומים עד לתיקון."],
     },
     "locate": {
@@ -195,9 +200,15 @@ def _permit_decision(
     copy = _GRANTED_COPY.get(granted_authority, _GRANTED_COPY["none"])
     conditions = _upgrade_conditions(requested_authority, counts, diagnostics) if permission != "granted" else []
     if disclaimed:
+        # This used to say "add an independent source outside the scanned
+        # folder" — impossible, since `is_within_root` refuses to read anything
+        # outside the scan root. Tagging inside the corpus cannot clear the
+        # disclaimer either, so the documented path had no exit at all. The
+        # repair flow's attestation is the one mechanism that works.
         conditions = [
-            "להוסיף מקור עצמאי אחד לפחות מחוץ לתיקייה שנסרקה — "
-            "בלעדיו Anti-Silo נמנע מחוות דעת על מקוריות, ולא יעניק הרשאה מלאה.",
+            "לצרף מקור עצמאי דרך זרימת-התיקון (לבחור את קובץ-המקור ידנית) — "
+            "בחירה של אדם היא הדבר היחיד שהכלי סופר כעדות שאינה של הקורפוס על עצמו. "
+            "סימון שנכתב בתוך התיקייה הנסרקת, מדויק ככל שיהיה, נשאר `self_declared`.",
             *conditions,
         ]
     return {

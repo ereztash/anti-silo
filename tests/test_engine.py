@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+
+import pytest
 import tomllib
 from pathlib import Path
 
@@ -12,6 +14,7 @@ from anti_silo.evidence_queue import build_queue
 from anti_silo.eligible import build_eligible_sources, build_internal_grounding_candidates
 from anti_silo.gui import HTML, build_human_report
 from anti_silo.ingest import write_ingest
+from anti_silo.ingest_extract import extract_text
 from anti_silo.index import build_index
 from anti_silo.pulse import write_pulse
 from anti_silo.promotion import build_enforcement
@@ -387,7 +390,10 @@ def test_ingest_stages_source_documents_as_unverified_intake(tmp_path) -> None:
     staged = tmp_path / "staged"
 
     payload = write_ingest(source, load_config(), staged)
-    staged_note = staged / "note.md"
+    # Resolved from the payload rather than hardcoded: staged names now carry a
+    # path digest, because every non-ASCII filename used to squeeze down to
+    # `source.md` and silently overwrite the file staged before it.
+    staged_note = staged / payload["rows"][0]["staged_file"]
     assert payload["files"] == 1
     assert staged_note.exists()
     text = staged_note.read_text(encoding="utf-8")
@@ -401,7 +407,7 @@ def test_ingest_stages_source_documents_as_unverified_intake(tmp_path) -> None:
     assert str(source) not in manifest_text
     assert '"source_folder_name": "source"' in manifest_text
     assert str(source) not in (staged / "SOURCE_INTAKE.md").read_text(encoding="utf-8")
-    row = next(row for row in build_triangulation(staged, load_config()) if row.file == "note.md")
+    row = next(row for row in build_triangulation(staged, load_config()) if row.file == staged_note.name)
     assert row.tier == "indexed_unverified"
 
 
@@ -778,3 +784,88 @@ def test_a_file_is_not_listed_twice_under_two_severities() -> None:
     diagnostics = {"issues": [{"kind": "empty_file", "severity": "block", "file": "p.txt", "finding": "", "action": ""}]}
     queue = build_remediation([{"file": "p.txt", "category": "indexed", "explanation": "", "action": ""}], diagnostics)
     assert [item["file"] for item in queue] == ["p.txt"]
+
+
+def test_a_hash_under_the_wrong_key_is_diagnosed_not_silently_failed() -> None:
+    """Annotating with the wrong key must not fail worse than not annotating.
+
+    Measured on three otherwise-identical corpora: no markers scores 40
+    (CONDITIONAL GO); `source_hash:` on the claim scores 71 with tier `ready`;
+    the same real hash of the same real file written as `raw_source_hash:` on
+    the claim scores 0, STOP, permit denied — because that key belongs on the
+    source side, not the claim side. Nothing in the output said so, and someone
+    who spent an hour tagging would conclude the tool was broken.
+
+    The tier stays honest — the linkage genuinely was not declared — but the
+    reason now names the one-field fix.
+    """
+    import hashlib
+
+    from anti_silo.model import Claim, Surface
+    from anti_silo.triangulation import _best_source
+
+    raw_text = "the underlying source document body"
+    real_hash = hashlib.sha256(raw_text.encode()).hexdigest()
+    source = Surface(
+        file="raw-source.md", surfaces=["source_truth_marker"], authority="source_of_truth",
+        can_anchor_claim=True, content_hash=real_hash, raw_source=True,
+    )
+    claim = Claim(file="policy.md", text="claim: x", metadata={"raw_source_hash": real_hash})
+
+    surface, reason = _best_source(claim, [source], {"raw_source_only": True})
+    assert surface is None, "the tier must not be silently upgraded from a guess"
+    assert reason == "misplaced_source_hash_use_source_hash_key"
+
+    # A hash that matches nothing real stays the generic miss — no false advice.
+    stray = Claim(file="policy.md", text="claim: x", metadata={"raw_source_hash": "b" * 64})
+    assert _best_source(stray, [source], {"raw_source_only": True})[1] != "misplaced_source_hash_use_source_hash_key"
+
+
+def test_non_ascii_filenames_do_not_collide_and_lose_documents(tmp_path: Path) -> None:
+    """The product's UI is Hebrew; Hebrew filenames used to delete the corpus.
+
+    `_safe_name` squeezed names to ASCII, so every Hebrew name became an empty
+    stem and then `source.md`, with no collision check on the write. Each file
+    overwrote the last. Measured on a 10-file Hebrew corpus: ONE row survived,
+    score 4/100, and the client-facing report claimed zero extraction failures
+    while nine documents were gone without a trace.
+    """
+    from anti_silo.ingest import write_ingest
+
+    source = tmp_path / "corpus"
+    source.mkdir()
+    names = ["חוזה התקשרות", "נוהל אבטחת מידע", "סיכום פגישה", "תמחור ותנאי תשלום", "日本語のファイル", "Договор"]
+    for index, name in enumerate(names):
+        (source / f"{name}.md").write_text(f"claim: document number {index} with distinct content\n" * 3, encoding="utf-8")
+
+    payload = write_ingest(source, load_config(), tmp_path / "staged")
+
+    assert payload["files"] == len(names)
+    staged_names = [row["staged_file"] for row in payload["rows"]]
+    assert len(set(staged_names)) == len(names), f"staged names collided: {sorted(staged_names)}"
+    for staged in staged_names:
+        assert (tmp_path / "staged" / staged).exists()
+
+    # Stable across runs, so the determinism guarantee survives the change.
+    again = write_ingest(source, load_config(), tmp_path / "staged2")
+    assert [row["staged_file"] for row in again["rows"]] == staged_names
+
+
+def test_a_pdf_with_no_text_layer_is_a_failure_not_a_success(tmp_path: Path) -> None:
+    """pypdf returns "" for image-only pages instead of raising, so a scanned
+    contract reported `complete` with zero characters and `intake_coverage_pct:
+    100`. Telling a consultant their RAG cannot read a file is the one thing
+    this product is for, and on scanned contracts it said the opposite.
+    """
+    pypdf = pytest.importorskip("pypdf")
+
+    writer = pypdf.PdfWriter()
+    writer.add_blank_page(width=200, height=200)
+    target = tmp_path / "scan.pdf"
+    with target.open("wb") as handle:
+        writer.write(handle)
+
+    result = extract_text(target)
+    assert result.status == "failed"
+    assert "no extractable text" in result.note
+    assert "OCR" in result.note
