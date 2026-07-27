@@ -12,6 +12,22 @@ The Desktop app keeps all processing on the local machine. The optional hosted
 Web Beta processes only the files selected by the user in a temporary Vercel
 Function and does not retain them in Anti-Silo storage.
 
+## Quick Start
+
+No install, no upload — see the verdict on sample data in one click:
+[run the no-upload demo](https://anti-silo.vercel.app/?demo=1).
+
+On your own folder:
+
+- **Desktop:** drag the client source folder onto the app. Preflight runs
+  immediately — no project setup required for a first read.
+- **Web Beta:** [open the hosted beta](https://anti-silo.vercel.app/), select
+  up to 150 files, and scan.
+- **CLI:** `python -m anti_silo.cli pulse --vault path/to/vault`
+
+Every path runs the same deterministic engine and produces the same `GO` /
+`CONDITIONAL GO` / `STOP` verdict.
+
 ## Why Anti-Silo
 
 A folder of documents is not automatically a RAG-ready corpus. Common problems
@@ -26,10 +42,11 @@ appear before chunking, embeddings, retrieval, or prompt design:
 
 Anti-Silo turns that ambiguous intake step into an auditable pre-flight gate.
 
-## Who It Is For
+## Who Pays and Who Uses It
 
-The initial user and buyer is an AI consultant, RAG delivery lead, or small
-agency that receives client documents before scoping or implementation.
+The initial buyer and user is the same person today: an AI consultant, RAG
+delivery lead, or small agency that receives client documents before scoping
+or implementation.
 
 Anti-Silo is useful when you need to:
 
@@ -38,6 +55,14 @@ Anti-Silo is useful when you need to:
 - explain exclusions and remediation requirements to a client
 - produce a repeatable handoff artifact for an implementation team
 - keep sensitive source material local
+
+**Economic buyer:** the consultant or agency principal who decides to adopt
+the tool. **Technical buyer:** today the same person — there is no separate
+technical evaluator yet; this splits out once a larger agency or an in-house
+AI/compliance team adopts it. **Daily user:** the consultant or delivery lead
+running a scan before every new client engagement. **Auditor:** the client's
+own compliance or legal reviewer, who receives the exported Audit Pack as the
+artifact of record — a report recipient today, not yet a logged-in user.
 
 ## Consultant Workflow
 
@@ -180,6 +205,28 @@ Each completed Preflight can export:
 
 Anti-Silo can also generate strict grounding allowlists and source-spine repair
 templates for structured knowledge vaults.
+
+## The Grounding Firewall
+
+`eligible_sources.csv` (the `eligible` CLI command) is the allowlist that
+actually gates what a RAG pipeline may load: every row carries a `source_hash`
+(SHA-256 of the source content) alongside its trust tier, so a downstream
+system can verify it is grounding on the exact file Anti-Silo audited, not a
+same-named replacement. Nothing is added to that allowlist without passing the
+promotion gate first — `enforce` (`promotion_gate.json`) checks each source's
+tier against the configured `promotion_policy` and only marks tiers that
+clear it `promotion_allowed`; everything else stays `review_before_promotion`
+or blocked. The firewall is this pair together: a hash-verified identity, plus
+a policy gate that decided it was allowed to have one.
+
+## One Decision, Not Many Gates
+
+Triangulation, contradiction penalties, the evidence-upgrade queue, and the
+promotion gate are four separate checks — a consultant does not have time to
+read four reports before every client call. `pulse` runs all of them and
+compresses the result into a single top-level `decision`
+(`blocked` / `conditional` / a passing verdict), so Enforcement is a
+one-field answer, not an exercise in cross-referencing outputs by hand.
 
 ## Trust Boundary
 
@@ -341,6 +388,29 @@ python -m anti_silo.cli pulse --vault path/to/vault --lang he
 
 By default, only `triangulated` sources are eligible for production grounding.
 Review candidates remain separate from the production allowlist.
+
+## Evidence Repair Queue
+
+Knowing a claim is `source_backed` instead of `triangulated` is a diagnosis, not
+a plan. `queue` turns the Trust Tiers above into a concrete, prioritized
+evidence-upgrade queue: every claim that isn't yet `triangulated` gets one row with an
+`upgrade_path` (`source_anchor_backfill`, `corroboration_backfill`,
+`source_and_corroboration_backfill`, `ledger_validation`, `repair_or_retire`,
+or `source_spine_backfill`) and a plain-language `required_evidence`
+description of what closes the gap, ranked by tier severity.
+
+```powershell
+python -m anti_silo.cli queue --vault path/to/vault
+```
+
+Output: `evidence_upgrade_queue.json`, `evidence_upgrade_queue.csv`, and
+`EVIDENCE_UPGRADE_QUEUE.md` — a ranked list an analyst or knowledge manager can
+work top-down, instead of hunting for which of hundreds of claims to fix next.
+
+This is a triage tool, not a repair robot: it never attaches a source,
+promotes a tier, or retires a claim on its own — it only computes what a
+human still needs to go get. **The pain it targets:** unsupported claims
+otherwise have no repair workflow at all, only a static trust-tier label.
 
 ## Development
 
