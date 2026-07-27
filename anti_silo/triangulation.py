@@ -81,6 +81,21 @@ def _best_source(
         if hash_matches:
             return None, "source_hash_matches_non_raw_surface"
         return None, "source_hash_not_found"
+    # A near miss is punished harder than doing nothing, so it has to be named.
+    # Measured on three otherwise-identical corpora: no markers at all scores 40
+    # (CONDITIONAL GO); `source_hash:` on the claim scores 71 with tier `ready`;
+    # `raw_source_hash:` on the claim — the same real hash of the same real file,
+    # written under the key the *source* side uses instead of the claim side —
+    # scores 0, STOP, permit denied. The keys have different jobs
+    # (`raw_source_hash:` says a source points at raw bytes; `source_hash:` says
+    # a claim points at that source) and nothing in the output said which was
+    # wrong. The tier is deliberately not upgraded: the linkage genuinely was
+    # not declared. Only the diagnosis is added.
+    misplaced = claim.metadata.get("raw_source_hash", "").lower()
+    if misplaced and _is_well_formed_hash(misplaced):
+        for surface in candidates:
+            if surface.file != claim.file and misplaced in _surface_hashes(surface):
+                return None, "misplaced_source_hash_use_source_hash_key"
     if _raw_source_only(config):
         return None, "source_hash_required_for_raw_source_only"
     for surface in candidates:
@@ -94,7 +109,12 @@ def _best_source(
 
 
 def _missing_source_reason(base: str, source_status: str) -> str:
-    if source_status in {"source_hash_matches_non_raw_surface", "source_hash_not_found", "source_hash_required_for_raw_source_only"}:
+    if source_status in {
+        "source_hash_matches_non_raw_surface",
+        "source_hash_not_found",
+        "source_hash_required_for_raw_source_only",
+        "misplaced_source_hash_use_source_hash_key",
+    }:
         return f"{base}; {source_status}"
     return base
 

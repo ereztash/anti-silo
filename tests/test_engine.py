@@ -778,3 +778,38 @@ def test_a_file_is_not_listed_twice_under_two_severities() -> None:
     diagnostics = {"issues": [{"kind": "empty_file", "severity": "block", "file": "p.txt", "finding": "", "action": ""}]}
     queue = build_remediation([{"file": "p.txt", "category": "indexed", "explanation": "", "action": ""}], diagnostics)
     assert [item["file"] for item in queue] == ["p.txt"]
+
+
+def test_a_hash_under_the_wrong_key_is_diagnosed_not_silently_failed() -> None:
+    """Annotating with the wrong key must not fail worse than not annotating.
+
+    Measured on three otherwise-identical corpora: no markers scores 40
+    (CONDITIONAL GO); `source_hash:` on the claim scores 71 with tier `ready`;
+    the same real hash of the same real file written as `raw_source_hash:` on
+    the claim scores 0, STOP, permit denied — because that key belongs on the
+    source side, not the claim side. Nothing in the output said so, and someone
+    who spent an hour tagging would conclude the tool was broken.
+
+    The tier stays honest — the linkage genuinely was not declared — but the
+    reason now names the one-field fix.
+    """
+    import hashlib
+
+    from anti_silo.model import Claim, Surface
+    from anti_silo.triangulation import _best_source
+
+    raw_text = "the underlying source document body"
+    real_hash = hashlib.sha256(raw_text.encode()).hexdigest()
+    source = Surface(
+        file="raw-source.md", surfaces=["source_truth_marker"], authority="source_of_truth",
+        can_anchor_claim=True, content_hash=real_hash, raw_source=True,
+    )
+    claim = Claim(file="policy.md", text="claim: x", metadata={"raw_source_hash": real_hash})
+
+    surface, reason = _best_source(claim, [source], {"raw_source_only": True})
+    assert surface is None, "the tier must not be silently upgraded from a guess"
+    assert reason == "misplaced_source_hash_use_source_hash_key"
+
+    # A hash that matches nothing real stays the generic miss — no false advice.
+    stray = Claim(file="policy.md", text="claim: x", metadata={"raw_source_hash": "b" * 64})
+    assert _best_source(stray, [source], {"raw_source_only": True})[1] != "misplaced_source_hash_use_source_hash_key"
