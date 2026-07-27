@@ -63,6 +63,9 @@ def _prepare_output(source_root: Path, output_vault: Path) -> None:
     output_vault.mkdir(parents=True, exist_ok=True)
 
 
+DETECTOR_ONLY_FIELDS = frozenset({"content_sketch", "figures"})
+
+
 def iter_source_files(source_root: Path, config: dict[str, Any]) -> list[Path]:
     extensions = {ext.lower() for ext in config.get("ingest_extensions", sorted(DEFAULT_INGEST_EXTENSIONS))}
     files: list[Path] = []
@@ -158,9 +161,9 @@ def write_ingest(
                 "extraction_status": extraction.status,
                 "extraction_note": extraction.note,
                 "linked_source": linked_source.name if linked_digest and linked_source else "",
-                # Computed here because the extracted text is already in hand;
-                # recomputing it later would mean extracting every file twice.
-                # Bounded and metadata-only: hashes of word 5-grams, never text.
+                # `content_sketch` is hashed shingles and carries no text.
+                # `figures` does NOT: it is the document's numbers, verbatim.
+                # See DETECTOR_ONLY_FIELDS - neither reaches a client artifact.
                 "content_sketch": content_sketch(extracted),
                 "figures": figure_fingerprint(extracted),
             }
@@ -188,7 +191,17 @@ def write_ingest(
         "output_vault_name": output_vault.name,
         "files": payload["files"],
         "by_extension": payload["by_extension"],
-        "rows": payload["rows"],
+        # `figures` is a verbatim list of every number in a document — in a legal
+        # corpus that is liability caps and settlement figures. It was written
+        # into the manifest offered under the client-delivery heading, for every
+        # file, on every scan. It is detector state, not chain of custody, and it
+        # proves nothing about which files were audited. Same split as the
+        # source-root path above: the in-memory payload keeps everything, the
+        # deliverable does not.
+        "rows": [
+            {key: value for key, value in row.items() if key not in DETECTOR_ONLY_FIELDS}
+            for row in payload["rows"]
+        ],
     }
     (output_vault / "SOURCE_MANIFEST.json").write_text(json.dumps(disk_payload, ensure_ascii=False, indent=2), encoding="utf-8")
     md = ["# Anti-Silo Source Intake", "", f"- source folder: `{source_root.name}`", f"- files staged: **{len(rows)}**", ""]
