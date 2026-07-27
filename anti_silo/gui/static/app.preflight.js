@@ -104,7 +104,7 @@
             <li><span>מה חסר</span><b>${escapeHtml(execCard.missing || '')}</b></li>
             <li><span>כמה זמן לתקן</span><b>${escapeHtml(execCard.time || '')}</b></li>
           </ul>
-          <div class="boundary-line">גבול אמון: בודק שרשרת מקורות ושלמות חילוץ — לא נכונות עובדתית. <button type="button" onclick="toggleBoundary(this)" aria-expanded="false">מה זה אומר</button></div>
+          <div class="boundary-line">גבול אמון: ${escapeHtml(data.trust_boundary || '')} <button type="button" onclick="toggleBoundary(this)" aria-expanded="false">מה זה אומר</button></div>
           <div class="boundary-more" hidden>GO פירושו שכל קובץ בהיקף <b>כשיר לקליטה</b>: נקרא במלואו, ניתן לעקוב אחר מקורו, ואינו מתנגש עם מקור אחר. Anti-Silo אינו שופט אם התוכן נכון — האחריות הזו נשארת אצל בעלי המסמכים, והמשפט הזה מופיע גם בדוח ללקוח.</div>
         </div>
         <div class="readiness-score">

@@ -39,8 +39,11 @@ On your own folder:
   up to 150 files, and scan.
 - **CLI:** `python -m anti_silo.cli pulse --vault path/to/vault`
 
-Every path runs the same deterministic engine and produces the same `GO` /
-`CONDITIONAL GO` / `STOP` verdict.
+Every path runs the same deterministic engine. The Desktop and Web surfaces
+present its verdict as `GO` / `CONDITIONAL GO` / `STOP`; the `pulse` CLI
+reports the same underlying decision in engine vocabulary
+(`proceed` / `blocked` / `source_backed_pending_corroboration`), because it is
+built for scripting rather than for a client conversation.
 
 ## Why Anti-Silo
 
@@ -311,6 +314,30 @@ It does **not** prove:
 
 **Grounding eligible is not the same as true, useful, adopted, or commercially
 validated.**
+
+### Who vouches for a source
+
+Every trust tier answers "is there a source anchor". A separate field,
+`trust_origin`, answers the harder question of **who said so**:
+
+| `trust_origin` | Meaning |
+|---|---|
+| `self_declared` | The source marker is written inside the scanned folder. The corpus is vouching for itself. |
+| `operator_attested` | A person explicitly picked an independent source through the repair flow. |
+
+This distinction is surfaced rather than folded into the score, and that is a
+deliberate limit rather than an omission: **nothing inside a folder can
+establish that a source is independent of that folder.** A file asserting
+`source_of_truth: true` is an assertion by whoever assembled the folder —
+structurally the same kind of statement as the claim it vouches for. A
+determined author can therefore reach `source_backed` with a fabricated chain.
+
+Anti-Silo does not pretend to detect that, because it cannot from inside the
+corpus. It reports the origin so the reader can weigh it. Whether
+`self_declared` is acceptable depends on whose folder it is: for an operator
+auditing their own vault it is the intended model, and for an adversarial or
+unknown corpus it is close to worthless. That judgment stays with the person,
+which is also why `decide` is never fully granted by the Grounding Permit.
 
 By default, blocked-claim detection (`blocked_marker_mode: field`) only
 checks recognized frontmatter fields, not free body text — this is
