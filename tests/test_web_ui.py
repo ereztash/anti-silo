@@ -37,6 +37,16 @@ def test_hosted_results_expose_auditable_score_and_client_artifact() -> None:
     assert 'behavior: autoDemo ? "auto" : "smooth"' in script
 
 
+def test_web_csv_export_neutralizes_formula_injection() -> None:
+    """The Web Beta builds its risk CSV client-side; a scanned filename like
+    =HYPERLINK(...) must not become a live formula when the client opens it."""
+    script = (ROOT / "public" / "app.js").read_text(encoding="utf-8")
+    assert "function csvCell(value)" in script
+    # A formula-leader guard (=,+,-,@ after optional whitespace) must be present;
+    # plain quoting is not enough to stop spreadsheet formula execution.
+    assert "[=+\\-@]" in script
+
+
 def test_web_preview_script_can_be_invoked_directly() -> None:
     result = run(
         [sys.executable, str(ROOT / "scripts" / "serve_web_beta.py"), "--help"],

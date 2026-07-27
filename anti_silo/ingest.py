@@ -175,8 +175,23 @@ def write_ingest(
         "by_extension": by_extension,
         "rows": rows,
     }
-    (output_vault / "SOURCE_MANIFEST.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    md = ["# Anti-Silo Source Intake", "", f"- source root: `{source_root}`", f"- files staged: **{len(rows)}**", ""]
+    # The returned payload keeps the real absolute paths - it stays in memory
+    # and drives the rest of the pipeline (e.g. report.py reads output_vault).
+    # The manifest WRITTEN TO DISK is a different matter: it is offered in the
+    # client-delivery panel, so it must not carry absolute local paths. The
+    # README promises client-facing exports omit the local source-root path,
+    # and an absolute path typically embeds the client's own name.
+    disk_payload = {
+        "generated_by": payload["generated_by"],
+        "generated": payload["generated"],
+        "source_folder_name": source_root.name,
+        "output_vault_name": output_vault.name,
+        "files": payload["files"],
+        "by_extension": payload["by_extension"],
+        "rows": payload["rows"],
+    }
+    (output_vault / "SOURCE_MANIFEST.json").write_text(json.dumps(disk_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    md = ["# Anti-Silo Source Intake", "", f"- source folder: `{source_root.name}`", f"- files staged: **{len(rows)}**", ""]
     for ext, count in sorted(by_extension.items()):
         md.append(f"- `{ext}`: {count}")
     (output_vault / "SOURCE_INTAKE.md").write_text("\n".join(md) + "\n", encoding="utf-8")
