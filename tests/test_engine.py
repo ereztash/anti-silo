@@ -77,6 +77,10 @@ def test_raw_source_only_blocks_hash_to_derived_surface(tmp_path) -> None:
 
 
 def test_raw_source_registry_hash_can_anchor_claim(tmp_path) -> None:
+    # An unverified raw_source_hash (not backed by any real file's actually
+    # computed hash) still anchors the claim as source_backed - but is now
+    # honestly labeled unverified, and is capped below `triangulated` even
+    # with corroboration (see test_unverified_raw_source_hash_is_capped_below_triangulated).
     vault = tmp_path / "vault"
     vault.mkdir()
     raw_hash = "a" * 64
@@ -91,6 +95,52 @@ def test_raw_source_registry_hash_can_anchor_claim(tmp_path) -> None:
     assert claim.tier == "source_backed"
     assert claim.source == "raw-source-pointer.md"
     assert claim.source_hash == raw_hash
+    assert claim.reason == "claim + unverified_raw_source_hash"
+
+
+def test_unverified_raw_source_hash_is_capped_below_triangulated(tmp_path) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    fake_hash = "b" * 64
+    (vault / "raw-source-pointer.md").write_text(
+        f"source_of_truth: true\nraw_source_hash: {fake_hash}\nsource_anchor: BZ/source-002\n",
+        encoding="utf-8",
+    )
+    # has_corroboration would normally be enough for `triangulated` once a
+    # source is found - it must not be, when that source is an unverified hash.
+    (vault / "claim.md").write_text(
+        f"claim: local claim\nsource_hash: {fake_hash}\ncorroborated: true\n", encoding="utf-8"
+    )
+
+    rows = build_triangulation(vault, load_config())
+    claim = next(row for row in rows if row.file == "claim.md")
+    assert claim.tier != "triangulated"
+    assert claim.tier == "source_backed"
+    assert claim.reason == "claim + unverified_raw_source_hash"
+
+
+def test_raw_source_hash_matching_real_file_content_is_verified(tmp_path) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    # The raw source is a real file actually present in the corpus - its
+    # content_hash is genuinely computed by sha256_file, not self-declared.
+    raw_source = vault / "raw-external-doc.md"
+    raw_source.write_text("This is the real external source document.\n", encoding="utf-8")
+    import hashlib
+
+    real_hash = hashlib.sha256(raw_source.read_bytes()).hexdigest()
+
+    pointer = vault / "raw-source-pointer.md"
+    pointer.write_text(
+        f"source_of_truth: true\nraw_source_hash: {real_hash}\nsource_anchor: BZ/source-003\n",
+        encoding="utf-8",
+    )
+    (vault / "claim.md").write_text(f"claim: local claim\nsource_hash: {real_hash}\n", encoding="utf-8")
+
+    rows = build_triangulation(vault, load_config())
+    claim = next(row for row in rows if row.file == "claim.md")
+    assert claim.tier == "source_backed"
+    assert claim.source == "raw-source-pointer.md"
     assert claim.reason == "claim + raw_source_hash"
 
 
