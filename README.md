@@ -12,6 +12,22 @@ The Desktop app keeps all processing on the local machine. The optional hosted
 Web Beta processes only the files selected by the user in a temporary Vercel
 Function and does not retain them in Anti-Silo storage.
 
+## Quick Start
+
+No install, no upload — see the verdict on sample data in one click:
+[run the no-upload demo](https://anti-silo.vercel.app/?demo=1).
+
+On your own folder:
+
+- **Desktop:** drag the client source folder onto the app. Preflight runs
+  immediately — no project setup required for a first read.
+- **Web Beta:** [open the hosted beta](https://anti-silo.vercel.app/), select
+  up to 150 files, and scan.
+- **CLI:** `python -m anti_silo.cli pulse --vault path/to/vault`
+
+Every path runs the same deterministic engine and produces the same `GO` /
+`CONDITIONAL GO` / `STOP` verdict.
+
 ## Why Anti-Silo
 
 A folder of documents is not automatically a RAG-ready corpus. Common problems
@@ -26,10 +42,11 @@ appear before chunking, embeddings, retrieval, or prompt design:
 
 Anti-Silo turns that ambiguous intake step into an auditable pre-flight gate.
 
-## Who It Is For
+## Who Pays and Who Uses It
 
-The initial user and buyer is an AI consultant, RAG delivery lead, or small
-agency that receives client documents before scoping or implementation.
+The initial buyer and user is the same person today: an AI consultant, RAG
+delivery lead, or small agency that receives client documents before scoping
+or implementation.
 
 Anti-Silo is useful when you need to:
 
@@ -180,6 +197,19 @@ Each completed Preflight can export:
 
 Anti-Silo can also generate strict grounding allowlists and source-spine repair
 templates for structured knowledge vaults.
+
+## The Grounding Firewall
+
+`eligible_sources.csv` (the `eligible` CLI command) is the allowlist that
+actually gates what a RAG pipeline may load: every row carries a `source_hash`
+(SHA-256 of the source content) alongside its trust tier, so a downstream
+system can verify it is grounding on the exact file Anti-Silo audited, not a
+same-named replacement. Nothing is added to that allowlist without passing the
+promotion gate first — `enforce` (`promotion_gate.json`) checks each source's
+tier against the configured `promotion_policy` and only marks tiers that
+clear it `promotion_allowed`; everything else stays `review_before_promotion`
+or blocked. The firewall is this pair together: a hash-verified identity, plus
+a policy gate that decided it was allowed to have one.
 
 ## Trust Boundary
 
