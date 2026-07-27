@@ -8,11 +8,14 @@ version = "0.5.0"
 description = "Portable trust-surface and triangulation engine for local knowledge graphs."
 readme = "README.md"
 requires-python = ">=3.11"
+license = {file = "LICENSE"}
+classifiers = ["License :: Other/Proprietary License"]
 dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
-desktop = ["pyinstaller>=6"]
+extract = ["pypdf>=5,<7", "python-docx>=1.1,<2", "openpyxl>=3.1,<4"]
+desktop = ["pyinstaller>=6", "pypdf>=5,<7", "python-docx>=1.1,<2", "openpyxl>=3.1,<4"]
 
 [project.scripts]
 anti-silo = "anti_silo.cli:main"

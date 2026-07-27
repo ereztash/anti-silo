@@ -10,7 +10,12 @@ from pathlib import Path
 import sys
 
 
-hiddenimports = collect_submodules("anti_silo")
+hiddenimports = (
+    collect_submodules("anti_silo")
+    + collect_submodules("pypdf")
+    + collect_submodules("docx")
+    + collect_submodules("openpyxl")
+)
 ROOT = Path(SPECPATH).parent
 APP_VERSION = version("anti-silo")
 
