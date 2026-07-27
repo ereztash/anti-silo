@@ -395,6 +395,12 @@ def test_ingest_stages_source_documents_as_unverified_intake(tmp_path) -> None:
     assert "raw_source_hash:" not in text
     assert "claim: extracted document content" in text
     assert (staged / "SOURCE_MANIFEST.json").exists()
+    # Client-facing exports must not carry the absolute local source-root path
+    # (README privacy promise) - the manifest keeps only the folder name.
+    manifest_text = (staged / "SOURCE_MANIFEST.json").read_text(encoding="utf-8")
+    assert str(source) not in manifest_text
+    assert '"source_folder_name": "source"' in manifest_text
+    assert str(source) not in (staged / "SOURCE_INTAKE.md").read_text(encoding="utf-8")
     row = next(row for row in build_triangulation(staged, load_config()) if row.file == "note.md")
     assert row.tier == "indexed_unverified"
 

@@ -500,7 +500,16 @@
   }
 
   function csvCell(value) {
-    return '"' + String(value == null ? "" : value).replaceAll('"', '""') + '"';
+    // Neutralize spreadsheet formula injection: a scanned filename like
+    // =HYPERLINK(...) would otherwise become a live formula when the client
+    // opens this CSV in Excel/Sheets. A cell whose first non-space/tab/CR
+    // character is =,+,-,@ is prefixed with a single quote so it is treated as
+    // text. Mirrors the server-side SafeDictWriter (anti_silo/csv_export.py).
+    var text = String(value == null ? "" : value);
+    if (/^[\t\r\n ]*[=+\-@]/.test(text)) {
+      text = "'" + text;
+    }
+    return '"' + text.replaceAll('"', '""') + '"';
   }
 
   function downloadBlob(name, content, type) {
