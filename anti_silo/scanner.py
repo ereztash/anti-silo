@@ -32,7 +32,7 @@ def iter_markdown(vault: Path, config: dict[str, Any]) -> Iterable[Path]:
     excluded = set(config.get("exclude_dirs", []))
     include_dirs = list(config.get("include_dirs", []))
     globs = list(config.get("claim_globs", ["**/*.md"]))
-    for path in vault.rglob("*.md"):
+    for path in sorted(vault.rglob("*.md")):
         rel_path = path.relative_to(vault)
         parts = set(rel_path.parts)
         if parts & excluded:
@@ -48,7 +48,7 @@ def iter_indexable_files(vault: Path, config: dict[str, Any]) -> Iterable[Path]:
     excluded = set(config.get("exclude_dirs", []))
     include_dirs = list(config.get("include_dirs", []))
     extensions = {ext.lower() for ext in config.get("index_extensions", [".md"])}
-    for path in vault.rglob("*"):
+    for path in sorted(vault.rglob("*")):
         if not path.is_file():
             continue
         rel_path = path.relative_to(vault)
@@ -130,7 +130,10 @@ def scan_claims(vault: Path, config: dict[str, Any]) -> list[Claim]:
 
     claims: list[Claim] = []
     for path in iter_markdown(vault, config):
-        text = read_text(path)
+        try:
+            text = read_text(path)
+        except OSError:
+            continue
         blob = text.lower()
         meta = metadata(text)
         is_claim = any(marker in blob for marker in claim_markers)

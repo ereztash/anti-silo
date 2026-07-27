@@ -50,9 +50,13 @@ def build_index(vault: Path, config: dict[str, Any]) -> list[Surface]:
     rows: list[Surface] = []
     text_extensions = {ext.lower() for ext in config.get("text_index_extensions", [".md"])}
     for path in iter_indexable_files(vault, config):
-        text = read_text(path) if path.suffix.lower() in text_extensions else ""
+        try:
+            text = read_text(path) if path.suffix.lower() in text_extensions else ""
+            content_hash = sha256_file(path)
+        except OSError:
+            continue
         normalized_hash = sha256_text(text) if text else ""
-        surface = classify_surface(rel(vault, path), text, sha256_file(path), config, path.suffix, normalized_hash)
+        surface = classify_surface(rel(vault, path), text, content_hash, config, path.suffix, normalized_hash)
         if surface:
             rows.append(surface)
     return rows

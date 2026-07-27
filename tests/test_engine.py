@@ -21,7 +21,7 @@ from anti_silo.report_labels import tier_label
 from anti_silo.telemetry import LocalTelemetry
 from anti_silo.spine import build_source_spine_todos
 from anti_silo.triangulation import build_triangulation
-from anti_silo.scanner import scan_claims
+from anti_silo.scanner import iter_markdown, scan_claims
 from anti_silo.watch import WatchStore
 
 
@@ -92,6 +92,66 @@ def test_raw_source_registry_hash_can_anchor_claim(tmp_path) -> None:
     assert claim.source == "raw-source-pointer.md"
     assert claim.source_hash == raw_hash
     assert claim.reason == "claim + raw_source_hash"
+
+
+def test_iter_markdown_is_sorted(tmp_path) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "z-claim.md").write_text("claim: z\n", encoding="utf-8")
+    (vault / "a-claim.md").write_text("claim: a\n", encoding="utf-8")
+    (vault / "m-claim.md").write_text("claim: m\n", encoding="utf-8")
+
+    paths = list(iter_markdown(vault, load_config()))
+    assert paths == sorted(paths)
+    assert [p.name for p in paths] == ["a-claim.md", "m-claim.md", "z-claim.md"]
+
+
+def test_scan_claims_skips_file_that_raises_os_error(tmp_path, monkeypatch) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "good.md").write_text("claim: this one is readable\n", encoding="utf-8")
+    (vault / "bad.md").write_text("claim: this one will fail to read\n", encoding="utf-8")
+
+    import anti_silo.scanner as scanner_module
+
+    real_read_text = scanner_module.read_text
+
+    def flaky_read_text(path):
+        if path.name == "bad.md":
+            raise OSError("simulated permission-denied or deleted-mid-scan file")
+        return real_read_text(path)
+
+    monkeypatch.setattr(scanner_module, "read_text", flaky_read_text)
+
+    claims = scan_claims(vault, load_config())
+    files = {claim.file for claim in claims}
+    assert "good.md" in files
+    assert "bad.md" not in files
+
+
+def test_build_index_skips_file_that_raises_os_error(tmp_path, monkeypatch) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "good.md").write_text("source_of_truth: true\n", encoding="utf-8")
+    (vault / "bad.md").write_text("source_of_truth: true\n", encoding="utf-8")
+
+    import anti_silo.index as index_module
+
+    real_read_text = index_module.read_text
+
+    def flaky_read_text(path):
+        if path.name == "bad.md":
+            raise OSError("simulated permission-denied or deleted-mid-scan file")
+        return real_read_text(path)
+
+    # index.py binds read_text via `from .scanner import read_text`, so the
+    # patch target is index's own namespace, not scanner's.
+    monkeypatch.setattr(index_module, "read_text", flaky_read_text)
+
+    rows = build_index(vault, load_config())
+    files = {row.file for row in rows}
+    assert "good.md" in files
+    assert "bad.md" not in files
 
 
 def test_promotion_gate_blocks_weak_tiers() -> None:
