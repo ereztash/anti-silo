@@ -176,6 +176,9 @@
   function verdictClass(status) {
     if (status === "go") return "go";
     if (status === "stop") return "stop";
+    // An empty corpus is not a conditional pass. Without this it fell through
+    // to the amber CONDITIONAL styling while the label read NO DATA.
+    if (status === "no_corpus") return "no-data";
     return "conditional";
   }
 

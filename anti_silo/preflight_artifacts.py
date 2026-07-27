@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import csv
 import json
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from .csv_export import write_csv
 
 
 def client_manifest(ingest_payload: dict[str, Any]) -> dict[str, Any]:
@@ -30,10 +31,10 @@ def client_manifest(ingest_payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _write_csv(path: Path, fieldnames: list[str], rows: list[dict[str, Any]]) -> None:
-    with path.open("w", encoding="utf-8-sig", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames, extrasaction="ignore")
-        writer.writeheader()
-        writer.writerows(rows)
+    # utf-8-sig: these two files are the client-facing exports, opened directly
+    # in Excel, which needs the BOM to detect UTF-8. Cells are formula-escaped
+    # (csv_export) because `file` is an untrusted scanned filename.
+    write_csv(path, fieldnames, rows, encoding="utf-8-sig", extrasaction="ignore")
 
 
 def _markdown_cell(value: Any) -> str:

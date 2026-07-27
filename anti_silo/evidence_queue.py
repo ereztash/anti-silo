@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import csv
 import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from .config import output_dir
+from .csv_export import SafeDictWriter
 from .triangulation import build_triangulation
 
 
@@ -59,7 +59,7 @@ def write_queue(vault: Path, config: dict[str, Any]) -> dict[str, Any]:
     payload = {"generated": datetime.now(timezone.utc).isoformat(), "selected": len(rows), "rows": rows}
     (out / "evidence_upgrade_queue.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     with (out / "evidence_upgrade_queue.csv").open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["priority", "file", "tier", "claim_kind", "reason", "upgrade_path", "required_evidence"])
+        writer = SafeDictWriter(f, fieldnames=["priority", "file", "tier", "claim_kind", "reason", "upgrade_path", "required_evidence"])
         writer.writeheader()
         writer.writerows(rows)
     md = ["# Evidence Upgrade Queue", "", f"- selected: **{len(rows)}**", ""]

@@ -49,6 +49,15 @@ def _human_row(row: dict[str, Any], sources: dict[str, str], penalties: dict[str
         label = "חסם אמון"
         explanation = "נמצאה בעיית אמון שמונעת הסתמכות לפני תיקון."
 
+    # A source marker written inside the scanned folder is an assertion by
+    # whoever assembled that folder, not independent verification. Say so
+    # wherever the tier is shown, so a tier is never read as more than it is.
+    trust_origin = str(row.get("trust_origin", ""))
+    origin_notes = {
+        "self_declared": "המקור מוצהר בתוך התיקייה שנסרקה — הקורפוס מעיד על עצמו, בלי אימות חיצוני.",
+        "operator_attested": "המפעיל בחר ידנית מקור עצמאי; ההתאמה התוכנית בין הטענה למקור לא נבדקה.",
+    }
+
     return {
         "file": sources.get(str(row.get("file", "")), row.get("file", "")),
         "staged_file": row.get("file", ""),
@@ -57,6 +66,8 @@ def _human_row(row: dict[str, Any], sources: dict[str, str], penalties: dict[str
         "status": label,
         "action": action_label(category, "he"),
         "explanation": explanation,
+        "trust_origin": trust_origin,
+        "trust_origin_note": origin_notes.get(trust_origin, ""),
         "technical_tier": tier,
         "technical_reason": reason,
         "needs": row.get("needs", ""),

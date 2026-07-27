@@ -39,8 +39,11 @@ On your own folder:
   up to 150 files, and scan.
 - **CLI:** `python -m anti_silo.cli pulse --vault path/to/vault`
 
-Every path runs the same deterministic engine and produces the same `GO` /
-`CONDITIONAL GO` / `STOP` verdict.
+Every path runs the same deterministic engine. The Desktop and Web surfaces
+present its verdict as `GO` / `CONDITIONAL GO` / `STOP`; the `pulse` CLI
+reports the same underlying decision in engine vocabulary
+(`proceed` / `blocked` / `source_backed_pending_corroboration`), because it is
+built for scripting rather than for a client conversation.
 
 ## Why Anti-Silo
 
@@ -228,6 +231,10 @@ Each completed Preflight can export:
 - empty files
 - failed or partial extraction
 - exact duplicate content using SHA-256
+- **near-duplicate documents** — reworded drafts of the same document, which
+  hashing cannot see (see below)
+- **near-duplicates that contradict each other** — the same document in several
+  versions quoting different figures
 - missing source anchors
 - synthesis documents without a source spine
 - graph-only or weakly supported claims
@@ -237,6 +244,37 @@ Each completed Preflight can export:
 
 Anti-Silo can also generate strict grounding allowlists and source-spine repair
 templates for structured knowledge vaults.
+
+## Near-Duplicates and Contradicting Drafts
+
+Byte-identical duplicates are the *rare* case in a real client folder. People
+do not copy files, they save `sow.md`, `sow-v2.md`, `sow-FINAL.md` — three
+near-identical documents quoting three different prices. SHA-256 sees three
+unrelated files. The retriever sees three strong matches and cannot tell which
+one is current, so the model may ground on a superseded draft and state an
+obsolete number with full confidence.
+
+Anti-Silo compares documents by overlap of word 3-grams (a bottom-k shingle
+sketch) and separates two cases:
+
+| Finding | Severity | Meaning |
+|---|---|---|
+| `near_duplicate` | cleanup | Overlapping versions that agree. They inflate the index and crowd out other sources in retrieval. |
+| `near_duplicate_conflict` | review | Overlapping versions that **disagree on their figures**. The report names the conflicting values. |
+
+The method is deterministic and model-free, like the rest of the engine: the
+same bytes produce the same score on any machine, and the score is explainable
+to a client as "these documents share ~94% of their phrasing".
+
+**Calibration and limits.** The threshold (`near_duplicate_threshold`, default
+`0.72`) was set by measurement, not intuition. Against the realistic
+false-positive case — two *different* engagements written on one template —
+a true near-duplicate scores `0.96` and the template pair `0.46` on long
+documents. On short documents the same pair scores `0.82` versus `0.62`: still
+separable, but a narrower margin, because a handful of shingles means a single
+edit moves the score a lot. Short documents are therefore the weaker signal
+here, which is why a near-duplicate on its own is only `cleanup`, and
+disagreeing figures are what raise it to `review`.
 
 ## The Grounding Firewall
 
@@ -276,6 +314,30 @@ It does **not** prove:
 
 **Grounding eligible is not the same as true, useful, adopted, or commercially
 validated.**
+
+### Who vouches for a source
+
+Every trust tier answers "is there a source anchor". A separate field,
+`trust_origin`, answers the harder question of **who said so**:
+
+| `trust_origin` | Meaning |
+|---|---|
+| `self_declared` | The source marker is written inside the scanned folder. The corpus is vouching for itself. |
+| `operator_attested` | A person explicitly picked an independent source through the repair flow. |
+
+This distinction is surfaced rather than folded into the score, and that is a
+deliberate limit rather than an omission: **nothing inside a folder can
+establish that a source is independent of that folder.** A file asserting
+`source_of_truth: true` is an assertion by whoever assembled the folder —
+structurally the same kind of statement as the claim it vouches for. A
+determined author can therefore reach `source_backed` with a fabricated chain.
+
+Anti-Silo does not pretend to detect that, because it cannot from inside the
+corpus. It reports the origin so the reader can weigh it. Whether
+`self_declared` is acceptable depends on whose folder it is: for an operator
+auditing their own vault it is the intended model, and for an adversarial or
+unknown corpus it is close to worthless. That judgment stays with the person,
+which is also why `decide` is never fully granted by the Grounding Permit.
 
 By default, blocked-claim detection (`blocked_marker_mode: field`) only
 checks recognized frontmatter fields, not free body text — this is

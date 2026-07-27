@@ -11,6 +11,7 @@ import pytest
 
 from api.scan import (
     ScanRequestError,
+    _client_identity,
     _origin_is_allowed,
     _rate_limited,
     _REQUESTS_BY_CLIENT,
@@ -20,8 +21,41 @@ from api.scan import (
 )
 
 
+class _Headers(dict):
+    """Mimics the case-insensitive lookup of http.client message headers."""
+
+    def get(self, key, default=None):  # type: ignore[override]
+        return dict.get(self, key.lower(), default)
+
+
 def _encoded(value: bytes) -> str:
     return base64.b64encode(value).decode("ascii")
+
+
+def test_spoofed_x_forwarded_for_cannot_change_the_rate_limit_bucket() -> None:
+    # Previously the identity was the FIRST X-Forwarded-For entry, which any
+    # caller can set - so varying it gave an unlimited supply of fresh buckets.
+    identities = {
+        _client_identity(_Headers({"x-forwarded-for": f"10.0.0.{octet}"}), "203.0.113.9")
+        for octet in range(25)
+    }
+    assert identities == {"203.0.113.9"}
+
+
+def test_platform_set_client_header_is_used_and_beats_spoofed_forwarded_for() -> None:
+    headers = _Headers({"x-vercel-forwarded-for": "198.51.100.7", "x-forwarded-for": "1.2.3.4"})
+    assert _client_identity(headers, "203.0.113.9") == "198.51.100.7"
+
+
+def test_rate_limit_actually_blocks_a_spoofing_caller() -> None:
+    _REQUESTS_BY_CLIENT.clear()
+    blocked = 0
+    for attempt in range(20):
+        client = _client_identity(_Headers({"x-forwarded-for": f"10.0.0.{attempt}"}), "198.51.100.42")
+        if _rate_limited(client):
+            blocked += 1
+    _REQUESTS_BY_CLIENT.clear()
+    assert blocked > 0
 
 
 def test_safe_relative_path_rejects_traversal_and_absolute_paths() -> None:

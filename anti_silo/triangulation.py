@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import csv
 import json
 import re
 from collections import Counter
@@ -9,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import output_dir
+from .csv_export import SafeDictWriter
 from .index import build_index
 from .model import Claim, Surface, TriangulationRow
 from .scanner import scan_claims
@@ -131,12 +131,12 @@ def classify_claim(
     source, source_status = _best_source(claim, surfaces, config, real_hashes)
     if claim.blocked:
         source_hash = _reported_source_hash(claim, source) if source else ""
-        return TriangulationRow(claim.file, "refuted_or_blocked", source.file if source else "", source.authority if source else "", "blocked marker", source_hash, claim.claim_kind, "repair or retire")
+        return TriangulationRow(claim.file, "refuted_or_blocked", source.file if source else "", source.authority if source else "", "blocked marker", source_hash, claim.claim_kind, "repair or retire", source.trust_origin if source else "")
     verified_hash_statuses = {"source_hash", "raw_source_hash", "normalized_source_hash"}
     if source and claim.has_corroboration and source_status != "raw_source_hash_unverified":
         source_hash = _reported_source_hash(claim, source)
         reason = "claim + raw_source_hash + corroboration" if source_status in verified_hash_statuses and source.raw_source else "claim + source + corroboration"
-        return TriangulationRow(claim.file, "triangulated", source.file, source.authority, reason, source_hash, claim.claim_kind, "")
+        return TriangulationRow(claim.file, "triangulated", source.file, source.authority, reason, source_hash, claim.claim_kind, "", source.trust_origin)
     if source:
         source_hash = _reported_source_hash(claim, source)
         if source_status == "raw_source_hash_unverified":
@@ -148,7 +148,7 @@ def classify_claim(
         else:
             reason = "claim + source"
             needs = "independent corroboration"
-        return TriangulationRow(claim.file, "source_backed", source.file, source.authority, reason, source_hash, claim.claim_kind, needs)
+        return TriangulationRow(claim.file, "source_backed", source.file, source.authority, reason, source_hash, claim.claim_kind, needs, source.trust_origin)
     if claim.claim_kind == "synthesis" and not claim.has_source_spine:
         return TriangulationRow(
             claim.file,
@@ -186,7 +186,7 @@ def write_triangulation(vault: Path, config: dict[str, Any]) -> dict[str, Any]:
     }
     (out / "triangulation_gate.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     with (out / "triangulation_gate.csv").open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["file", "tier", "source", "authority", "reason", "source_hash", "claim_kind", "needs"])
+        writer = SafeDictWriter(f, fieldnames=["file", "tier", "source", "authority", "reason", "source_hash", "claim_kind", "needs", "trust_origin"])
         writer.writeheader()
         for row in rows:
             writer.writerow(row.__dict__)
