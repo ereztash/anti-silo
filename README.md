@@ -346,7 +346,7 @@ Review candidates remain separate from the production allowlist.
 
 Knowing a claim is `source_backed` instead of `triangulated` is a diagnosis, not
 a plan. `queue` turns the Trust Tiers above into a concrete, prioritized
-repair backlog: every claim that isn't yet `triangulated` gets one row with an
+evidence-upgrade queue: every claim that isn't yet `triangulated` gets one row with an
 `upgrade_path` (`source_anchor_backfill`, `corroboration_backfill`,
 `source_and_corroboration_backfill`, `ledger_validation`, `repair_or_retire`,
 or `source_spine_backfill`) and a plain-language `required_evidence`
