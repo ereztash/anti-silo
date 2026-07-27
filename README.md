@@ -59,6 +59,84 @@ appear before chunking, embeddings, retrieval, or prompt design:
 
 Anti-Silo turns that ambiguous intake step into an auditable pre-flight gate.
 
+## Architecture
+
+Python, 45 modules, ~5,240 lines, 125 tests. No service to run, no database, no
+account.
+
+**Local by construction, not by policy.** The engine contains no HTTP client, no
+telemetry upload and no model API call — a `grep` for `requests`/`urllib`/
+`socket` across the engine returns nothing. The Desktop GUI binds `127.0.0.1` by
+default. That is what makes this deployable inside an environment where the
+corpus cannot leave; see [SECURITY.md](SECURITY.md) for the full data boundary.
+
+**No model in the decision path.** Every verdict is computed by explicit rules
+over file bytes and metadata. Nothing here calls an LLM, so nothing here can
+hallucinate a finding — and the same folder produces the same report on any
+machine.
+
+**Determinism is enforced, not asserted.** Every filesystem traversal is sorted,
+hashes stream over real bytes, deduplication is order-independent, and no
+wall-clock value enters a decision. Two runs on the same corpus produce the same
+verdict, the same score and the same ordering. (Report *artifacts* embed a
+generation timestamp, so they are not byte-identical; the decisions are.)
+
+**Intake:** `.pdf` `.docx` `.xlsx` `.csv` `.md` `.txt` `.html` `.htm` `.json`.
+Anything else is reported explicitly as `unsupported` rather than silently
+skipped — a file that was not scanned is a finding, not an absence.
+
+**Bounded by design.** Extraction is capped during accumulation, not after, and
+compressed archives are refused at the zip central directory before parsing
+begins. A module-length limit is enforced by the test suite rather than by
+convention.
+
+## Security Model
+
+The scanned corpus is untrusted input and the Audit Pack is a deliverable that
+leaves the machine. Five vectors were found by red-team testing during
+development, each reproduced with a working exploit before the fix and re-run
+against it: folder escape via symlink/junction, CSV formula injection into the
+client pack, decompression bombs in `.xlsx`/`.docx`, rate-limit bypass on the
+hosted path, and a source-root path leaking into client exports. All are closed.
+
+One limit is stated rather than hidden: a `raw_source_hash` declared inside a
+file is now cross-checked against hashes computed from real bytes, but an
+operator who controls both files can still construct a match. Eliminating that
+requires an external attestation chain, which is a design decision, not a patch.
+
+Full threat model, per-vector verification, and known limits:
+**[SECURITY.md](SECURITY.md)**.
+
+## Programmatic Use
+
+Every CLI command prints its full payload as JSON on stdout, so a scan can be
+gated in CI or piped into another tool without screen-scraping.
+
+```bash
+# Fail a pipeline when the corpus is not fit to ingest
+python -m anti_silo.cli enforce --vault ./client-corpus || exit 1
+
+# Full pre-flight payload for your own tooling
+python -m anti_silo.cli pulse --vault ./client-corpus > preflight.json
+```
+
+| Exit code | Meaning |
+|---:|---|
+| `0` | Command completed |
+| `1` | Invalid configuration or profile; failed snapshot |
+| `2` | `enforce` found blocked items |
+
+**Read this before wiring a gate:** `pulse` exits `0` even when the verdict is
+`STOP` — its decision lives in the JSON, not in the exit status. **`enforce` is
+the command that returns a non-zero status**, and it is the one to use as a CI
+gate. Verified by running both against a corpus with a blocking claim: `pulse`
+→ `0`, `enforce` → `2`.
+
+Commands: `pulse` `ingest` `index` `triangulate` `contradiction` `queue`
+`enforce` `eligible` `spine` `snapshot` `gui` `brain`. Scan profiles
+(`--profile`) tune thresholds per corpus type: `default` `research` `rag` `repo`
+`prompts` `cor-sys`.
+
 ## Who Pays and Who Uses It
 
 The initial buyer and user is the same person today: an AI consultant, RAG
@@ -83,6 +161,68 @@ AI/compliance team adopts it. **Daily user:** the consultant or delivery lead
 running a scan before every new client engagement. **Auditor:** the client's
 own compliance or legal reviewer, who receives the exported Audit Pack as the
 artifact of record — a report recipient today, not yet a logged-in user.
+
+## Commercial Model
+
+**Sold per audit pack, not per terabyte.** A folder going into a RAG deployment
+is a decision event, not a storage volume. Volume pricing would charge most for
+the corpora that are cheapest to judge and least for the small, dense,
+high-consequence ones where a wrong answer actually costs something.
+
+**What a pack is:** one corpus, one verdict, the full diagnostic and remediation
+queue, and an exported Audit Pack you can hand to a client or an auditor. Re-scans
+of the same corpus during a remediation cycle are part of the same pack — you are
+buying the decision, not the button press.
+
+**What it does not cost you:** no per-seat licensing, no data egress, no vendor
+cloud in the path, no BAA/DPA to negotiate for the local deployment, and no
+security review of a SaaS surface that does not exist. For many buyers this is
+the larger number.
+
+**Where pricing sits.** Two published comparables bracket the work:
+
+| | Price | What you get |
+|---|---|---|
+| **Aparavi** | ~$8,400/yr per 25TB | Volume-based data prep and classification |
+| **Knowledge-governance consultancy** (e.g. Earley) | ~$45,000–55,000 per project | The same assessment, delivered as human hours, once |
+
+Anti-Silo is the repeatable version of the second one at closer to the first's
+order of magnitude. **Exact pricing is being set with the first design
+partners** — stated plainly rather than published as a rate card we have not
+yet validated against a real buyer. If you are evaluating this now, you are
+early enough to shape both the price and the roadmap.
+
+**Status, so nothing here reads as more than it is:** zero paying customers,
+zero completed pilots. The engineering is verified and the commercial model is
+a hypothesis. See [docs/INVESTOR_BRIEF.md](docs/INVESTOR_BRIEF.md) for the full
+evidence position, roadmap gates and market analysis.
+
+## Alternatives, and When They Are the Right Answer
+
+An honest map of what else you would consider. Most of this category is real and
+mature; the gap Anti-Silo fills is narrower than "data quality for AI."
+
+| Option | Choose it when | Where it stops |
+|---|---|---|
+| **File analysis / ROT tools** (Komprise, Aparavi, Congruity360, Shinydocs — 200+ vendors in this Gartner category) | You need to classify, tier or retire unstructured data at petabyte scale | They analyze files and metadata. None of them scores whether a given PDF will *parse badly and lose its tables silently*. |
+| **Knowledge-governance consulting** | You need organizational change, taxonomy design and stakeholder alignment — not a check | Non-repeatable, non-deterministic, and you cannot run it again next month against the same corpus |
+| **Post-generation evaluation** (LLM-as-judge, RAG eval suites) | You already shipped and need to measure answer quality | It measures the output. It cannot tell you a source document was truncated during ingestion two weeks ago |
+| **Nothing — ingest and iterate** | The corpus is small, well-known, and a wrong answer is cheap | This is a legitimate choice. If a wrong answer carries no liability, a pre-flight gate is overhead |
+
+**The specific gap:** independent research across vendor claims and engineering
+blogs found no competitor scoring **extraction failure** — whether a document
+will be parsed badly and lose content without anyone noticing. Peer-reviewed
+work (OHRBench, ICCV 2025) establishes that this failure is real and material.
+Conflicting-version detection is claimed by one vendor but not demonstrated.
+
+**And the honest counterweight**, because a technical evaluator will find it:
+Barnett et al., *Seven Failure Points When Engineering a RAG System* (CAIN 2024)
+— the most-cited independent taxonomy of RAG failures — lists none of
+duplication, conflicting versions, or extraction failure among its seven, and
+argues that RAG validation "is only feasible during operation." That is a direct
+argument against a pre-ingestion product. Our position is that it describes
+where failures are *observed*, not where they are *introduced*, but the paper is
+real and the disagreement is genuine.
 
 ## Consultant Workflow
 
@@ -576,11 +716,14 @@ checks; it does not replace the local privacy boundary or full Desktop workflow.
 This repository contains the portable product layer only. Do not commit private
 client folders, CRM exports, credentials, or sensitive source material.
 
-For the commercial picture — evidence status, roadmap gates, business model,
-competitive landscape, and what buyers pay today for products making a similar
-claim — see [docs/INVESTOR_BRIEF.md](docs/INVESTOR_BRIEF.md). It states the
-position plainly, including zero customers and a pre-registered test that has
-not been run.
+**Evaluating as a buyer?** Start with [Architecture](#architecture),
+[Security Model](#security-model), [Programmatic Use](#programmatic-use) and
+[Commercial Model](#commercial-model).
+
+**Evaluating as an investor?** [docs/INVESTOR_BRIEF.md](docs/INVESTOR_BRIEF.md)
+carries the evidence position, roadmap gates and market analysis, with every
+figure marked measured, public-source or hypothesis. It states plainly that
+there are zero customers and a pre-registered test that has not been run.
 
 ## License
 
