@@ -184,6 +184,31 @@ def _origin_is_allowed(origin: str | None, host: str | None) -> bool:
     return parsed.scheme == "https" or parsed.hostname in {"127.0.0.1", "localhost"}
 
 
+# Headers the hosting platform sets itself, overwriting anything the client
+# sent under the same name. X-Forwarded-For is NOT in this list: any client can
+# send it, and it is appended to rather than replaced, so its leading entries
+# are attacker-controlled. Reading the first entry (the previous behaviour) let
+# a caller pick a fresh rate-limit bucket per request just by varying a header.
+_PLATFORM_CLIENT_HEADERS = ("x-vercel-forwarded-for", "x-real-ip")
+
+
+def _client_identity(headers: Any, peer_address: str) -> str:
+    """Best available client identity for rate limiting.
+
+    Falls back to the socket peer address, which a client cannot forge. If the
+    deployment sits behind a proxy that does not set one of the platform
+    headers above, every caller behind that proxy shares one bucket - too
+    strict rather than bypassable, which is the right direction to fail.
+    """
+    for header in _PLATFORM_CLIENT_HEADERS:
+        value = str(headers.get(header, "") or "").strip()
+        if value:
+            # Even these are comma-joined if several hops are present; the
+            # last entry is the one written closest to us.
+            return value.split(",")[-1].strip()
+    return peer_address
+
+
 def _rate_limited(client: str, now: float | None = None) -> bool:
     timestamp = time.monotonic() if now is None else now
     cutoff = timestamp - RATE_LIMIT_WINDOW_SECONDS
@@ -345,8 +370,7 @@ class handler(BaseHTTPRequestHandler):
                 raise ScanRequestError("Not found.", 404)
             if not _origin_is_allowed(self.headers.get("Origin"), self.headers.get("Host")):
                 raise ScanRequestError("Cross-origin scan requests are not allowed.", 403)
-            forwarded = self.headers.get("X-Forwarded-For", "")
-            client = forwarded.split(",", 1)[0].strip() or self.client_address[0]
+            client = _client_identity(self.headers, self.client_address[0])
             if _rate_limited(client):
                 self._send_json(
                     429,

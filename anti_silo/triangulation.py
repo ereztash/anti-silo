@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import csv
 import json
 import re
 from collections import Counter
@@ -9,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import output_dir
+from .csv_export import SafeDictWriter
 from .index import build_index
 from .model import Claim, Surface, TriangulationRow
 from .scanner import scan_claims
@@ -186,7 +186,7 @@ def write_triangulation(vault: Path, config: dict[str, Any]) -> dict[str, Any]:
     }
     (out / "triangulation_gate.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     with (out / "triangulation_gate.csv").open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["file", "tier", "source", "authority", "reason", "source_hash", "claim_kind", "needs"])
+        writer = SafeDictWriter(f, fieldnames=["file", "tier", "source", "authority", "reason", "source_hash", "claim_kind", "needs"])
         writer.writeheader()
         for row in rows:
             writer.writerow(row.__dict__)

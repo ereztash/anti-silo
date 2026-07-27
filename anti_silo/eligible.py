@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import csv
 import json
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -8,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import output_dir
+from .csv_export import SafeDictWriter
 from .triangulation import build_triangulation
 
 
@@ -63,7 +63,7 @@ def _write_sources(out: Path, rows: list[dict[str, Any]], stem: str, title: str,
         encoding="utf-8",
     )
     with (out / f"{stem}.csv").open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["source", "source_hash", "authority", "eligible_for", "granting_tiers", "granted_by_claims"])
+        writer = SafeDictWriter(f, fieldnames=["source", "source_hash", "authority", "eligible_for", "granting_tiers", "granted_by_claims"])
         writer.writeheader()
         for row in rows:
             writer.writerow(
@@ -107,7 +107,7 @@ def write_eligible_sources(vault: Path, config: dict[str, Any]) -> dict[str, Any
     }
     (out / "eligible_sources.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     with (out / "eligible_sources.csv").open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["source", "source_hash", "authority", "eligible_for", "granting_tiers", "granted_by_claims"])
+        writer = SafeDictWriter(f, fieldnames=["source", "source_hash", "authority", "eligible_for", "granting_tiers", "granted_by_claims"])
         writer.writeheader()
         for row in rows:
             writer.writerow(

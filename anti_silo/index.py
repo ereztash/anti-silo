@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import csv
 import json
 from collections import Counter
 from datetime import datetime, timezone
@@ -8,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import output_dir, rel
+from .csv_export import SafeDictWriter
 from .hashing import sha256_file, sha256_text
 from .model import Surface
 from .scanner import iter_indexable_files, metadata, read_text
@@ -74,7 +74,7 @@ def write_index(vault: Path, config: dict[str, Any]) -> dict[str, Any]:
     }
     (out / "truth_surface_index.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     with (out / "truth_surface_index.csv").open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["file", "surfaces", "authority", "can_anchor_claim", "raw_source", "content_hash", "raw_source_hash", "normalized_content_hash"])
+        writer = SafeDictWriter(f, fieldnames=["file", "surfaces", "authority", "can_anchor_claim", "raw_source", "content_hash", "raw_source_hash", "normalized_content_hash"])
         writer.writeheader()
         for row in rows:
             writer.writerow(

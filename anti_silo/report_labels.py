@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import output_dir
+from .csv_export import SafeDictWriter
 
 
 TIER_LABELS_HE = {
@@ -111,7 +112,7 @@ def write_localized_outputs(vault: Path, pulse_payload: dict[str, Any], lang: st
         ) as dst:
             reader = csv.DictReader(src)
             fieldnames = ["file", "status", "action", "technical_tier", "reason"]
-            writer = csv.DictWriter(dst, fieldnames=fieldnames)
+            writer = SafeDictWriter(dst, fieldnames=fieldnames)
             writer.writeheader()
             for row in reader:
                 technical_tier = str(row.get("tier", ""))

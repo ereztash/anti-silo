@@ -7,6 +7,17 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from .extract_limits import (
+    MAX_COLUMNS,
+    MAX_EXTRACTED_CHARS,
+    MAX_PDF_PAGES,
+    MAX_ROWS,
+    Budget,
+    archive_refusal_note,
+    archive_too_large,
+    clamp,
+    limit_note,
+)
 from .scanner import read_text
 
 
@@ -18,17 +29,28 @@ class ExtractionResult:
 
 
 def _extract_csv(path: Path) -> ExtractionResult:
-    rows: list[str] = []
+    budget = Budget()
+    truncated = False
     try:
         with path.open("r", encoding="utf-8-sig", newline="", errors="replace") as f:
             reader = csv.reader(f)
             for idx, row in enumerate(reader):
-                if idx >= 200:
-                    return ExtractionResult("\n".join(rows), "truncated", "CSV limited to the first 200 rows")
-                rows.append(" | ".join(cell.strip() for cell in row))
+                if idx >= MAX_ROWS:
+                    truncated = True
+                    break
+                if len(row) > MAX_COLUMNS:
+                    truncated = True
+                cells = row[:MAX_COLUMNS]
+                if not budget.add(" | ".join(cell.strip() for cell in cells)):
+                    truncated = True
+                    break
     except (csv.Error, OSError, ValueError) as exc:
         return ExtractionResult("", "failed", f"CSV could not be read: {exc}")
-    return ExtractionResult("\n".join(rows))
+    return ExtractionResult(
+        budget.text(),
+        "truncated" if truncated else "complete",
+        limit_note("CSV") if truncated else "",
+    )
 
 
 def _extract_json(path: Path) -> ExtractionResult:
@@ -55,11 +77,26 @@ def _extract_docx(path: Path) -> ExtractionResult:
         import docx  # type: ignore[import-not-found]
     except Exception as exc:  # pragma: no cover - depends on optional package
         return ExtractionResult("", "failed", f"DOCX extraction unavailable: {exc}")
+    oversized = archive_too_large(path)
+    if oversized is not None:
+        return ExtractionResult("", "failed", archive_refusal_note("DOCX", oversized))
     try:
         document = docx.Document(str(path))
     except Exception as exc:
         return ExtractionResult("", "failed", f"DOCX could not be read (corrupt or not a real .docx): {exc}")
-    return ExtractionResult("\n".join(paragraph.text for paragraph in document.paragraphs if paragraph.text.strip()))
+    budget = Budget()
+    truncated = False
+    for paragraph in document.paragraphs:
+        if not paragraph.text.strip():
+            continue
+        if not budget.add(paragraph.text):
+            truncated = True
+            break
+    return ExtractionResult(
+        budget.text(),
+        "truncated" if truncated else "complete",
+        f"DOCX truncated to the first {MAX_EXTRACTED_CHARS:,} characters" if truncated else "",
+    )
 
 
 def _extract_xlsx(path: Path) -> ExtractionResult:
@@ -67,26 +104,40 @@ def _extract_xlsx(path: Path) -> ExtractionResult:
         import openpyxl  # type: ignore[import-not-found]
     except Exception as exc:  # pragma: no cover - depends on optional package
         return ExtractionResult("", "failed", f"XLSX extraction unavailable: {exc}")
+    oversized = archive_too_large(path)
+    if oversized is not None:
+        return ExtractionResult("", "failed", archive_refusal_note("XLSX", oversized))
     try:
         workbook = openpyxl.load_workbook(path, read_only=True, data_only=True)
     except Exception as exc:
         return ExtractionResult("", "failed", f"XLSX could not be read (corrupt or not a real .xlsx): {exc}")
-    chunks: list[str] = []
+    budget = Budget()
     truncated = False
-    for sheet in workbook.worksheets:
-        chunks.append(f"## Sheet: {sheet.title}")
-        for idx, row in enumerate(sheet.iter_rows(values_only=True)):
-            if idx >= 200:
+    try:
+        for sheet in workbook.worksheets:
+            if not budget.add(f"## Sheet: {sheet.title}"):
                 truncated = True
                 break
-            values = ["" if value is None else str(value) for value in row]
-            if any(value.strip() for value in values):
-                chunks.append(" | ".join(values))
-    workbook.close()
+            for idx, row in enumerate(sheet.iter_rows(values_only=True)):
+                if idx >= MAX_ROWS:
+                    truncated = True
+                    break
+                if len(row) > MAX_COLUMNS:
+                    truncated = True
+                values = ["" if value is None else str(value) for value in row[:MAX_COLUMNS]]
+                if not any(value.strip() for value in values):
+                    continue
+                if not budget.add(" | ".join(values)):
+                    truncated = True
+                    break
+            if budget.exhausted:
+                break
+    finally:
+        workbook.close()
     return ExtractionResult(
-        "\n".join(chunks),
+        budget.text(),
         "truncated" if truncated else "complete",
-        "XLSX sheets limited to the first 200 rows" if truncated else "",
+        limit_note("XLSX") if truncated else "",
     )
 
 
@@ -95,31 +146,45 @@ def _extract_pdf(path: Path) -> ExtractionResult:
         from pypdf import PdfReader  # type: ignore[import-not-found]
     except Exception as exc:  # pragma: no cover - depends on optional package
         return ExtractionResult("", "failed", f"PDF extraction unavailable: {exc}")
+    budget = Budget()
+    truncated = False
     try:
         reader = PdfReader(str(path))
-        pages: list[str] = []
-        for page in reader.pages[:20]:
-            pages.append(page.extract_text() or "")
+        for page in reader.pages[:MAX_PDF_PAGES]:
+            if not budget.add(page.extract_text() or ""):
+                truncated = True
+                break
         page_count = len(reader.pages)
     except Exception as exc:
         return ExtractionResult("", "failed", f"PDF could not be read (corrupt, encrypted, or scanned without OCR): {exc}")
+    if page_count > MAX_PDF_PAGES:
+        truncated = True
     return ExtractionResult(
-        "\n".join(pages),
-        "truncated" if page_count > 20 else "complete",
-        "PDF limited to the first 20 pages" if page_count > 20 else "",
+        budget.text(),
+        "truncated" if truncated else "complete",
+        f"PDF limited to the first {MAX_PDF_PAGES} pages and {MAX_EXTRACTED_CHARS:,} characters" if truncated else "",
+    )
+
+
+def _clamped_result(text: str, kind: str) -> ExtractionResult:
+    clamped, truncated = clamp(text)
+    return ExtractionResult(
+        clamped,
+        "truncated" if truncated else "complete",
+        f"{kind} truncated to the first {MAX_EXTRACTED_CHARS:,} characters" if truncated else "",
     )
 
 
 def extract_text(path: Path) -> ExtractionResult:
     ext = path.suffix.lower()
     if ext in {".md", ".txt"}:
-        return ExtractionResult(read_text(path))
+        return _clamped_result(read_text(path), "Text")
     if ext == ".csv":
         return _extract_csv(path)
     if ext == ".json":
         return _extract_json(path)
     if ext in {".html", ".htm"}:
-        return ExtractionResult(_strip_html(read_text(path)))
+        return _clamped_result(_strip_html(read_text(path)), "HTML")
     if ext == ".docx":
         return _extract_docx(path)
     if ext == ".xlsx":

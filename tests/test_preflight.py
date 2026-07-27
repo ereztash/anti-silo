@@ -5,8 +5,10 @@ import zipfile
 from pathlib import Path
 
 from anti_silo.config import load_config
+from anti_silo.csv_export import csv_safe_cell
 from anti_silo.gui import build_human_report
 from anti_silo.preflight import build_corpus_diagnostics
+from anti_silo.preflight_artifacts import write_preflight_artifacts
 from anti_silo.projects import ProjectStore, compare_scans, scan_summary
 from anti_silo.quick_scan import discard_quick_scan
 
@@ -36,6 +38,36 @@ def test_corpus_diagnostics_finds_duplicates_and_unsupported_files(tmp_path) -> 
     assert all(row["impact"] for row in diagnostics["issues"])
     duplicate = next(row for row in diagnostics["issues"] if row["kind"] == "exact_duplicate")
     assert "retrieval" in duplicate["impact"]
+
+
+def test_csv_cells_cannot_become_spreadsheet_formulas(tmp_path) -> None:
+    assert csv_safe_cell("=1+1+cmd(A1)") == "'=1+1+cmd(A1)"
+    assert csv_safe_cell("+HYPERLINK()") == "'+HYPERLINK()"
+    assert csv_safe_cell("-2+3") == "'-2+3"
+    assert csv_safe_cell("@SUM(A1)") == "'@SUM(A1)"
+    # Leading whitespace is skipped by spreadsheets, so it must not hide a formula.
+    assert csv_safe_cell("\t=cmd") == "'\t=cmd"
+    # Ordinary values are untouched, and escaping is idempotent.
+    assert csv_safe_cell("handbook.md") == "handbook.md"
+    assert csv_safe_cell("") == ""
+    assert csv_safe_cell(csv_safe_cell("=evil")) == "'=evil"
+
+
+def test_exported_risk_register_escapes_a_formula_filename(tmp_path) -> None:
+    source = tmp_path / "client-corpus"
+    source.mkdir()
+    (source / "=1+1+cmd(A1).md").write_text("claim: looks ordinary\n", encoding="utf-8")
+
+    report = build_human_report(source, load_config())
+    out_dir = tmp_path / "export"
+    write_preflight_artifacts(report, out_dir)
+
+    text = (out_dir / "RISK_REGISTER.csv").read_text(encoding="utf-8-sig")
+    assert "'=1+1+cmd(A1).md" in text
+    # No cell may start a formula: check the raw field position, not a substring.
+    for line in text.splitlines()[1:]:
+        for cell in line.split(","):
+            assert not cell.lstrip('"').startswith(("=", "+", "@"))
 
 
 def test_empty_folder_is_no_corpus_not_go(tmp_path) -> None:

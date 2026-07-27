@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import csv
 import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from .config import output_dir
+from .csv_export import SafeDictWriter
 from .evidence_queue import build_queue
 from .index import build_index
 
@@ -61,7 +61,7 @@ def write_source_spine_todos(vault: Path, config: dict[str, Any]) -> dict[str, A
     payload = {"generated": datetime.now(timezone.utc).isoformat(), "selected": len(rows), "rows": rows}
     (out / "source_spine_todo.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     with (out / "source_spine_todo.csv").open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["file", "claim_kind", "reason", "required_metadata", "candidate_sources"])
+        writer = SafeDictWriter(f, fieldnames=["file", "claim_kind", "reason", "required_metadata", "candidate_sources"])
         writer.writeheader()
         for row in rows:
             writer.writerow(

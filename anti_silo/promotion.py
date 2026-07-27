@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import csv
 import json
 from collections import Counter
 from datetime import datetime, timezone
@@ -8,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import output_dir
+from .csv_export import SafeDictWriter
 from .contradiction import penalty_by_file
 from .model import EnforcementRow
 from .triangulation import build_triangulation
@@ -92,7 +92,7 @@ def write_enforcement(vault: Path, config: dict[str, Any]) -> dict[str, Any]:
     }
     (out / "promotion_gate.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     with (out / "promotion_gate.csv").open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["file", "tier", "decision", "reason", "action"])
+        writer = SafeDictWriter(f, fieldnames=["file", "tier", "decision", "reason", "action"])
         writer.writeheader()
         writer.writerows(row.__dict__ for row in rows)
     md = [
