@@ -179,6 +179,9 @@
     // An empty corpus is not a conditional pass. Without this it fell through
     // to the amber CONDITIONAL styling while the label read NO DATA.
     if (status === "no_corpus") return "no-data";
+    // Hygiene passed but provenance was disclaimed. Neither green (it did not
+    // earn a provenance opinion) nor amber (nothing hygienic needs fixing).
+    if (status === "go_hygiene_only") return "hygiene-only";
     return "conditional";
   }
 

@@ -109,11 +109,20 @@ def test_every_engine_verdict_status_has_web_and_desktop_styling() -> None:
     `no_corpus` was added to build_verdict and wired into the Desktop console
     and the exported report, but not the Web Beta - where it fell through to
     the amber CONDITIONAL styling while the label read NO DATA.
+
+    Statuses are collected from every module that can set one. Scoping the scan
+    to preflight.py alone reproduced the exact bug this test exists to catch:
+    `go_hygiene_only` is assigned in provenance_opinion.py, so the single-file
+    scan stayed green while neither surface handled the new status.
     """
     root = Path(__file__).resolve().parents[1]
-    engine = (root / "anti_silo" / "preflight.py").read_text(encoding="utf-8")
-    statuses = set(re.findall(r'"status":\s*"(\w+)"', engine))
-    assert {"go", "stop", "conditional_go", "no_corpus"} <= statuses
+    engine = "\n".join(
+        (root / "anti_silo" / name).read_text(encoding="utf-8")
+        for name in ("preflight.py", "provenance_opinion.py")
+    )
+    matches = re.findall(r'\["status"\]\s*=\s*"(\w+)"|"status":\s*"(\w+)"', engine)
+    statuses = {value for pair in matches for value in pair if value}
+    assert {"go", "stop", "conditional_go", "no_corpus", "go_hygiene_only"} <= statuses
 
     web_js = (root / "public" / "app.js").read_text(encoding="utf-8")
     desktop_js = (root / "anti_silo" / "gui" / "static" / "app.preflight.js").read_text(encoding="utf-8")

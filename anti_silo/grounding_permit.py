@@ -26,6 +26,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .provenance_opinion import DISCLAIMED, EXPRESSED
+
 
 REQUESTED_AUTHORITIES = ("locate", "draft", "advise", "decide", "act")
 AUDIENCES = ("internal", "client", "external")
@@ -127,16 +129,18 @@ def _upgrade_conditions(
     return conditions
 
 
-def evaluate_grounding_permit(
+def _permit_decision(
     requested_authority: str,
     audience: str,
     failure_impact: str,
     counts: dict[str, Any],
     diagnostics: dict[str, Any],
+    provenance: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     requested_authority = requested_authority if requested_authority in REQUESTED_AUTHORITIES else "locate"
     audience = audience if audience in AUDIENCES else "internal"
     failure_impact = failure_impact if failure_impact in FAILURE_IMPACTS else "low"
+    disclaimed = bool(provenance) and provenance.get("opinion") == DISCLAIMED
 
     corpus_rank = corpus_evidence_rank(counts, diagnostics)
 
@@ -172,7 +176,11 @@ def evaluate_grounding_permit(
 
     min_rank = _min_rank(requested_authority, audience, failure_impact)
     # `decide` is never fully granted (see module docstring) even when evidence clears the bar.
-    force_conditional = requested_authority == "decide"
+    # A disclaimed provenance opinion blocks a full grant for a different reason: not that
+    # the evidence fell short of the bar, but that the tool has no independent footing from
+    # which to say it cleared it. Measured before this guard existed, a wholly self-referential
+    # corpus was granted `locate` outright.
+    force_conditional = requested_authority == "decide" or disclaimed
 
     if corpus_rank >= min_rank and not force_conditional:
         permission = "granted"
@@ -185,6 +193,13 @@ def evaluate_grounding_permit(
         granted_authority = "none"
 
     copy = _GRANTED_COPY.get(granted_authority, _GRANTED_COPY["none"])
+    conditions = _upgrade_conditions(requested_authority, counts, diagnostics) if permission != "granted" else []
+    if disclaimed:
+        conditions = [
+            "להוסיף מקור עצמאי אחד לפחות מחוץ לתיקייה שנסרקה — "
+            "בלעדיו Anti-Silo נמנע מחוות דעת על מקוריות, ולא יעניק הרשאה מלאה.",
+            *conditions,
+        ]
     return {
         "requested_authority": requested_authority,
         "audience": audience,
@@ -194,7 +209,29 @@ def evaluate_grounding_permit(
         "corpus_evidence_tier": EVIDENCE_TIER_LABEL.get(corpus_rank, EVIDENCE_TIER_LABEL[0]),
         "permitted_uses": copy["permitted"],
         "prohibited_uses": copy["prohibited"],
-        "upgrade_conditions": _upgrade_conditions(requested_authority, counts, diagnostics)
-        if permission != "granted"
-        else [],
+        "upgrade_conditions": conditions,
     }
+
+
+def evaluate_grounding_permit(
+    requested_authority: str,
+    audience: str,
+    failure_impact: str,
+    counts: dict[str, Any],
+    diagnostics: dict[str, Any],
+    provenance: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Public entry point. Stamps the provenance opinion onto every outcome.
+
+    The two early denials inside `_permit_decision` return before the disclaimer
+    can change anything - denial is already the strictest result. They still have
+    to carry the field, because a consumer that reads it conditionally would show
+    "opinion expressed" on exactly the corpora that earned no opinion at all.
+    """
+    decision = _permit_decision(
+        requested_authority, audience, failure_impact, counts, diagnostics, provenance
+    )
+    disclaimed = bool(provenance) and provenance.get("opinion") == DISCLAIMED
+    decision["provenance_opinion"] = DISCLAIMED if disclaimed else EXPRESSED
+    decision["provenance_statement"] = str((provenance or {}).get("statement", ""))
+    return decision

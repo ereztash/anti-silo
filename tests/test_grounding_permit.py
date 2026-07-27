@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from anti_silo.grounding_permit import corpus_evidence_rank, evaluate_grounding_permit
+from anti_silo.provenance_opinion import apply_to_verdict, evaluate_provenance_opinion
 
 
 def _diag(**counts) -> dict:
@@ -114,3 +115,65 @@ def test_corpus_evidence_rank_is_the_weakest_link() -> None:
     assert corpus_evidence_rank({"ready": 10}, _diag()) == 3
     assert corpus_evidence_rank({}, _diag()) == -1
     assert corpus_evidence_rank({"ready": 10}, _diag(empty_files=1)) == -1
+
+
+def test_permit_abstains_when_every_source_is_self_declared() -> None:
+    """A corpus that vouches for itself cannot earn a full grant.
+
+    Measured before this guard existed: a fabricated, wholly self-referential
+    corpus returned `permit: granted -> locate`. The engine held
+    `trust_origin: self_declared` on every row and acted on none of it.
+    """
+    counts = {"ready": 4}
+    self_declared = [{"trust_origin": "self_declared"} for _ in range(4)]
+
+    granted = evaluate_grounding_permit("locate", "internal", "low", counts, _diag())
+    assert granted["permission"] == "granted"
+    assert granted["provenance_opinion"] == "expressed"
+
+    provenance = evaluate_provenance_opinion(self_declared)
+    assert provenance["opinion"] == "disclaimed"
+    abstained = evaluate_grounding_permit("locate", "internal", "low", counts, _diag(), provenance)
+    assert abstained["permission"] != "granted"
+    assert abstained["provenance_opinion"] == "disclaimed"
+    assert any("מקור עצמאי" in condition for condition in abstained["upgrade_conditions"])
+
+
+def test_one_independent_source_restores_the_opinion() -> None:
+    """The disclaimer is about having no footing at all, not about weak evidence."""
+    mixed = [{"trust_origin": "self_declared"}, {"trust_origin": "operator_attested"}]
+    assert evaluate_provenance_opinion(mixed)["opinion"] == "expressed"
+
+
+def test_rows_without_any_backing_also_disclaim() -> None:
+    """An empty trust_origin means no source to judge - not a passed check."""
+    provenance = evaluate_provenance_opinion([{"trust_origin": ""}, {}])
+    assert provenance["opinion"] == "disclaimed"
+    assert provenance["basis"] == "no_backed_rows"
+
+
+def test_disclaimer_is_carried_on_denied_outcomes_too() -> None:
+    """Both early denials return before the disclaimer changes anything.
+
+    They still have to carry the field: a consumer reading it conditionally
+    would otherwise print "opinion expressed" on a corpus that earned none.
+    """
+    provenance = evaluate_provenance_opinion([{"trust_origin": "self_declared"}])
+    act = evaluate_grounding_permit("act", "internal", "low", {"ready": 4}, _diag(), provenance)
+    blocked = evaluate_grounding_permit("locate", "internal", "low", {"contradiction": 1}, _diag(), provenance)
+    assert act["provenance_opinion"] == "disclaimed"
+    assert blocked["provenance_opinion"] == "disclaimed"
+
+
+def test_hygiene_only_verdict_replaces_a_bare_go() -> None:
+    """GO must not silently also mean "the sources check out"."""
+    clean = {"status": "go", "label": "GO", "title": "t", "summary": "s"}
+    disclaimed = evaluate_provenance_opinion([{"trust_origin": "self_declared"}])
+    assert apply_to_verdict(clean, disclaimed)["status"] == "go_hygiene_only"
+
+    expressed = evaluate_provenance_opinion([{"trust_origin": "operator_attested"}])
+    assert apply_to_verdict(clean, expressed)["status"] == "go"
+
+    # A STOP is already the strictest headline; the disclaimer must not soften it.
+    stop = {"status": "stop", "label": "STOP", "title": "t", "summary": "s"}
+    assert apply_to_verdict(stop, disclaimed)["status"] == "stop"

@@ -13,6 +13,7 @@
     function verdictMeta(data) {
       const verdict = data.verdict || {};
       if (verdict.status === 'no_corpus') return {tone:'no-data', kicker:verdict.label || 'NO DATA', title:verdict.title, body:verdict.summary, action:'', group:'no-data'};
+      if (verdict.status === 'go_hygiene_only') return {tone:'hygiene-only', kicker:verdict.label || 'GO — היגיינה בלבד', title:verdict.title, body:verdict.summary, action:'הצג קבצים שעברו', group:'ready'};
       if (verdict.status === 'stop') return {tone:'blocked', kicker:verdict.label || 'STOP', title:verdict.title, body:verdict.summary, action:'הצג את התיקונים החוסמים', group:'blocked'};
       if (verdict.status === 'conditional_go') return {tone:'needs', kicker:verdict.label || 'CONDITIONAL GO', title:verdict.title, body:verdict.summary, action:'הצג מה דורש בדיקה', group:'needs'};
       return {tone:'ready', kicker:verdict.label || 'GO', title:verdict.title, body:verdict.summary, action:'הצג קבצים מאושרים', group:'ready'};

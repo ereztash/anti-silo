@@ -534,6 +534,12 @@ footer a {
   border-right-color: var(--muted);
 }
 
+/* Hygiene passed, provenance was never opined on. Green would collapse the two
+   into one claim, which is exactly what the disclaimer exists to prevent. */
+.verdict-band.hygiene-only {
+  border-right-color: var(--muted);
+}
+
 .verdict-label {
   margin-bottom: 8px;
   color: var(--review);
@@ -549,7 +555,8 @@ footer a {
   color: var(--blocked);
 }
 
-.verdict-band.no-data .verdict-label {
+.verdict-band.no-data .verdict-label,
+.verdict-band.hygiene-only .verdict-label {
   color: var(--muted);
 }
 

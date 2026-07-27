@@ -10,6 +10,7 @@ from ..config import output_dir
 from ..grounding_permit import evaluate_grounding_permit
 from ..ingest import write_ingest
 from ..preflight import build_corpus_diagnostics, build_remediation, build_verdict
+from ..provenance_opinion import apply_to_verdict, evaluate_provenance_opinion
 from ..preflight_artifacts import client_manifest, write_preflight_artifacts
 from ..projects import compare_scans
 from ..pulse import write_pulse
@@ -136,7 +137,8 @@ def build_human_report(
         counts[row["category"]] = counts.get(row["category"], 0) + 1
 
     diagnostics = build_corpus_diagnostics(source_root, ingest_payload, config)
-    verdict = build_verdict(counts, diagnostics)
+    provenance = evaluate_provenance_opinion(rows)
+    verdict = apply_to_verdict(build_verdict(counts, diagnostics), provenance)
     remediation = build_remediation(rows, diagnostics)
     scope = _scope_impact(rows, diagnostics)
     analysis = build_consultant_analysis(
@@ -149,6 +151,7 @@ def build_human_report(
         str(permit_request.get("failure_impact", "low")),
         counts,
         diagnostics,
+        provenance,
     )
     current_summary = {
         "scanned_at": datetime.now(timezone.utc).isoformat(),
