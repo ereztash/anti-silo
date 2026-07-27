@@ -529,6 +529,11 @@ footer a {
   border-right-color: var(--blocked);
 }
 
+/* An empty corpus reads neutral, never as a conditional pass. */
+.verdict-band.no-data {
+  border-right-color: var(--muted);
+}
+
 .verdict-label {
   margin-bottom: 8px;
   color: var(--review);
@@ -542,6 +547,10 @@ footer a {
 
 .verdict-band.stop .verdict-label {
   color: var(--blocked);
+}
+
+.verdict-band.no-data .verdict-label {
+  color: var(--muted);
 }
 
 .verdict-copy h2 {

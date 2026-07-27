@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 import json
 import socket
 import sys
@@ -99,3 +101,24 @@ def test_web_preview_serves_ui_and_demo_api() -> None:
         except TimeoutExpired:
             process.kill()
             process.wait(timeout=5)
+
+
+def test_every_engine_verdict_status_has_web_and_desktop_styling() -> None:
+    """Guards against a status added in the engine reaching only one surface.
+
+    `no_corpus` was added to build_verdict and wired into the Desktop console
+    and the exported report, but not the Web Beta - where it fell through to
+    the amber CONDITIONAL styling while the label read NO DATA.
+    """
+    root = Path(__file__).resolve().parents[1]
+    engine = (root / "anti_silo" / "preflight.py").read_text(encoding="utf-8")
+    statuses = set(re.findall(r'"status":\s*"(\w+)"', engine))
+    assert {"go", "stop", "conditional_go", "no_corpus"} <= statuses
+
+    web_js = (root / "public" / "app.js").read_text(encoding="utf-8")
+    desktop_js = (root / "anti_silo" / "gui" / "static" / "app.preflight.js").read_text(encoding="utf-8")
+    for status in statuses:
+        if status in {"go", "conditional_go"}:
+            continue  # these are the fall-through defaults on both surfaces
+        assert status in web_js, f"Web Beta does not handle verdict status {status!r}"
+        assert status in desktop_js, f"Desktop console does not handle verdict status {status!r}"
