@@ -342,6 +342,29 @@ python -m anti_silo.cli pulse --vault path/to/vault --lang he
 By default, only `triangulated` sources are eligible for production grounding.
 Review candidates remain separate from the production allowlist.
 
+## Evidence Repair Queue
+
+Knowing a claim is `source_backed` instead of `triangulated` is a diagnosis, not
+a plan. `queue` turns the Trust Tiers above into a concrete, prioritized
+repair backlog: every claim that isn't yet `triangulated` gets one row with an
+`upgrade_path` (`source_anchor_backfill`, `corroboration_backfill`,
+`source_and_corroboration_backfill`, `ledger_validation`, `repair_or_retire`,
+or `source_spine_backfill`) and a plain-language `required_evidence`
+description of what closes the gap, ranked by tier severity.
+
+```powershell
+python -m anti_silo.cli queue --vault path/to/vault
+```
+
+Output: `evidence_upgrade_queue.json`, `evidence_upgrade_queue.csv`, and
+`EVIDENCE_UPGRADE_QUEUE.md` — a ranked list an analyst or knowledge manager can
+work top-down, instead of hunting for which of hundreds of claims to fix next.
+
+This is a triage tool, not a repair robot: it never attaches a source,
+promotes a tier, or retires a claim on its own — it only computes what a
+human still needs to go get. **The pain it targets:** unsupported claims
+otherwise have no repair workflow at all, only a static trust-tier label.
+
 ## Development
 
 Run the complete test suite:
