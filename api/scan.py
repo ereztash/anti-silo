@@ -316,6 +316,7 @@ def build_web_report(payload: object) -> dict[str, Any]:
 
 class handler(BaseHTTPRequestHandler):
     server_version = "AntiSiloWeb/0.1"
+    _head_only = False
 
     def _send_json(
         self,
@@ -332,7 +333,21 @@ class handler(BaseHTTPRequestHandler):
         for key, value in (extra_headers or {}).items():
             self.send_header(key, value)
         self.end_headers()
-        self.wfile.write(body)
+        if not self._head_only:
+            self.wfile.write(body)
+
+    def do_HEAD(self) -> None:  # noqa: N802
+        """Answer HEAD with GET's status and headers, minus the body.
+
+        Without this, BaseHTTPRequestHandler answers 501 Unsupported method, so
+        an uptime probe using HEAD reports the site as down while it is serving
+        traffic normally.
+        """
+        self._head_only = True
+        try:
+            self.do_GET()
+        finally:
+            self._head_only = False
 
     def do_GET(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)

@@ -1,6 +1,6 @@
 # Anti-Silo Launch Readiness
 
-**Status date:** 2026-07-17
+**Status date:** 2026-08-16
 
 ## Launch Claim
 
@@ -24,13 +24,14 @@ demand.
 | Hosted abuse boundary | Size limits, origin check, honeypot, per-instance rate limit | Pass for beta |
 | Hosted legal copy | Privacy notice and beta terms served with the app | Pass |
 | Hosted production URL | [`anti-silo.vercel.app`](https://anti-silo.vercel.app/) and public smoke test | Pass |
+| Hosted build is current | Deployed commit equals `origin/main`; re-checked per smoke test step 9 | Verify per deploy |
 | Distribution | Windows installer workflow and source install instructions | Pass |
 | Paid demand | Paid pilot using a real client folder and client-facing artifact | Unproven |
 | Repeat demand | Second client engagement by the same consultant | Unproven |
 
 ## Production Smoke Test
 
-Last completed against `https://anti-silo.vercel.app/` on 2026-07-17.
+Last completed against `https://anti-silo.vercel.app/` on 2026-08-16.
 
 Run these checks after every hosted deployment:
 
@@ -42,6 +43,13 @@ Run these checks after every hosted deployment:
 6. Cross-origin POST requests are rejected.
 7. `/privacy.html` and `/terms.html` load on desktop and mobile.
 8. Runtime logs contain `web_scan_completed` without paths, names, or document content.
+9. The deployed commit matches `origin/main`. A merge to `main` does not always
+   produce a production deployment, and a stale hosted build serves defects that
+   are already fixed in the repository.
+10. A folder of Hebrew-named files returns one row per file. The row count must
+    equal the reported file count; a shortfall means documents were dropped
+    silently, which is the failure this product exists to expose.
+11. `HEAD /` returns the same status as `GET /`, not 501.
 
 ## Pilot Funnel
 

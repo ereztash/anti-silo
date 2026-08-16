@@ -186,3 +186,40 @@ def test_vercel_http_handler_redirects_root_and_rejects_other_routes() -> None:
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)
+
+
+def test_head_requests_report_the_same_status_as_get() -> None:
+    # A HEAD probe previously fell through to BaseHTTPRequestHandler's 501, so
+    # uptime monitors that default to HEAD saw a healthy deployment as down.
+    server = HTTPServer(("127.0.0.1", 0), handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    connection = HTTPConnection("127.0.0.1", server.server_port, timeout=5)
+    try:
+        connection.request("HEAD", "/")
+        response = connection.getresponse()
+        assert response.status == 307
+        assert response.getheader("Location") == "/index.html"
+        assert response.read() == b""
+
+        connection.request("HEAD", "/api/scan")
+        response = connection.getresponse()
+        assert response.status == 200
+        assert int(response.getheader("Content-Length")) > 0
+        assert response.read() == b""
+
+        connection.request("HEAD", "/nope")
+        response = connection.getresponse()
+        assert response.status == 404
+        response.read()
+
+        # A body-bearing GET still works after the HEAD requests above.
+        connection.request("GET", "/api/scan")
+        response = connection.getresponse()
+        assert response.status == 200
+        assert json.loads(response.read().decode("utf-8"))["status"] == "ready"
+    finally:
+        connection.close()
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
