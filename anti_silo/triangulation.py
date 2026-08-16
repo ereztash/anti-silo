@@ -15,6 +15,11 @@ from .scanner import scan_claims
 
 
 _SHA256_HEX = re.compile(r"^[0-9a-f]{64}$")
+_MISPLACED_SOURCE_STATUS = "misplaced_source_hash_use_source_hash_key"
+_MISPLACED_SOURCE_NEEDS = (
+    "המקור קיים ונמצא לפי hash שחושב מהתוכן; יש להעביר את אותו hash "
+    "מ-raw_source_hash אל source_hash. זה תיקון שם-שדה, לא עבודת-מקור חדשה."
+)
 
 
 def _is_well_formed_hash(value: str) -> bool:
@@ -54,6 +59,16 @@ def _surface_hashes(surface: Surface) -> set[str]:
     return hashes
 
 
+def _computed_surface_hashes(surface: Surface) -> set[str]:
+    """Only hashes computed from bytes/text, never self-declared metadata."""
+    hashes: set[str] = set()
+    if surface.content_hash:
+        hashes.add(surface.content_hash.lower())
+    if surface.normalized_content_hash:
+        hashes.add(surface.normalized_content_hash.lower())
+    return hashes
+
+
 def _best_source(
     claim: Claim, surfaces: list[Surface], config: dict[str, Any], real_hashes: set[str] | None = None
 ) -> tuple[Surface | None, str]:
@@ -82,20 +97,15 @@ def _best_source(
             return None, "source_hash_matches_non_raw_surface"
         return None, "source_hash_not_found"
     # A near miss is punished harder than doing nothing, so it has to be named.
-    # Measured on three otherwise-identical corpora: no markers at all scores 40
-    # (CONDITIONAL GO); `source_hash:` on the claim scores 71 with tier `ready`;
-    # `raw_source_hash:` on the claim — the same real hash of the same real file,
-    # written under the key the *source* side uses instead of the claim side —
-    # scores 0, STOP, permit denied. The keys have different jobs
-    # (`raw_source_hash:` says a source points at raw bytes; `source_hash:` says
-    # a claim points at that source) and nothing in the output said which was
-    # wrong. The tier is deliberately not upgraded: the linkage genuinely was
-    # not declared. Only the diagnosis is added.
+    # But a repeated self-declared raw_source_hash is not evidence that a real
+    # source exists: two files can copy the same arbitrary 64-character value.
+    # Prescribe the one-field rename only when the value is independently
+    # present as a computed content/normalized-content hash on a candidate.
     misplaced = claim.metadata.get("raw_source_hash", "").lower()
-    if misplaced and _is_well_formed_hash(misplaced):
+    if misplaced and _is_well_formed_hash(misplaced) and misplaced in real_hashes:
         for surface in candidates:
-            if surface.file != claim.file and misplaced in _surface_hashes(surface):
-                return None, "misplaced_source_hash_use_source_hash_key"
+            if surface.file != claim.file and misplaced in _computed_surface_hashes(surface):
+                return None, _MISPLACED_SOURCE_STATUS
     if _raw_source_only(config):
         return None, "source_hash_required_for_raw_source_only"
     for surface in candidates:
@@ -109,14 +119,26 @@ def _best_source(
 
 
 def _missing_source_reason(base: str, source_status: str) -> str:
-    if source_status in {
+    # `misplaced_source_hash_use_source_hash_key` is an engine diagnosis, not a
+    # UI reason atom. Public surfaces already translate the accurate generic
+    # statement below; the exact one-field repair belongs in `needs`. Keeping
+    # that split avoids leaking a raw internal identifier into the Web report.
+    public_status = (
+        "source_hash_required_for_raw_source_only"
+        if source_status == _MISPLACED_SOURCE_STATUS
+        else source_status
+    )
+    if public_status in {
         "source_hash_matches_non_raw_surface",
         "source_hash_not_found",
         "source_hash_required_for_raw_source_only",
-        "misplaced_source_hash_use_source_hash_key",
     }:
-        return f"{base}; {source_status}"
+        return f"{base}; {public_status}"
     return base
+
+
+def _missing_source_needs(default: str, source_status: str) -> str:
+    return _MISPLACED_SOURCE_NEEDS if source_status == _MISPLACED_SOURCE_STATUS else default
 
 
 def _reported_source_hash(claim: Claim, source: Surface) -> str:
@@ -175,16 +197,46 @@ def classify_claim(
             "graph_only",
             "",
             "",
-            "synthesis_without_source_spine",
+            _missing_source_reason("synthesis_without_source_spine", source_status),
             "",
             claim.claim_kind,
-            "source spine: source_hash, source_spine, bibliography, references, paper list, or SLR artifact",
+            _missing_source_needs(
+                "source spine: source_hash, source_spine, bibliography, references, paper list, or SLR artifact",
+                source_status,
+            ),
         )
     if claim.has_corroboration:
-        return TriangulationRow(claim.file, "corroborated_no_source", "", "", _missing_source_reason("claim + corroboration", source_status), "", claim.claim_kind, "raw external source_hash")
+        return TriangulationRow(
+            claim.file,
+            "corroborated_no_source",
+            "",
+            "",
+            _missing_source_reason("claim + corroboration", source_status),
+            "",
+            claim.claim_kind,
+            _missing_source_needs("raw external source_hash", source_status),
+        )
     if claim.has_ledger:
-        return TriangulationRow(claim.file, "ledger_supported", "", "", _missing_source_reason("claim + ledger", source_status), "", claim.claim_kind, "raw external source_hash and corroboration evidence")
-    return TriangulationRow(claim.file, "graph_only", "", "", _missing_source_reason("claim only", source_status), "", claim.claim_kind, "raw external source_hash and independent corroboration")
+        return TriangulationRow(
+            claim.file,
+            "ledger_supported",
+            "",
+            "",
+            _missing_source_reason("claim + ledger", source_status),
+            "",
+            claim.claim_kind,
+            _missing_source_needs("raw external source_hash and corroboration evidence", source_status),
+        )
+    return TriangulationRow(
+        claim.file,
+        "graph_only",
+        "",
+        "",
+        _missing_source_reason("claim only", source_status),
+        "",
+        claim.claim_kind,
+        _missing_source_needs("raw external source_hash and independent corroboration", source_status),
+    )
 
 
 def build_triangulation(vault: Path, config: dict[str, Any]) -> list[TriangulationRow]:
