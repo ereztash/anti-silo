@@ -44,8 +44,8 @@ def test_misplaced_hash_is_diagnosed_when_it_matches_real_content() -> None:
     assert reason == "misplaced_source_hash_use_source_hash_key"
 
 
-def test_synthesis_claim_keeps_the_one_field_repair_without_leaking_internal_code() -> None:
-    """The synthesis early-return must not swallow the actionable diagnosis."""
+def test_synthesis_keeps_routing_key_and_surfaces_the_one_field_repair() -> None:
+    """The actionable diagnosis must not mutate synthesis' canonical routing key."""
     source = _raw_surface("source.md", "real bytes")
     claim = Claim(
         file="summary.md",
@@ -58,7 +58,7 @@ def test_synthesis_claim_keeps_the_one_field_repair_without_leaking_internal_cod
     row = classify_claim(claim, [source], {"raw_source_only": True})
 
     assert row.tier == "graph_only"
-    assert row.reason == "synthesis_without_source_spine; source_hash_required_for_raw_source_only"
+    assert row.reason == "synthesis_without_source_spine"
     assert "raw_source_hash" in row.needs
     assert "source_hash" in row.needs
     assert "תיקון שם-שדה" in row.needs
