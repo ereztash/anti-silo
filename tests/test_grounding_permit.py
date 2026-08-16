@@ -177,3 +177,78 @@ def test_hygiene_only_verdict_replaces_a_bare_go() -> None:
     # A STOP is already the strictest headline; the disclaimer must not soften it.
     stop = {"status": "stop", "label": "STOP", "title": "t", "summary": "s"}
     assert apply_to_verdict(stop, disclaimed)["status"] == "stop"
+
+
+def test_the_documented_tagging_convention_can_never_clear_the_disclaimer() -> None:
+    """Pins the trap, so the remedy text can never drift back to being wrong.
+
+    A marker written inside the scanned folder is the corpus speaking about
+    itself, however accurate. Following the README convention perfectly leaves
+    every row `self_declared`, so the opinion stays disclaimed and the permit
+    can never be fully granted. Only a human selecting the source — the repair
+    flow's `type: user_selected_source` — counts as outside testimony.
+
+    Measured before this was documented: full compliance scored 74 and still
+    returned `conditional -> locate`; an operator attestation returned
+    `granted -> draft_with_human_review`.
+    """
+    from anti_silo.model import OPERATOR_ATTESTED, SELF_DECLARED
+
+    perfectly_tagged = [{"trust_origin": SELF_DECLARED} for _ in range(4)]
+    provenance = evaluate_provenance_opinion(perfectly_tagged)
+    assert provenance["opinion"] == "disclaimed"
+
+    permit = evaluate_grounding_permit("draft", "client", "legal", {"ready": 4}, _diag(), provenance)
+    assert permit["permission"] != "granted"
+
+    # The remedy must name the mechanism that exists. It once told the operator to
+    # add a source "outside the scanned folder" — which `is_within_root` refuses
+    # to read, by design, so the instruction could not be followed at all.
+    remedy = " ".join(permit["upgrade_conditions"])
+    assert "מחוץ לתיקייה שנסרקה" not in remedy
+    assert "זרימת-התיקון" in remedy
+
+    attested = evaluate_provenance_opinion([{"trust_origin": OPERATOR_ATTESTED}])
+    assert attested["opinion"] == "expressed"
+
+
+def test_the_permitted_list_never_contains_a_prohibition() -> None:
+    """`_GRANTED_COPY["none"]["permitted"]` held "do not use this corpus to
+    produce answers, recommendations or actions" — and the exported permit
+    printed it under the heading "currently permitted". A client reading the
+    permitted section found a prohibition listed as something they may do.
+    """
+    from anti_silo.grounding_permit import _GRANTED_COPY
+
+    assert _GRANTED_COPY["none"]["permitted"] == [], "nothing is permitted at the none grant; say so with an empty list"
+    for grant, copy in _GRANTED_COPY.items():
+        for line in copy["permitted"]:
+            assert not line.startswith("אין ל"), f"{grant}: prohibition text inside the permitted list: {line!r}"
+
+
+def test_client_facing_exports_carry_no_verbatim_document_figures(tmp_path: Path) -> None:
+    """`figures` is every number in a document — in a legal corpus, the liability
+    caps and settlement amounts. It was written into SOURCE_MANIFEST.json, which
+    the GUI offers under the client-delivery heading, for every file on every
+    scan. It is detector state and proves nothing about which files were audited.
+    """
+    import json
+
+    from anti_silo.config import load_config
+    from anti_silo.ingest import DETECTOR_ONLY_FIELDS, write_ingest
+
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    (corpus / "memo.md").write_text(
+        "Settlement authority is 2400000 dollars with a walk-away of 187500 dollars.\n" * 3,
+        encoding="utf-8",
+    )
+    payload = write_ingest(corpus, load_config(), output_vault=tmp_path / "staged")
+
+    # The detectors still get what they need, in memory.
+    assert any(row.get("figures") for row in payload["rows"])
+
+    manifest = json.loads((tmp_path / "staged" / "SOURCE_MANIFEST.json").read_text(encoding="utf-8"))
+    for row in manifest["rows"]:
+        assert not (DETECTOR_ONLY_FIELDS & set(row)), f"detector state reached the deliverable: {sorted(DETECTOR_ONLY_FIELDS & set(row))}"
+    assert "2400000" not in json.dumps(manifest), "a document figure reached the client manifest"

@@ -44,6 +44,18 @@ def _human_row(row: dict[str, Any], sources: dict[str, str], penalties: dict[str
         label = "סיכום, לא מקור ראשוני"
         explanation = "זה נראה כמו סיכום או מסגרת חשיבה, אבל חסרה רשימת מקורות מסודרת."
 
+    # Someone who annotated the corpus and used the wrong key lands worse than
+    # someone who annotated nothing (0/STOP against 40/CONDITIONAL GO). The
+    # technical reason named it; this is the sentence the consultant reads.
+    if "misplaced_source_hash_use_source_hash_key" in reason:
+        label = "המקור קיים — שם השדה שגוי"
+        explanation = (
+            "הקובץ מפנה ל-hash של מקור אמיתי שקיים בתיקייה, אבל תחת "
+            "`raw_source_hash:` — שדה שמסמן *מקור* המצביע על בתים גולמיים. "
+            "כדי לקשור *טענה* למקור, אותו hash צריך לשבת תחת `source_hash:`. "
+            "זהו תיקון של שם-שדה אחד, לא עבודת-מקור חדשה."
+        )
+
     penalty = penalties.get(str(row.get("file", "")), {})
     if penalty.get("hard_block") is True:
         category = "contradiction"
