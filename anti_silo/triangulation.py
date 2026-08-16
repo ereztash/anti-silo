@@ -15,8 +15,8 @@ from .scanner import scan_claims
 
 
 _SHA256_HEX = re.compile(r"^[0-9a-f]{64}$")
-_MISPLACED_SOURCE_STATUS = "misplaced_source_hash_use_source_hash_key"
-_MISPLACED_SOURCE_NEEDS = (
+_MISPLACED = "misplaced_source_hash_use_source_hash_key"
+_MISPLACED_NEEDS = (
     "המקור קיים ונמצא לפי hash שחושב מהתוכן; יש להעביר את אותו hash "
     "מ-raw_source_hash אל source_hash. זה תיקון שם-שדה, לא עבודת-מקור חדשה."
 )
@@ -27,11 +27,6 @@ def _is_well_formed_hash(value: str) -> bool:
 
 
 def _real_content_hashes(surfaces: list[Surface]) -> set[str]:
-    """Hashes actually computed by sha256_file/sha256_text from real, present
-    bytes - as opposed to raw_source_hash, which is copied verbatim from a
-    file's own frontmatter and never independently recomputed. Used to tell
-    a genuinely corroborated raw-source anchor from two files that simply
-    declare the same arbitrary, self-typed string."""
     hashes: set[str] = set()
     for surface in surfaces:
         if surface.content_hash:
@@ -59,14 +54,12 @@ def _surface_hashes(surface: Surface) -> set[str]:
     return hashes
 
 
-def _computed_surface_hashes(surface: Surface) -> set[str]:
-    """Only hashes computed from bytes/text, never self-declared metadata."""
-    hashes: set[str] = set()
-    if surface.content_hash:
-        hashes.add(surface.content_hash.lower())
-    if surface.normalized_content_hash:
-        hashes.add(surface.normalized_content_hash.lower())
-    return hashes
+def _computed_hashes(surface: Surface) -> set[str]:
+    return {
+        value.lower()
+        for value in (surface.content_hash, surface.normalized_content_hash)
+        if value
+    }
 
 
 def _best_source(
@@ -80,12 +73,6 @@ def _best_source(
         hash_matches = [surface for surface in surfaces if surface.can_anchor_claim and declared_hash in _surface_hashes(surface)]
         for surface in candidates:
             if declared_hash == surface.raw_source_hash.lower():
-                # raw_source_hash is copied verbatim from frontmatter, never
-                # independently recomputed - two files can declare matching
-                # arbitrary strings with no real bytes behind them. Only
-                # trust it as strongly as source_hash/normalized_source_hash
-                # (which ARE always real, recomputed hashes) if it also
-                # matches some file's actually-computed content hash.
                 if _is_well_formed_hash(declared_hash) and declared_hash in real_hashes:
                     return surface, "raw_source_hash"
                 return surface, "raw_source_hash_unverified"
@@ -96,21 +83,19 @@ def _best_source(
         if hash_matches:
             return None, "source_hash_matches_non_raw_surface"
         return None, "source_hash_not_found"
-    # A near miss is punished harder than doing nothing, so it has to be named.
-    # But a repeated self-declared raw_source_hash is not evidence that a real
-    # source exists: two files can copy the same arbitrary 64-character value.
-    # Prescribe the one-field rename only when the value is independently
-    # present as a computed content/normalized-content hash on a candidate.
+
+    # Diagnose a wrong key only when the claimed hash matches bytes/text that
+    # the engine independently hashed. Matching self-declared metadata alone is
+    # not evidence that a real source exists.
     misplaced = claim.metadata.get("raw_source_hash", "").lower()
     if misplaced and _is_well_formed_hash(misplaced) and misplaced in real_hashes:
-        for surface in candidates:
-            if surface.file != claim.file and misplaced in _computed_surface_hashes(surface):
-                return None, _MISPLACED_SOURCE_STATUS
+        if any(surface.file != claim.file and misplaced in _computed_hashes(surface) for surface in candidates):
+            return None, _MISPLACED
+
     if _raw_source_only(config):
         return None, "source_hash_required_for_raw_source_only"
     for surface in candidates:
-        surface_text = surface.file.lower()
-        if stem and stem in surface_text:
+        if stem and stem in surface.file.lower():
             return surface, "filename_match"
     for surface in candidates:
         if surface.file == claim.file:
@@ -119,26 +104,16 @@ def _best_source(
 
 
 def _missing_source_reason(base: str, source_status: str) -> str:
-    # `misplaced_source_hash_use_source_hash_key` is an engine diagnosis, not a
-    # UI reason atom. Public surfaces already translate the accurate generic
-    # statement below; the exact one-field repair belongs in `needs`. Keeping
-    # that split avoids leaking a raw internal identifier into the Web report.
-    public_status = (
-        "source_hash_required_for_raw_source_only"
-        if source_status == _MISPLACED_SOURCE_STATUS
-        else source_status
-    )
-    if public_status in {
-        "source_hash_matches_non_raw_surface",
-        "source_hash_not_found",
-        "source_hash_required_for_raw_source_only",
-    }:
-        return f"{base}; {public_status}"
+    # The exact one-field repair is carried by `needs`; public reason atoms use
+    # the already-translated generic source_hash requirement.
+    status = "source_hash_required_for_raw_source_only" if source_status == _MISPLACED else source_status
+    if status in {"source_hash_matches_non_raw_surface", "source_hash_not_found", "source_hash_required_for_raw_source_only"}:
+        return f"{base}; {status}"
     return base
 
 
 def _missing_source_needs(default: str, source_status: str) -> str:
-    return _MISPLACED_SOURCE_NEEDS if source_status == _MISPLACED_SOURCE_STATUS else default
+    return _MISPLACED_NEEDS if source_status == _MISPLACED else default
 
 
 def _reported_source_hash(claim: Claim, source: Surface) -> str:
@@ -157,86 +132,47 @@ def classify_claim(
     if intake_kind == "self_indexed":
         reason = "self_indexed_intake"
         if extraction_status == "failed":
-            reason = "self_indexed_intake; extraction_failed"
+            reason += "; extraction_failed"
         elif extraction_status == "truncated":
-            reason = "self_indexed_intake; extraction_truncated"
+            reason += "; extraction_truncated"
         return TriangulationRow(
-            claim.file,
-            "indexed_unverified",
-            "",
-            "",
-            reason,
-            "",
-            claim.claim_kind,
+            claim.file, "indexed_unverified", "", "", reason, "", claim.claim_kind,
             "review the original file and attach an independent source before relying on it",
         )
+
     source, source_status = _best_source(claim, surfaces, config, real_hashes)
     if claim.blocked:
         source_hash = _reported_source_hash(claim, source) if source else ""
         return TriangulationRow(claim.file, "refuted_or_blocked", source.file if source else "", source.authority if source else "", "blocked marker", source_hash, claim.claim_kind, "repair or retire", source.trust_origin if source else "")
-    verified_hash_statuses = {"source_hash", "raw_source_hash", "normalized_source_hash"}
+
+    verified = {"source_hash", "raw_source_hash", "normalized_source_hash"}
     if source and claim.has_corroboration and source_status != "raw_source_hash_unverified":
         source_hash = _reported_source_hash(claim, source)
-        reason = "claim + raw_source_hash + corroboration" if source_status in verified_hash_statuses and source.raw_source else "claim + source + corroboration"
+        reason = "claim + raw_source_hash + corroboration" if source_status in verified and source.raw_source else "claim + source + corroboration"
         return TriangulationRow(claim.file, "triangulated", source.file, source.authority, reason, source_hash, claim.claim_kind, "", source.trust_origin)
+
     if source:
         source_hash = _reported_source_hash(claim, source)
         if source_status == "raw_source_hash_unverified":
             reason = "claim + unverified_raw_source_hash"
             needs = "raw_source_hash does not match any independently computed content hash in this corpus - verify the external source and re-anchor with a real hash"
-        elif source_status in verified_hash_statuses and source.raw_source:
-            reason = "claim + raw_source_hash"
-            needs = "independent corroboration"
+        elif source_status in verified and source.raw_source:
+            reason, needs = "claim + raw_source_hash", "independent corroboration"
         else:
-            reason = "claim + source"
-            needs = "independent corroboration"
+            reason, needs = "claim + source", "independent corroboration"
         return TriangulationRow(claim.file, "source_backed", source.file, source.authority, reason, source_hash, claim.claim_kind, needs, source.trust_origin)
+
     if claim.claim_kind == "synthesis" and not claim.has_source_spine:
         return TriangulationRow(
-            claim.file,
-            "graph_only",
-            "",
-            "",
-            _missing_source_reason("synthesis_without_source_spine", source_status),
-            "",
-            claim.claim_kind,
-            _missing_source_needs(
-                "source spine: source_hash, source_spine, bibliography, references, paper list, or SLR artifact",
-                source_status,
-            ),
+            claim.file, "graph_only", "", "",
+            _missing_source_reason("synthesis_without_source_spine", source_status), "", claim.claim_kind,
+            _missing_source_needs("source spine: source_hash, source_spine, bibliography, references, paper list, or SLR artifact", source_status),
         )
     if claim.has_corroboration:
-        return TriangulationRow(
-            claim.file,
-            "corroborated_no_source",
-            "",
-            "",
-            _missing_source_reason("claim + corroboration", source_status),
-            "",
-            claim.claim_kind,
-            _missing_source_needs("raw external source_hash", source_status),
-        )
+        return TriangulationRow(claim.file, "corroborated_no_source", "", "", _missing_source_reason("claim + corroboration", source_status), "", claim.claim_kind, _missing_source_needs("raw external source_hash", source_status))
     if claim.has_ledger:
-        return TriangulationRow(
-            claim.file,
-            "ledger_supported",
-            "",
-            "",
-            _missing_source_reason("claim + ledger", source_status),
-            "",
-            claim.claim_kind,
-            _missing_source_needs("raw external source_hash and corroboration evidence", source_status),
-        )
-    return TriangulationRow(
-        claim.file,
-        "graph_only",
-        "",
-        "",
-        _missing_source_reason("claim only", source_status),
-        "",
-        claim.claim_kind,
-        _missing_source_needs("raw external source_hash and independent corroboration", source_status),
-    )
+        return TriangulationRow(claim.file, "ledger_supported", "", "", _missing_source_reason("claim + ledger", source_status), "", claim.claim_kind, _missing_source_needs("raw external source_hash and corroboration evidence", source_status))
+    return TriangulationRow(claim.file, "graph_only", "", "", _missing_source_reason("claim only", source_status), "", claim.claim_kind, _missing_source_needs("raw external source_hash and independent corroboration", source_status))
 
 
 def build_triangulation(vault: Path, config: dict[str, Any]) -> list[TriangulationRow]:
@@ -250,12 +186,7 @@ def write_triangulation(vault: Path, config: dict[str, Any]) -> dict[str, Any]:
     out = output_dir(vault, config)
     rows = build_triangulation(vault, config)
     counts = Counter(row.tier for row in rows)
-    payload = {
-        "generated": datetime.now(timezone.utc).isoformat(),
-        "total": len(rows),
-        "by_tier": dict(counts),
-        "rows": [row.__dict__ for row in rows],
-    }
+    payload = {"generated": datetime.now(timezone.utc).isoformat(), "total": len(rows), "by_tier": dict(counts), "rows": [row.__dict__ for row in rows]}
     (out / "triangulation_gate.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     with (out / "triangulation_gate.csv").open("w", encoding="utf-8", newline="") as f:
         writer = SafeDictWriter(f, fieldnames=["file", "tier", "source", "authority", "reason", "source_hash", "claim_kind", "needs", "trust_origin"])
