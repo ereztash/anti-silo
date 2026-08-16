@@ -163,9 +163,12 @@ def classify_claim(
         return TriangulationRow(claim.file, "source_backed", source.file, source.authority, reason, source_hash, claim.claim_kind, needs, source.trust_origin)
 
     if claim.claim_kind == "synthesis" and not claim.has_source_spine:
+        # Keep this exact reason stable: downstream queue/source-spine tooling
+        # uses it as a routing key. A misplaced hash is still surfaced through
+        # `needs`, so the user gets the one-field repair without changing the
+        # canonical classification identity.
         return TriangulationRow(
-            claim.file, "graph_only", "", "",
-            _missing_source_reason("synthesis_without_source_spine", source_status), "", claim.claim_kind,
+            claim.file, "graph_only", "", "", "synthesis_without_source_spine", "", claim.claim_kind,
             _missing_source_needs("source spine: source_hash, source_spine, bibliography, references, paper list, or SLR artifact", source_status),
         )
     if claim.has_corroboration:
